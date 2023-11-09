@@ -1,0 +1,132 @@
+#+title: Standard
+#+DESCRIPTION: The hackmode standard
+
+* Hackmode
+** Why Hackmode?
+Most scripts i have seen have little standard to themselves, some dont even follow basic conventions like stdio on linux, so you can not even pipe in stuff. which is a real shame. Some tools are really cool like ffuf, nmap which do this.
+
+Hackmode is ment as a sort of standard utilities for scripts, while also having an interface.
+
+What is ment to be provided is common varibles.settings, functions, ulities that a hacking script would use. These are provided in a way to be extensible for the user, where the script provides some functionality and varibles for the user to set. These packages might provide hooks, which are function that are called after a condition or section of code.
+
+Hackmode scripts or "packages" maybe be standalone tools or work with hackmode repls or other packages.
+
+Will this solve everything? No, but it might make a great hacker ex for people who use it. See [[https://xkcd.com/927/][this]] for why it wont fix everything.
+
+
+What is not provided in hackmode itself is hacking payloads or exploits to exploit a particular CVE. Exploits in hackmode are ment to be packages which again can be standalone or  with other hackmode tools.
+
+In The Real world exploits might require a multistep chain to pull it off correctly, which is done in traditional scripts but in a very manual way.
+In hackmode the intention and goal is for you to use a package and set the hooks and values for it.
+
+The configuration for hackmode scripts will be code itself, which might sound scary it isnt all that scary, its just a different way of doing things, which lets you
+
+** Who is hackmode for?
+
+Hackmode might not be for everyone, if you already have your own setup, automation then adjusting to hackmode might be a very different experience.
+
+If you are into automation, creating your own scripts, writing tools or just into lisp then this might be interesting for you.
+
+If you Also have desired a unified hacking interface or system then this is also for you.
+
+* Definitions
++ Wordlist: a File with a list of strings for a script to use.
++ Glob: A pattern that matches a set of files.
+
+* Standard
+
+** User Environment
+
+All hackmode scripts SHOULD export their symbols, or possibly define interactive functions if needed.
+
+A Common set of varibles that the user can set. YOU MUST RESPECT THESE.
+
+*** Standard variables For User Environment
+
+**** EDITOR, VISUAL
+=EDITOR=  and =VISUAL= is environment variables that define what text editor to use.
+Hackmode MUST setthese and scripts SHOULD respect it.
+**** RHOST
+=RHOST= is the reciving host of  payload or tool.
+You should use it for exploits that =bind= based.
+**** RPORT
+=RPORT= is the reciving port of a payload or tool.
+
+**** LHOST
+=LHOST= Is the listening host for a payload or tool.
+Often this is your own machine.
+**** LPORT
+=LPORT= Is the listening host for a payload or tool.
+
+**** WORDLIST-DIR
+=WORDLIST-DIR= is the directory where the users =wordlists= reside in.
+**** WORDLIST
+If =WORDLIST= is set it is to be used first. it has the highest priority
+**** DEFAULT-WORDLIST-ALIST
+The Default wordlist to use. In Lisp hackmode it is an [[https://en.wikipedia.org/wiki/Association_list][alist]]. Other languages should use a [[https://en.wikipedia.org/wiki/Associative_array][dictionary or map]].
+
+Each key might be set to multiple values, in that case it will use each wordlists in succession of the next.
+
+If the wordlist is a directory then all files in that directory is to be used. It must also respect [[https://en.wikipedia.org/wiki/Glob_(programming)][Globbing]].
+
+The structure of this should be as follows
+
+| Task/Tool               | Wordlist path                                |
+|                         |                                              |
+|-------------------------+----------------------------------------------|
+| dir-buster              | ~/wordlists/Discovery/Web-Content/common.txt |
+| cl-sqli                 | ~/wordlists/SQL-Injection/                   |
+| cl-bruteforce-usernames | ~/wordlists/Accounts/*-users.txt             |
+| cl-bruteforce-passwords | ~/wordlists/Accounts/rockyou.txt             |
+
+
+
+*** Standard Functions
+These are just ideas for what it should look like, so subject to change.
+
+When a lisp shell is used the () can be ommited, but do not fear the () as it is powerfull and simple. The same syntax applies to all code in lisp.
+**** option
+option is an alias for ~setq~, for users unfamiliar with lisp.
+
+usage
+
+#+begin_src lisp
+(option wordlist "~/wordlist/*-idor.txt")
+#+end_src
+
+**** options
+List all set options
+#+begin_src lisp
+(options <payload>)
+#+end_src
+If there is a payload or package loaded it lists the current package's options
+#+begin_src lisp
+(options)
+#+end_src
+**** use
+
+Use loads up a playload for exploit use (if the package was configured in that way!)
+
+use will set a varible for the current payload.
+
+usage:
+#+begin_src lisp
+(use CVE-2023-5900)
+#+end_src
+
+
+**** exploit
+
+Run the currently set exploit.
+
+usage
+#+begin_src lisp
+(exploit)
+#+end_src
+**** help
+Show help
+** Exploit Environment
+The exploit environment like the user environment will have common functions and variables for you to use and abide by.
+
+** Variables
+ The exploit env will have acess to the user environment if it needs to do so, but this section needs to be thought out
