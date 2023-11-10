@@ -7,6 +7,8 @@
   (:report (lambda (condition stream))
    (format stream "Slot: ~a is a required slot." (invalid-object-slot condition))))
 
+(deftype hackmode-obj)
+
 (defclass exploit ()
   ((name :initarg :name :accessor exploit-name :initform (error "Invalid exploit Error: exploit requires a name"))
    (platform :initarg :platform :accessor exploit-platform :initform (error "Invalid exploit Error: exploit requires a platform"))
@@ -36,32 +38,32 @@
 
 
 
-(defmethod insert-history ((history-entry history-entry))
-  (setf (history-entries *history*) (push history-entry (history-entries *history*)))
-  (with-open-file (str (history-path *history*) :direction :output :if-exists :supersede
-                                                :if-does-not-exist :create)
-    (write-sequence (history-entries *history*) str)))
+;; (defmethod insert-history (())
+;;   (setf (history-entries *history*) (push *last-command* (history-entries *history*)))
+;;   (with-open-file (str (history-path *history*) :direction :output :if-exists :supersede
+;;                                                 :if-does-not-exist :create)
+;;     (write-sequence (history-entries *history*) str)))
 
 
 
-(defun make-history-entry (&rest command)
-  (make-instance 'history-entry :command (apply #'list command)))
+;; (defun* make-history-entry (&rest (command string))
+;;   (make-instance 'history-entry :command (apply #'list command)))
 
-(defun load-history ()
-  ;; Note disable read-eval on reading history!!
-  (let ((*read-eval* nil))
-    (with-open-file (str (history-path *history*) :direction :input :if-does-not-exist :create)
-      (setf (history-entries *history*)  (read-from-string (read-line str))))))
-
-
-
-(defvar *history-hook* (make-instance 'nhooks:hook-any :handlers (list #'insert-history)))
+;; (defun load-history ()
+;;   ;; Note disable read-eval on reading history!!
+;;   (let ((*read-eval* nil))
+;;     (with-open-file (str (history-path *history*) :direction :input :if-does-not-exist :create)
+;;       (setf (history-entries *history*)  (read-from-string (read-line str))))))
 
 
-(defmethod run ((exploit exploit))
-  (funcall (exploit-func exploit))
-  (nhooks:run-hook '*history-hook* (make-history-entry run (exploit-name exploit))))
+
+;; (defvar *history-hook* (make-instance 'nhooks:hook-any :handlers (list #'insert-history)))
 
 
-(defmethod use ((exploit exploit))
-  (setq *current-package* exploit))
+;; (defmethod run ((exploit exploit))
+;;   (funcall (exploit-func exploit))
+;;   (nhooks:run-hook '*history-hook* (make-history-entry run (exploit-name exploit))))
+
+
+;; (defmethod use ((exploit exploit))
+;;   (setq *current-package* exploit))
