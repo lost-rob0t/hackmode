@@ -84,8 +84,8 @@ The structure of this should be as follows
 | cl-bruteforce-passwords | ~/wordlists/Accounts/rockyou.txt             |
 
 
-**** TODO EXPLOITS
-This is a hashtable of name <exploit obj>
+**** TODO Packages
+This is a hashtable of name <package obj>
 These MUST be loaded at startup to fill this up for the user.
 *** Standard Functions
 These are just ideas for what it should look like, so subject to change.
@@ -131,6 +131,7 @@ usage
 #+end_src
 **** help
 Show help
+
 
 
 

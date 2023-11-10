@@ -1,5 +1,6 @@
 (in-package :hackmode)
 
-(defvar *current-package* nil "The Current package to be ran. this may be a exploit, a tool, ect.")
-(defvar *packages& nil "The current list of loaded packages in hackmode.")
-(defvar *history* nil "The history object.")
+(defvar* (*current-exploit* exploit) (make-instance 'exploit :name "Hackmode" :platform "hackmode") "The Current package to be ran. this may be a exploit, a tool, ect.")
+(defvar* (*exploits* hash-table) (dict) "The current list of loaded exploits in hackmode.")
+(defvar* (*history* list)  "The history object.")
+(defvar* (*last-command*  string) "" "The last command that was ran.")

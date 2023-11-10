@@ -22,3 +22,8 @@
 (defvar exploits-dir () "Path to exploit dir where exploits are stored.")
 
 (defvar history-path (nfiles:expand (make-instance 'nfiles:data-file :base-path #p"hackmode/history.lisp")))
+
+
+
+;; Ricing related
+(defvar prompt "HACK$> " "The prompt to be used for command inputs.")
