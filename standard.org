@@ -84,7 +84,9 @@ The structure of this should be as follows
 | cl-bruteforce-passwords | ~/wordlists/Accounts/rockyou.txt             |
 
 
-
+**** TODO EXPLOITS
+This is a hashtable of name <exploit obj>
+These MUST be loaded at startup to fill this up for the user.
 *** Standard Functions
 These are just ideas for what it should look like, so subject to change.
 
@@ -129,6 +131,10 @@ usage
 #+end_src
 **** help
 Show help
+
+
+
+
 ** Exploit Environment
 The exploit environment like the user environment will have common functions and variables for you to use and abide by.
 
