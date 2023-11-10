@@ -4,9 +4,10 @@
   :license "MIT"
   :version "0.1.0"
   :serial t
-  :depends-on (#:alexandria #:serapeum #:nfiles)
+  :depends-on (#:alexandria #:serapeum :local-time :nfiles :nhooks)
   :components ((:file "package")
                (:file "vars")
                (:file "settings")
-               (:file "history")
-               (:file "objects")))
+               (:file "objects")
+               (:file "functions")
+               (:file "hackmode")))

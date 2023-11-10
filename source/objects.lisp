@@ -1,4 +1,4 @@
-(in-package :hackmode.core)
+(in-package :hackmode)
 
 
 
