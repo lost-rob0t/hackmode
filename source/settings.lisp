@@ -21,8 +21,4 @@
 (defvar http-proxy-list nil "List of http proxy addresses. Must be in the format of http://ip:port")
 (defvar exploits-dir () "Path to exploit dir where exploits are stored.")
 
-
-(defvar *current-package* nil "The current tool or exploit package.")
-
-
 (defvar history-path (nfiles:expand (make-instance 'nfiles:data-file :base-path #p"hackmode/history.lisp")))
