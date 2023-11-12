@@ -9,5 +9,6 @@
                (:file "vars")
                (:file "settings")
                (:file "objects")
-               (:file "functions")
+               (:file "history")
+               (:file "exploits")
                (:file "hackmode")))
