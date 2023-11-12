@@ -1,1 +1,13 @@
-/home/unseen/quicklisp/local-projects/hackmode/standard.org
+#+title: Readme
+
+
+* Hackmode
+[[./ralp.jpg]]
+#+CAPTION: Ralp The red teaming lisp alien
+
+hackmode is a metaframework for running pentesting tools and exploits.
+
+* Contributions
++ XMR: 8AhCtQzxMN63GmK6t1tsSzQmwWpuzFiCrFgMT1AZxrf23NHB9B8GJvYJJYB3Pq95xEHAYiKQt2g6ieDwJXb6P2Dk1wjQHFu
++ PR/Issues alway welcome
++ Spread the word
