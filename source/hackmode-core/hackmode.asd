@@ -6,9 +6,9 @@
   :serial t
   :depends-on (#:alexandria #:serapeum :local-time :nfiles :nhooks #:defstar)
   :components ((:file "package")
+               (:file "utils")
                (:file "vars")
                (:file "settings")
-               (:file "objects")
                (:file "history")
                (:file "exploits")
                (:file "hackmode")))
