@@ -1,0 +1,6 @@
+#+title: Readme
+* Hackmode tools
+** Github recon
+Preforms github recon
++ list-user-repos: list user repos
++ list-orgs-repos: list org repos
