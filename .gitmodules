@@ -1,3 +1,0 @@
-[submodule "yew"]
-	path = deps/yew
-	url = git@github.com:nibbula/yew.git
