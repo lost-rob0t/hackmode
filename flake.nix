@@ -19,14 +19,14 @@
             sbclPackages.mcclim
             glib
             openssl
-                pkgs.clang
+              pkgs.clang
             pkgs.libedit
             pkgs.sbcl
             pkgs.ccl
           ];
 
         shellHook = ''
-           export LD_LIBRARY_PATH=${pkgs.lib.makeLibraryPath([pkgs.openssl])}:${pkgs.lib.makeLibraryPath([pkgs.libedit])}
+           export LD_LIBRARY_PATH=${pkgs.lib.makeLibraryPath([pkgs.openssl])}:${pkgs.lib.makeLibraryPath([pkgs.libedit])}:${pkgs.lib.makeLibraryPath([pkgs.libev])}:
           '';
         };
     };
