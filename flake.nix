@@ -26,7 +26,7 @@
           ];
 
         shellHook = ''
-           export LD_LIBRARY_PATH=${pkgs.lib.makeLibraryPath([pkgs.openssl])}:${pkgs.lib.makeLibraryPath([pkgs.libedit])}:${pkgs.lib.makeLibraryPath([pkgs.libev])}:
+           export LD_LIBRARY_PATH=${pkgs.lib.makeLibraryPath([pkgs.openssl])}:${pkgs.lib.makeLibraryPath([pkgs.libedit])}:${pkgs.lib.makeLibraryPath([pkgs.libev])}:${pkgs.lib.makeLibraryPath([pkgs.lmdb])}
           '';
         };
     };
