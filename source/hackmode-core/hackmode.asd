@@ -4,12 +4,12 @@
   :license "LGLV3"
   :version "0.1.0"
   :serial t
-  :depends-on (#:serapeum :local-time :nfiles :nhooks #:tek9)
+  :depends-on (#:serapeum :local-time :nfiles :nhooks #:tek9 #:cl-ppcre)
   :components ((:file "package")
                (:file "utils")
                (:file "settings")
-               (:file "database")
                (:file "objects")
+               (:file "database")
                (:file "functions")
                (:file "exploits")
                (:file "hackmode")))
