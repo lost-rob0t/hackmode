@@ -9,7 +9,7 @@
                (:file "utils")
                (:file "settings")
                (:file "database")
-               (:file "history")
+               (:file "objects")
                (:file "hosts")
                (:file "exploits")
                (:file "hackmode")))
