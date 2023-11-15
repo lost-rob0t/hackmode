@@ -22,7 +22,7 @@
                                   "/public/v2/tasks/" "/app/v1/tasks/" "/app/v2/tasks/" "/api/v1/tasks/" "/api/v2/tasks/"
                                   "/restful/tasks/" "/restful/v1/tasks/" "/restful/v2/tasks/" "/rest/tasks/"))
 
-(defun find-api (url-object &optional (patterns *api-common-patterns*) (verbose t))
+(defun find-api (url-object &optional (patterns *api-common-patterns*))
   "find api urls based on the given pattern in the :path field of the url-object.
    adds 'api' tag to the url-object if it matches the pattern."
   (let ((path (url-path url-object)))
@@ -31,7 +31,7 @@
                   collect (progn (setf (doc-tags url-object) (push "api" (doc-tags url-object)))
                                  url-object)))))
 
-(defun find-apis-in-list (pattern url-objects &optional (common-api-urls '("/api/")))
+(defun find-apis (url-objects &optional (common-api-urls *api-common-patterns*))
   "find api urls in a list of url-objects based on the given pattern.
    adds 'api' tag to each url-object if it matches the pattern."
   (mapcar (lambda (url-object) (find-api pattern url-object common-api-urls)) url-objects))

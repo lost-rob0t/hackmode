@@ -9,9 +9,8 @@
    (tags :initarg :tags :type list :initform  () :accessor doc-tags)
    (doc-id :initarg :id :type string :initform (tek9:make-key-id))))
 
-
-
 (export 'meta)
+
 (defclass output (meta)
   ((tool :initarg :tool :initform "" :type string :accessor doc-tool)
    (output :initarg :output :initform  "" :type string :accessor doc-output)
@@ -38,3 +37,11 @@
    (date :initarg :date :type string :initform "" :accessor finding-date)))
 
 (export 'finding)
+
+
+(defclass url (meta)
+  ((scheme :initarg :scheme :type string :accessor url-scheme :allocation :class)
+   (host :initarg :host :type string :accessor url-host :allocation :class)
+   (port :initarg :port :type integer :accessor url-port :allocation :class)
+   (path :initarg :path :type string :accessor url-path :allocation :class)
+   (query :initarg :query :type string :accessor url-query :allocation :class)))
