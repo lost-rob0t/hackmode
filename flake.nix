@@ -26,7 +26,7 @@
 
 
             # Hacking tools used
-            subfiner
+            subfinder
           ];
 
         shellHook = ''
