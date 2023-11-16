@@ -41,3 +41,13 @@
 
         for dl-path = (format nil "~a~a" path name)
         do (uiop:run-program (format t "git clone ~a ~a" repo dl-path))))
+
+
+(defun dork (query &key (limit 100) (type "users") (sort nil) (order "desc") (per-page 100) (page 1))
+  (let ((api-doc (make-instance 'github-api-doc:api-doc :api (format nil  "GET /search/~a/" type)
+                                                        :parameters '(("sort" "string")
+                                                                      ("q" "string")
+                                                                      ("order" "string")
+                                                                      ("per_page" "integer")
+                                                                      ("page" "integer")))))
+    (jsown:parse (github-client:github-api-call *client* api-doc :q (quri:url-encode query) :sort sort :order order :per_page per-page :page page))))
