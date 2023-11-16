@@ -23,6 +23,10 @@
             pkgs.libedit
             pkgs.sbcl
             pkgs.ccl
+
+
+            # Hacking tools used
+            subfiner
           ];
 
         shellHook = ''

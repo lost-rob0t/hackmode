@@ -1,10 +1,11 @@
-(defpackage   :github-recon
+(defpackage   :recon.github
   (:use :cl)
   (:documentation "Preform Recon on github users")
   (:export
    #:list-org-repos
    #:list-user-repos
-   #:archive-repos))
+   #:archive-repos
+   #:dork))
 
 
 
