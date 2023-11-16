@@ -4,6 +4,7 @@
 (in-package :hackmode)
 
 (defvar hackmode-init-file (nfiles:expand (make-instance 'nfiles:config-file :base-path #p"hackmode/init.lisp")) "The path to the init file for hackmode")
+(defvar hackmode-operations-database (nfiles:expand (make-instance 'nfiles:config-file :base-path #p"hackmode/operations/")) "The path for hackmode operations database.")
 
 (defvar RHOST nil "The target host address for a payload")
 (defvar LHOST nil "The target Listen Address for payload")
@@ -23,7 +24,9 @@
 
 (defvar history-path (nfiles:expand (make-instance 'nfiles:data-file :base-path #p"hackmode/history.lisp")))
 
-
-
 ;; Ricing related
 (defvar prompt "HACK$> " "The prompt to be used for command inputs.")
+
+;; hackmode internals
+(defvar *startup-hook* (make-instance 'nhooks:hook-void
+                                      :handlers nil))
