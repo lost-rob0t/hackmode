@@ -1,5 +1,5 @@
 {
-  description = "project desc";
+  description = "Hackmode is a red teaming toolkit/exploit framework for common lisp";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs";
@@ -15,18 +15,20 @@
           buildInputs = with pkgs; [
             pkg-config
             sbcl
-            sbclPackages.qlot
             sbclPackages.mcclim
             glib
             openssl
-              pkgs.clang
-            pkgs.libedit
-            pkgs.sbcl
-            pkgs.ccl
-
-
             # Hacking tools used
             subfinder
+            amass
+            dnsrecon
+            fierce
+            asn
+            whatweb
+            nmap
+            nuclei
+            zap
+            gospider
           ];
 
         shellHook = ''
