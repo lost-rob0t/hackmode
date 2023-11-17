@@ -1,5 +1,6 @@
 (defpackage   :recon.github
   (:use :cl)
+  (:alias :github-recon)
   (:documentation "Preform Recon on github users")
   (:export
    #:list-org-repos

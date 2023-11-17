@@ -10,6 +10,7 @@
                (:file "settings")
                (:file "objects")
                (:file "database")
+               (:file "operations")
                (:file "functions")
                (:file "exploits")
                (:file "hackmode")))
