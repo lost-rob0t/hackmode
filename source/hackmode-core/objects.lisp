@@ -2,41 +2,42 @@
 
 
 (defclass meta ()
-  ((date-added :initarg :date-added :initform (unix-now) :type integer :accessor doc-date-added)
-   (date-updated :initarg :date-updated :initform (unix-now) :type integer :accessor doc-date-updated)
-   (operation :initarg :operation :initform "" :type string :accessor doc-operation)
-   (dtype :initarg :dtype :initform nil :accessor doc-type)
-   (tags :initarg :tags :type list :initform  () :accessor doc-tags)
-   (doc-id :initarg :id :type string :initform (tek9:make-key-id))))
+  ((date-added :initarg :date-added :initform (unix-now) :type integer :accessor doc-date-added :allocation :class)
+   (date-updated :initarg :date-updated :initform (unix-now) :type integer :accessor doc-date-updated :allocation :class)
+   (operation :initarg :operation :initform "" :type string :accessor doc-operation :allocation :class)
+   (dtype :initarg :dtype :initform nil :accessor doc-type :allocation :class)
+   (tags :initarg :tags :type list :initform  () :accessor doc-tags :allocation :class)
+   (doc-id :initarg :id :type string :initform (tek9:make-key-id) :allocation :class :accessor doc-id)))
 
-(export 'meta)
+
 
 (defclass output (meta)
-  ((tool :initarg :tool :initform "" :type string :accessor doc-tool)
-   (output :initarg :output :initform  "" :type string :accessor doc-output)
-   (dtype :initform 'output :accessor doc-dtype)))
+  ((tool :initarg :tool :initform "" :type string :accessor doc-tool :allocation :class)
+   (output :initarg :output :initform  "" :type string :accessor doc-output :allocation :class)))
 
-(export 'output)
+
+(defclass domain (meta)
+  ((domain :initarg :tool :initform "" :type string :accessor domain-name)
+   (record-type :initarg :record-type :initform "" :type string :accessor domain-type)
+   (zone :initarg :zone :initform "" :accessor doman-zone :type string)))
+
 
 (defclass host (meta)
-  ((hostname :initarg :hostname :type string :accessor doc-host)
-   (ip :initarg :ip :type string :accessor doc-ip)))
-
-(export 'host)
-
-(defclass port ()
-  ((number :initarg :number :type integer :accessor doc-port)
-   (services :initarg :services :type list :accessor doc-services)))
-(export 'port)
+  ((hostname :initarg :hostname :type string :accessor doc-host :allocation :class)
+   (ip :initarg :ip :type string :accessor doc-ip :allocation :class)))
 
 
-(defclass finding ()
-  ((id :initarg :id :type string :initform "" :accessor finding-id)
-   (doc-id :initarg :host :type string :initform "" :accessor finding-doc)
-   (finding-type :initarg :finding-type :type string :initform "Bug" :accessor finding-finding-type)
-   (date :initarg :date :type string :initform "" :accessor finding-date)))
+(defclass port (meta)
+  ((number :initarg :number :type integer :accessor doc-port :allocation :class)
+   (services :initarg :services :type list :accessor doc-services :allocation :class)))
 
-(export 'finding)
+
+(defclass finding (meta)
+  ((id :initarg :id :type string :initform "" :accessor finding-id :allocation :class)
+   (doc-id :initarg :host :type string :initform "" :accessor finding-doc :allocation :class)
+   (finding-type :initarg :finding-type :type string :initform "Bug" :accessor finding-finding-type :allocation :class)
+   (date :initarg :date :type string :initform "" :accessor finding-date :allocation :class)))
+
 
 
 (defclass url (meta)
