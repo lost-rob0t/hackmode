@@ -5,6 +5,12 @@
 This standard is not complete.
 Spelling mistakes aglore, this file is here so people bug me to finish it!
 
+* IDEA Ideas [0/2]
+** TODO Modes
+Like emacs, but this can be used to set vars and change the look of the current buffer?
+** TODO Message passing
++ https://quickdocs.org/pzmq
+
 * Hackmode
 ** Why Hackmode?
 Most scripts i have seen have little standard to themselves, some dont even follow basic conventions like stdio on linux, so you can not even pipe in stuff. which is a real shame. Some tools are really cool like ffuf, nmap which do this.

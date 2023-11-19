@@ -1,0 +1,3 @@
+[submodule "deps/yew"]
+	path = deps/yew
+	url = https://github.com/lost-rob0t/yew-for-hackmode.git

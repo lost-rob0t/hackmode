@@ -53,8 +53,8 @@
    :domain
    :domain-name
    :domain-type
-   :doman-zone))
+   :doman-zone
+   :use-operation))
 
 
 (in-package :hackmode)
-(setq *check-argument-types-explicitly?* t)

@@ -9,5 +9,5 @@
 
 (defun main ()
   (in-package :hackmode-user)
-  (load hackmode hackmode-init-file)
+  (load hackmode-initfile)
   (nhooks:run-hook *startup-hook*))

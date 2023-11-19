@@ -1,34 +1,54 @@
-(uiop:define-package   :recon.dns
-  (:use :cl)
+(uiop:define-package   :recon-dns
+  (:use :cl :hackmode)
+  (:nicknames :recon.dns)
   (:export
-   #:subfinder-path
-   #:subfinder
-   #:amass-path
-   #:amass
-   #:dnsrecon-path
-   #:dnsrecon)
+   :amass
+   :dns-recon
+   :subfinder)
   (:documentation "DNS recon tooling"))
 
-(in-package :recon.dns)
+(in-package :dns-recon)
 
 (shellpool:start)
 
 ;; TODO wrape up shell tool creation into a macro since its just calling it from the shell
-(defvar subfinder-path (shellpool:run "which subfinder"))
 
 
 (defun make-command (command &rest args)
-  "Run a program with a list of options using uiop:run-program."
-  (format t "~a ~{~a~^ ~}" command args))
+  (let* ((stream (make-string-output-stream))
+         (*standard-output* stream)
+         (code (shellpool:run (format nil "~a ~{~a~^ ~}" command args))))
+    (list (get-output-stream-string stream) code)))
+
+
 
 
 (defun subfinder (&rest args)
-  (shellpool:run (apply #'make-command "subfinder" args)))
+  "run subfinder"
+  (nth 0 (apply #'make-command "subfinder" "-silent" args)))
 
-(defvar amass-path (shellpool:run "which amass"))
+
+
+(defun subfinder* (&rest args)
+  "run subfinder and save output to database"
+  (let* ((output (uiop:split-string (apply #'subfinder args) :separator "\n"))
+         (docs (loop for domain in output
+                     do (format t "~a" domain)
+                     collect (make-instance 'domain :id (format nil "~a" (sxhash domain)) :tags '("dns" "domain" "subfinder") :dtype "domain" :record domain))))
+    docs))
+
+
+
+
 (defun amass (&rest args)
-  (shellpool:run (apply #'make-command "amass" args)))
+  (nth 0 (shellpool:run (apply #'make-command "oam_subs" "-o /dev/stdout -names" args))))
 
-(defvar dnsrecon-path (shellpool:run "which dnsrecon"))
+
+(defun amass* (&rest args)
+  (let ((output (apply 'amass args)))
+    (loop for domain in (uiop:split-string output :separator "\n")
+          collect (make-instance 'domain :id (format nil "~a" (sxhash domain)) :tags '("dns" "domain" "amass") :dtype "domain" :record domain))))
+
+
 (defun dnsrecon (&rest args)
   (shellpool:run (apply #'make-command "dnsrecon" args)))

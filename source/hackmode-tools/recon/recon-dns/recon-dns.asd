@@ -5,4 +5,4 @@
   :serial       t
   :license      "LGPLV3"
   :components   ((:file "dns"))
-  :depends-on   (#:shellpool #:dexador #:lquery #:lparallel))
+  :depends-on   (#:hackmode #:shellpool #:dexador #:lquery #:lparallel))
