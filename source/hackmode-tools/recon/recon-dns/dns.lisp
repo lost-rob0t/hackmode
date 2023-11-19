@@ -7,7 +7,7 @@
    :subfinder)
   (:documentation "DNS recon tooling"))
 
-(in-package :dns-recon)
+(in-package :recon-dns)
 
 (shellpool:start)
 
