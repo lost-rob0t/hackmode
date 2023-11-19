@@ -29,4 +29,6 @@
 
 ;; hackmode internals
 (defvar *startup-hook* (make-instance 'nhooks:hook-void
-                                      :handlers nil))
+                                      :handlers nil) "Hook That is called when hackmode-user is started.")
+(defvar *finding-hook* (make-instance 'nhooks:hook-void
+                                      :handlers nil) "Hook That is called when a finding is found. Takes the finding object as the argument")
