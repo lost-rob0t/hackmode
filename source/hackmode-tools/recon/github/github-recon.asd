@@ -1,4 +1,4 @@
-(asdf:defsystem :github-recon
+(asdf:defsystem :recon-github
   :description "Hackmode tool for github osint"
   :author "nsaspy"
   :license "LGLV3"
