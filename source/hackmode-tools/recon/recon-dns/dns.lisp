@@ -4,7 +4,10 @@
   (:export
    :amass
    :dns-recon
-   :subfinder)
+   :subfinder
+   :subfinder*
+   :amass*
+   :dnsrecon)
   (:documentation "DNS recon tooling"))
 
 (in-package :recon-dns)
@@ -51,4 +54,4 @@
 
 
 (defun dnsrecon (&rest args)
-  (shellpool:run (apply #'make-command "dnsrecon" args)))
+  (nth 0  (apply #'make-command "dnsrecon" args)))

@@ -1,5 +1,5 @@
 (defpackage   :recon.github
-  (:use :cl)
+  (:use :cl #:hackmode)
   (:alias :github-recon)
   (:documentation "Preform Recon on github users")
   (:export
@@ -14,7 +14,7 @@
 
 (defvar *client* (make-instance 'github-client:api-client) "The Github Cient")
 
-
+;; TODO make star* methods and add support for hooks here
 (defun list-org-repos (org &key (limit 100))
   (let ((api-doc (make-instance 'github-api-doc:api-doc
                                 :api "GET /orgs/:org/repos"
