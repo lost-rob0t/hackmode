@@ -37,7 +37,7 @@
   (let* ((output (uiop:split-string (apply #'subfinder args) :separator "\n"))
          (docs (loop for domain in output
                      do (format t "~a" domain)
-                     collect (make-instance 'domain :id (format nil "~a" (sxhash domain)) :tags '("dns" "domain" "subfinder") :dtype "domain" :record domain))))
+                     collect (make-instance 'domain :id (format nil "~a" (sxhash domain)) :tags '("dns" "subfinder") :dtype "domain" :record domain))))
     docs))
 
 
@@ -50,7 +50,7 @@
 (defun amass* (&rest args)
   (let ((output (apply 'amass args)))
     (loop for domain in (uiop:split-string output :separator "\n")
-          collect (make-instance 'domain :id (format nil "~a" (sxhash domain)) :tags '("dns" "domain" "amass") :dtype "domain" :record domain))))
+          collect (make-instance 'domain :id (format nil "~a" (sxhash domain)) :tags '("dns" "amass") :dtype "domain" :record domain))))
 
 
 (defun dnsrecon (&rest args)
