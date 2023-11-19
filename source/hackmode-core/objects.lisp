@@ -7,6 +7,7 @@
    (operation :initarg :operation :initform "" :type string :accessor doc-operation :allocation :class)
    (dtype :initarg :dtype :initform nil :accessor doc-type :allocation :class)
    (tags :initarg :tags :type list :initform  () :accessor doc-tags :allocation :class)
+   (tool :initarg :tool :type string :initform "hackmode" :accessor doc-tool :allocation :class)
    (doc-id :initarg :id :type string :initform (tek9:make-key-id) :allocation :class :accessor doc-id)))
 
 
