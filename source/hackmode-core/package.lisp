@@ -55,7 +55,12 @@
    :domain-type
    :doman-zone
    :use-operation
-   :parse-url))
+   :parse-url
+   :url-query
+   :url-path
+   :url-port
+   :url-host
+   :url-scheme))
 
 
 (in-package :hackmode)
