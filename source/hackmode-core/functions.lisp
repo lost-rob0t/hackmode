@@ -22,6 +22,22 @@
                                     "/public/v2/tasks/" "/app/v1/tasks/" "/app/v2/tasks/" "/api/v1/tasks/" "/api/v2/tasks/"
                                     "/restful/tasks/" "/restful/v1/tasks/" "/restful/v2/tasks/" "/rest/tasks/"))
 
+
+
+;; TODO figure out how to set current operation?
+(defun parse-url (url)
+  (multiple-value-bind (scheme host port path query) (quri:parse-uri url)
+    (make-instance 'url
+                   :scheme scheme
+                   :host host
+                   :port (or port 80) ; Use 80 as default port if not specified
+                   :path path
+                   :query query
+                   :dtype "url"
+                   :tags '("url"))))
+
+
+
 (defun find-api (url-object &optional (patterns *api-common-patterns*))
   "find api urls based on the given pattern in the :path field of the url-object.
    adds 'api' tag to the url-object if it matches the pattern."

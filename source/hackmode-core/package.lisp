@@ -54,7 +54,8 @@
    :domain-name
    :domain-type
    :doman-zone
-   :use-operation))
+   :use-operation
+   :parse-url))
 
 
 (in-package :hackmode)
