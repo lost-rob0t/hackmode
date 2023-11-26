@@ -13,5 +13,6 @@
   (use-package :hackmode-tools)
   (setq hackmode::*interactive* t)
   (load hackmode-init-file)
+  (shellpool:start)
   (nhooks:run-hook *startup-hook*)
   (lish:lish))

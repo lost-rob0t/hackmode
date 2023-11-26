@@ -7,6 +7,35 @@
 
 hackmode is a metaframework for running pentesting tools and exploits.
 
+
+* Install
+** TODO Setup git artifacts/release downloads
+** Install from source
+*** Install deps
+**** Debian/Kali
+#+begin_src shell
+sudo apt install sbcl git
+#+end_src
+**** Arch
+#+begin_src shell
+sudo pacman -S sbcl git
+#+end_src
+**** Nixos
+install direnv
+#+begin_src shell
+nix-shell -p direnv
+direnv allow
+#+end_src
+It should install deps everytime you enter the project dir.
+
+
+
+* TODO Configure
+Hackmode follows the lisp tradition of using a initfile for configuration, which allows you to fully extend hackmode to any use case. Hackmode tools are written in CL and with the idea that they may be called outside of the [[https://github.com/nibbula/yew/tree/master/lish][lisp shell]] that is provided for you.
+
+The initfile is located at =/home/username/.config/hackmode/init.lisp=
+
+
 * Contributions
 + XMR: 8AhCtQzxMN63GmK6t1tsSzQmwWpuzFiCrFgMT1AZxrf23NHB9B8GJvYJJYB3Pq95xEHAYiKQt2g6ieDwJXb6P2Dk1wjQHFu
 + PR/Issues alway welcome

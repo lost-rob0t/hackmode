@@ -8,12 +8,13 @@
    :subfinder*
    :amass*
    :dnsrecon
-   )
+   :check-mdi)
+
   (:documentation "DNS recon tooling"))
 
 (in-package :recon-dns)
 
-(shellpool:start)
+
 
 ;; TODO wrape up shell tool creation into a macro since its just calling it from the shell
 
@@ -32,6 +33,8 @@
   (nth 0 (apply #'make-command "subfinder" "-silent" args)))
 
 
+(defun make-dns-results (domain source))
+
 
 (defun subfinder* (&rest args)
   "run subfinder and save output to database"
@@ -40,8 +43,6 @@
                      do (format t "~a" domain)
                      collect (make-instance 'domain :id (format nil "~a" (sxhash domain)) :tags '("dns" "subfinder") :dtype "domain" :record domain))))
     docs))
-
-
 
 
 (defun amass (&rest args)
