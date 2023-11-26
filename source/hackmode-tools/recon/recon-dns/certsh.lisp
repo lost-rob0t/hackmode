@@ -18,9 +18,11 @@
 
 (defun cert.sh* (domain)
   (nhooks:run-hook *cert.sh-setup-hook*)
-  (loop for domain in (cert.sh domain)
-        for result = (make-instance 'domain :id (format nil "~a" (sxhash domain)) :record domain  :tool "cert.sh" :tags '("crt.sh" "domain"))
-        do (nhooks:run-hook *domain-hook* result)
-        collect result)
+  (let ((resp (loop for domain in (cert.sh domain)
+                    for result = (make-instance 'domain :id (format nil "~a" (sxhash domain)) :record domain  :tool "cert.sh" :tags '("crt.sh" "domain"))
+                    do (when *interactive* (format t "Found Domain: ~a~%" domain))
+                    do (nhooks:run-hook *domain-hook* result)
+                    collect result)))
 
-  (nhooks:run-hook *cert.sh-finish-hook*))
+    (nhooks:run-hook *cert.sh-finish-hook*)
+    resp))

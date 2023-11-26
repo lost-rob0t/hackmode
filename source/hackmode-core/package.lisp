@@ -64,7 +64,11 @@
    :*interactive*
    :*finding-hook*
    :*domain-hook*
-   :flatten))
+   :flatten
+   :*current-operation*
+   :new-operation
+   :select-operation
+   :make-command))
 
 
 (in-package :hackmode)
