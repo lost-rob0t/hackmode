@@ -6,5 +6,6 @@
   :license      "LGPLV3"
   :components   ((:file "package")
                  (:file "dns")
-                 (:file "mdi"))
+                 (:file "mdi")
+                 (:file "certsh"))
   :depends-on   (#:hackmode #:shellpool #:dexador #:lquery #:lparallel #:xmls))

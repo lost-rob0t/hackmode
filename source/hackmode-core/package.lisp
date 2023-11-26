@@ -60,7 +60,11 @@
    :url-path
    :url-port
    :url-host
-   :url-scheme))
+   :url-scheme
+   :*interactive*
+   :*finding-hook*
+   :*domain-hook*
+   :flatten))
 
 
 (in-package :hackmode)
