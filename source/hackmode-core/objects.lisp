@@ -37,7 +37,7 @@
   ((id :initarg :id :type string :initform "" :accessor finding-id :allocation :class)
    (doc-id :initarg :host :type string :initform "" :accessor finding-doc :allocation :class)
    (finding-type :initarg :finding-type :type string :initform "Bug" :accessor finding-finding-type :allocation :class)
-   (data :initarg :data :type string :initform "" :accessor :finding-data)))
+   (data :initarg :data :type string :initform "" :accessor finding-data)))
 
 
 
