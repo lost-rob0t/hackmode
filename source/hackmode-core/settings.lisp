@@ -22,10 +22,16 @@
 (defvar http-proxy-list nil "List of http proxy addresses. Must be in the format of http://ip:port")
 (defvar exploits-dir () "Path to exploit dir where exploits are stored.")
 
-(defvar history-path (nfiles:expand (make-instance 'nfiles:data-file :base-path #p"hackmode/history.lisp")))
+(defvar data-dir (nfiles:expand (make-instance 'nfiles:data-file :base-path #p"hackmods/")) "The local data path, defaults to ~/.local/share/hackmode")
+
+(defvar history-path (nfiles:expand (make-instance 'nfiles:data-file :base-path (uiop:merge-pathnames* data-dir "history.lisp"))) "The history File, defaults to data-dir/history.lisp")
 
 ;; Ricing related
 (defvar prompt "HACK$> " "The prompt to be used for command inputs.")
+
+(defvar dependency-path (nfiles:expand (make-instance 'nfiles:data-file :base-path (uiop:merge-pathnames* "deps/" data-dir)))
+  "The Path for where dependency of tools will be downloaded. ")
+
 
 ;; hackmode internals
 (defvar *startup-hook* (make-instance 'nhooks:hook-void
