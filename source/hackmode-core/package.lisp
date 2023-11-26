@@ -68,7 +68,29 @@
    :*current-operation*
    :new-operation
    :select-operation
-   :make-command))
+   :make-command
+   :doc-tags
+   :doc-type
+   :doc-operation
+   :doc-date-updated
+   :doc-date-added
+   :doc-output
+   :doc-tool
+   :doc-host
+   :doc-ip
+   :doc-port
+   :doc-services
+   :finding-id
+   :finding-doc
+   :finding-finding-type
+   :finding-data
+   :cert-not-before
+   :cert-not-after
+   :cert-common-name
+   :cert-org-unit-name
+   :cert-locality
+   :cert-country
+   :cert-province))
 
 
 (in-package :hackmode)
