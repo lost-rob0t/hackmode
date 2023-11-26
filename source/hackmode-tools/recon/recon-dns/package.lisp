@@ -10,6 +10,8 @@
    :dnsrecon
    :check-mdi
    :*subfinder-finish-hook*
-   :*subfinder-setup-hook*)
+   :*subfinder-setup-hook*
+   :*cert.sh-finish-hook*
+   :*cert.sh-setup-hook*)
 
   (:documentation "DNS recon tooling"))
