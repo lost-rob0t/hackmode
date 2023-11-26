@@ -21,8 +21,10 @@
   (nhooks:run-hook *subfinder-setup-hook*)
   (let* ((output (uiop:split-string (apply #'subfinder args) :separator "\n"))
          (docs (loop for domain in output
-                     do (format t "~a" domain)
-                     collect (make-instance 'domain :id (format nil "~a" (sxhash domain)) :tags '("dns" "subfinder") :dtype "domain" :record domain))))
+                     for record = (make-instance 'domain :id (format nil "~a" (sxhash domain)) :tags '("dns" "subfinder") :dtype "domain" :record domain)
+                     do (nhooks:run-hook *domain-hook* record)
+                     collect record)))
+
     (nhooks:run-hook *subfinder-finish-hook*)
     docs))
 
