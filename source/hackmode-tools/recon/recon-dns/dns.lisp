@@ -14,6 +14,16 @@
                                                :handlers nil)
   "Hook That is called after subfinder is finished.")
 
+(defvar *oam-subs-setup-hook* (make-instance 'nhooks:hook-void
+                                             :handlers nil)
+  "Hook That is called before oam-subs is ran.")
+
+(defvar *oam-subs-finish-hook* (make-instance 'nhooks:hook-void
+                                              :handlers nil)
+  "Hook That is called after oam-subs is finished.")
+
+
+
 
 
 (defun subfinder* (&rest args)
@@ -30,14 +40,20 @@
 
 
 
-(defun amass (&rest args)
-  (nth 0 (shellpool:run (apply #'make-command "oam_subs" "-o /dev/stdout -names" args))))
+(defun oam-subs (&rest args)
+  (uiop:split-string  (nth 0 (shellpool:run (apply #'make-command "oam_subs" "-o /dev/stdout -names" args))) :separator "\n"))
 
+;; TODO fix gopath and test this
+(defun oam-subs* (&rest args)
+  (nhooks:run-hook *oam-subs-setup-hook*)
+  (let* ((output (apply 'oam-subs args))
+         (domains
+           (loop for domain in output
+                 for record = (make-instance 'domain :id (format nil "~a" (sxhash domain)) :tags '("dns" "oam-subs") :dtype "domain" :record domain)
+                 do (nhooks:run-hook *domain-hook* record))))
+    (nhooks:run-hook *oam-subs-finish-hook* domains)
+    domains))
 
-(defun amass* (&rest args)
-  (let ((output (apply 'amass args)))
-    (loop for domain in (uiop:split-string output :separator "\n")
-          collect (make-instance 'domain :id (format nil "~a" (sxhash domain)) :tags '("dns" "amass") :dtype "domain" :record domain))))
 
 
 (defun dnsrecon (&rest args)

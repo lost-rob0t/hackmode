@@ -2,16 +2,23 @@
   (:use :cl :hackmode)
   (:nicknames :recon.dns)
   (:export
-   :amass
    :dns-recon
    :subfinder
    :subfinder*
-   :amass*
    :dnsrecon
    :check-mdi
    :*subfinder-finish-hook*
    :*subfinder-setup-hook*
    :*cert.sh-finish-hook*
-   :*cert.sh-setup-hook*)
+   :*cert.sh-setup-hook*
+   :*oam-subs-setup-hook*
+   :*oam-subs-finish-hook*
+   :oam-subs
+   :oam-subs*
+   :cert.sh*
+   :cert.sh
+   :check-mdi*
+   :*check-mdi-finish-hook*
+   :*check-mdi-setup-hook*)
 
   (:documentation "DNS recon tooling"))
