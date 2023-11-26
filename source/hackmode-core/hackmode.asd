@@ -4,7 +4,7 @@
   :license "LGLV3"
   :version "0.1.0"
   :serial t
-  :depends-on (#:serapeum :local-time :nfiles :nhooks #:tek9 #:cl-ppcre)
+  :depends-on (#:serapeum :local-time :nfiles :nhooks #:tek9 #:cl-ppcre #:dexador #:shellpool)
   :components ((:file "package")
                (:file "utils")
                (:file "settings")

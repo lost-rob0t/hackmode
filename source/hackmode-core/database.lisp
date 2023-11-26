@@ -1,7 +1,6 @@
 (in-package :hackmode)
 
 
-(defvar *db* nil)
 
 (conspack:defencoding meta
   doc-id tags dtype date-added date-updated operation)
@@ -19,11 +18,6 @@
 
 (defvar *db* nil "The hackmode database object")
 
-
-(defun init-database ()
-  (setq *db* (tek9:new-database "main" :path *database-path*))
-  (tek9:open-database *db*))
-(nhooks:add-hook *startup-hook* #'init-database)
 
 ;; default to the one from tek9
 ;; This is effectivly just a wrapper around "put"

@@ -1,5 +1,8 @@
 (in-package :hackmode)
 
+
+
+
 (defvar *api-common-patterns* (list "/api/" "/v1/" "/v2/" "/rest/" "/rest/v1/" "/rest/v2/" "/rpc/" "/rpc/v1/" "/rpc/v2/"
                                     "/services/" "/services/api/" "/services/v1/" "/services/v2/" "/public/api/"
                                     "/public/v1/" "/public/v2/" "/app/api/" "/app/v1/" "/app/v2/" "/api/v1/"
@@ -26,7 +29,7 @@
 
 ;; TODO figure out how to set current operation?
 (defun parse-url (url)
-  (multiple-value-bind (scheme host port path query) (quri:parse-uri url)
+  (multiple-value-bind (scheme unknown host  port path query) (quri:parse-uri url)
     (make-instance 'url
                    :scheme scheme
                    :host host

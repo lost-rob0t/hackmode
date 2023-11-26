@@ -5,4 +5,4 @@
   :serial       t
   :license      "LGPLv3"
   :components   ((:file "hackmode"))
-  :depends-on   (#:hackmode #:lish #:hackmode-tools))
+  :depends-on   (#:hackmode #:lish #:hackmode-tools #:shellpool))
