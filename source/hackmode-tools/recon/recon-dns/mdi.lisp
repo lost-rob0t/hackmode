@@ -49,15 +49,15 @@
 (defun check-mdi (domain &key (tenets nil) (domains t))
   (let* ((resp (make-mdi-request domain))
          (domains (parse-mdi-resp resp))
-         (tenets (when tenets
-                   (loop for domain in domains
-                         when (search "onmicrosoft.com" domain)
-                           collect (first (uiop:split-string domain :separator ".")))))
+         (tenets (remove-duplicates (when tenets
+                                      (loop for domain in domains
+                                            when (search "onmicrosoft.com" domain)
+                                              collect (first (uiop:split-string domain :separator ".")))) :test #'string=))
          (domains
-           (when domains
-             (loop for domain in domains
-                   if (not (search "onmicrosoft.com" domain))
-                     collect domain))))
+           (remove-duplicates  (when domains
+                                 (loop for domain in domains
+                                       if (not (search "onmicrosoft.com" domain))
+                                         collect domain)) :test #'string=)))
     (list :domains domains :tenets tenets)))
 
 
