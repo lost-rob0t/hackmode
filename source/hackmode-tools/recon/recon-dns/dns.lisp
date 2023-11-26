@@ -1,18 +1,6 @@
 (in-package :recon-dns)
 
-
-
 ;; TODO wrape up shell tool creation into a macro since its just calling it from the shell
-
-
-(defun make-command (command &rest args)
-  (let* ((stream (make-string-output-stream))
-         (*standard-output* stream)
-         (code (shellpool:run (format nil "~a ~{~a~^ ~}" command args))))
-    (list (get-output-stream-string stream) code)))
-
-
-
 
 (defun subfinder (&rest args)
   "run subfinder"

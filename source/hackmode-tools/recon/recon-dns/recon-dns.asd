@@ -8,4 +8,4 @@
                  (:file "dns")
                  (:file "mdi")
                  (:file "certsh"))
-  :depends-on   (#:hackmode #:shellpool #:dexador #:lquery #:lparallel #:xmls))
+  :depends-on   (#:hackmode #:lish #:str #:shellpool #:dexador #:lquery #:lparallel #:xmls))
