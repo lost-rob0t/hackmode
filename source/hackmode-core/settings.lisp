@@ -17,7 +17,7 @@
 
 ;; NOTE Platforms are represented as a symbol
 
-;; TODO Find a use case
+;; TODO Use a scheme://ip:port proxy system
 (defvar socks5-proxy-list nil "List of socks5 proxy addresses. Must be in the format of socks5://ip:port")
 (defvar http-proxy-list nil "List of http proxy addresses. Must be in the format of http://ip:port")
 (defvar exploits-dir () "Path to exploit dir where exploits are stored.")
