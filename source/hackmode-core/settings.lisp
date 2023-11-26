@@ -32,3 +32,5 @@
                                       :handlers nil) "Hook That is called when hackmode-user is started.")
 (defvar *finding-hook* (make-instance 'nhooks:hook-void
                                       :handlers nil) "Hook That is called when a finding is found. Takes the finding object as the argument")
+
+(defvar *interactive* nil "Is hackmode being run from a repl/shell?")

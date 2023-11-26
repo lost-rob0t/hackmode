@@ -9,6 +9,7 @@
   (in-package :cl-user)
   (use-package :hackmode)
   (use-package :hackmode-tools)
+  (setq *interactive* t)
   (load hackmode-init-file)
   (nhooks:run-hook *startup-hook*)
   (lish:lish))
