@@ -1,7 +1,4 @@
-(in-package :recon-dns
-            (:export
-             #:*subfinder-setup-hook*
-             #:*subfinder-finish-hook*))
+(in-package :recon-dns)
 
 
 
