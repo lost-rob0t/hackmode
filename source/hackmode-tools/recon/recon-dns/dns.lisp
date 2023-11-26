@@ -7,7 +7,8 @@
    :subfinder
    :subfinder*
    :amass*
-   :dnsrecon)
+   :dnsrecon
+   )
   (:documentation "DNS recon tooling"))
 
 (in-package :recon-dns)
