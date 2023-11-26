@@ -33,7 +33,6 @@
   (nth 0 (apply #'make-command "subfinder" "-silent" args)))
 
 
-(defun make-dns-results (domain source))
 
 
 (defun subfinder* (&rest args)

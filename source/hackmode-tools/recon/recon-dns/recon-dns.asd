@@ -4,5 +4,7 @@
   :author       "nsaspy@airmail.cc"
   :serial       t
   :license      "LGPLV3"
-  :components   ((:file "dns"))
-  :depends-on   (#:hackmode #:shellpool #:dexador #:lquery #:lparallel))
+  :components   ((:file "package")
+                 (:file "dns")
+                 (:file "mdi"))
+  :depends-on   (#:hackmode #:shellpool #:dexador #:lquery #:lparallel #:xmls))

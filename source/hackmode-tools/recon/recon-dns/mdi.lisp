@@ -46,7 +46,7 @@
                                                                                                          (xmls:xmlrep-find-child-tag "Body" (xmls:parse resp)))))))
         if domain collect (nth 2 domain)))
 
-(defun check-mdi (domain &key (tenets nil) (domains t))
+(defun check-mdi (domain &key (tenets t) (domains t))
   (let* ((resp (make-mdi-request domain))
          (domains (parse-mdi-resp resp))
          (tenets (remove-duplicates (when tenets
@@ -58,16 +58,9 @@
                                  (loop for domain in domains
                                        if (not (search "onmicrosoft.com" domain))
                                          collect domain)) :test #'string=)))
+    (when *interactive*
+      (format t "====Tenets=====~% ~{Tenet: ~a~%~}" tenets)
+      (format t "====Domains====~% ~{Domain: ~a~%~}" domains))
+
     (list :domains domains :tenets tenets)))
 
-
-
-
-
-
-
-
-
-
-
-(xmls:xmlrep-find-child-tag "Body" xml)
