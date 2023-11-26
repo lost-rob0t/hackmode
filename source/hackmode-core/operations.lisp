@@ -17,7 +17,7 @@
 (defvar *current-operation* nil "The current operation")
 
 
-(defun new-operation (name &optional (path (uiop:getcwd) ) (description "Hackmode operation"))
+(defun new-operation (name &optional (path (uiop:merge-pathnames* ".hackmode/" (uiop:getcwd)) ) (description "Hackmode operation"))
   (let ((doc (make-instance 'operation :name name :description description :dir path :dtype "operation")))
     (tek9:put* *operations-database* doc :id  (operation-name doc))))
 
