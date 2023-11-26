@@ -1,18 +1,7 @@
-(uiop:define-package   :recon-dns
-  (:use :cl :hackmode)
-  (:nicknames :recon.dns)
-  (:export
-   :amass
-   :dns-recon
-   :subfinder
-   :subfinder*
-   :amass*
-   :dnsrecon
-   :check-mdi)
-
-  (:documentation "DNS recon tooling"))
-
-(in-package :recon-dns)
+(in-package :recon-dns
+            (:export
+             #:*subfinder-setup-hook*
+             #:*subfinder-finish-hook*))
 
 
 
@@ -32,16 +21,26 @@
   "run subfinder"
   (nth 0 (apply #'make-command "subfinder" "-silent" args)))
 
+(defvar *subfinder-setup-hook* (make-instance 'nhooks:hook-void
+                                              :handlers nil)
+  "Hook That is called before subfinder is ran.")
+
+(defvar *subfinder-finish-hook* (make-instance 'nhooks:hook-void
+                                               :handlers nil)
+  "Hook That is called after subfinder is finished.")
 
 
 
 (defun subfinder* (&rest args)
   "run subfinder and save output to database"
+  (nhooks:run-hook *subfinder-setup-hook*)
   (let* ((output (uiop:split-string (apply #'subfinder args) :separator "\n"))
          (docs (loop for domain in output
                      do (format t "~a" domain)
                      collect (make-instance 'domain :id (format nil "~a" (sxhash domain)) :tags '("dns" "subfinder") :dtype "domain" :record domain))))
+    (nhooks:run-hook *subfinder-finish-hook*)
     docs))
+
 
 
 (defun amass (&rest args)

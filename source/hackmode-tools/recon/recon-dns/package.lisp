@@ -8,6 +8,8 @@
    :subfinder*
    :amass*
    :dnsrecon
-   :check-mdi)
+   :check-mdi
+   :*subfinder-finish-hook*
+   :*subfinder-setup-hook*)
 
   (:documentation "DNS recon tooling"))
