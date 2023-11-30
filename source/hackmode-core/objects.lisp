@@ -18,7 +18,8 @@
 
 
 (defclass domain (meta)
-  ((record :initarg :record :initform "" :type string :accessor domain-name)
+  ((ips :initarg :ips :initform nil :type list :accessor domain-ips)
+   (record :initarg :record :initform "" :type string :accessor domain-name)
    (record-type :initarg :record-type :initform "" :type string :accessor domain-type)
    (zone :initarg :zone :initform "" :accessor doman-zone :type string)))
 
