@@ -1,3 +1,6 @@
 [submodule "deps/yew"]
 	path = deps/yew
 	url = https://github.com/lost-rob0t/yew-for-hackmode.git
+[submodule "deps/cl-cidr-notation"]
+	path = deps/cl-cidr-notation
+	url = https://github.com/AccelerationNet/cl-cidr-notation.git
