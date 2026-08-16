@@ -1,7 +1,10 @@
 (in-package :hackmode)
 
-(defconstant +outbox-database-name+ "outbox")
-(defconstant +outbox-id-version+ "hackmode-outbox-v1")
+(defparameter +outbox-database-name+ "outbox"
+  "Named Tek9 database used for durable operation outbox records.")
+
+(defparameter +outbox-id-version+ "hackmode-outbox-v1"
+  "Stable namespace/version component used when deriving outbox IDs.")
 
 (defparameter *outbox-max-attempts* 8
   "Maximum delivery attempts before an outbox entry becomes FAILED.")
