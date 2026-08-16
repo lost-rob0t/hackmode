@@ -40,6 +40,17 @@ jobs:
             exit 1
           fi
 
+      - name: Reject executable legacy migration sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          bad="$(git ls-files -s tools/legacy 2>/dev/null | awk '$1 == "100755" {print $4}' || true)"
+          if [[ -n "$bad" ]]; then
+            echo 'Legacy migration sources must remain non-executable:' >&2
+            echo "$bad" >&2
+            exit 1
+          fi
+
       - name: Reject unexpectedly large tracked files
         shell: bash
         run: |
