@@ -39,9 +39,10 @@ SYSTEM is omitted, providers use Hackmode's dedicated :PROVIDERS dispatcher."
   "Asynchronously dispatch CAPABILITY and return Sento's Future immediately."
   (unless actor
     (error "No Hackmode provider supervisor is running."))
-  (sento.actor:ask actor
-                   (list :run
-                         :capability capability
-                         :input input
-                         :provider provider)
-                   :time-out time-out))
+  (let ((message (list :run
+                       :capability capability
+                       :input input
+                       :provider provider)))
+    (if time-out
+        (sento.actor:ask actor message :time-out time-out)
+        (sento.actor:ask actor message))))
