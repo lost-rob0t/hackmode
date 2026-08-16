@@ -7,7 +7,7 @@
   timestamp)
 
 (defvar *asset-event-hook*
-  (make-instance 'nhooks:hook-void :handlers nil)
+  (make-instance 'nhooks:hook-any :handlers nil)
   "Generic persisted-asset event hook. Handlers receive one ASSET-EVENT.")
 
 (defgeneric asset-kind (asset)

@@ -1,0 +1,87 @@
+name: core
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: common-lisp-core
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout Hackmode
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          submodules: recursive
+
+      - name: Checkout pinned Tek9
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: lost-rob0t/tek9
+          ref: 6ff2e40a6f7e3a5eadafef94c2779c74566b7fd7
+          path: deps/tek9-ci
+          fetch-depth: 1
+
+      - name: Checkout pinned StarIntel Common Lisp schema
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: lost-rob0t/star-cl
+          ref: b8dfbe2f9f56065ace8c3313b92ca748a115cdfa
+          path: deps/star-cl-ci
+          fetch-depth: 1
+
+      - name: Checkout pinned cms-ulid
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none --no-checkout \
+            https://gitlab.com/colinstrickland/cms-ulid.git \
+            deps/cms-ulid-ci
+          git -C deps/cms-ulid-ci fetch --depth=1 origin \
+            fff84302dee5db42fb90aafd834af3ffbfd6c2bb
+          git -C deps/cms-ulid-ci checkout --detach \
+            fff84302dee5db42fb90aafd834af3ffbfd6c2bb
+
+      - name: Install native dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            sbcl \
+            liblmdb-dev \
+            libffi-dev \
+            libssl-dev \
+            curl
+
+      - name: Install Quicklisp
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --retry 5 --retry-all-errors -fsSLo "$RUNNER_TEMP/quicklisp.lisp" \
+            https://beta.quicklisp.org/quicklisp.lisp
+          sbcl --non-interactive \
+            --load "$RUNNER_TEMP/quicklisp.lisp" \
+            --eval '(quicklisp-quickstart:install :path (merge-pathnames "quicklisp/" (user-homedir-pathname)))'
+
+      - name: Load Hackmode and run ASDF tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          sbcl --non-interactive \
+            --load "$HOME/quicklisp/setup.lisp" \
+            --eval '(push (truename "deps/cms-ulid-ci/") asdf:*central-registry*)' \
+            --eval '(asdf:load-asd (truename "deps/tek9-ci/src/tek9.asd"))' \
+            --eval '(asdf:load-asd (truename "deps/star-cl-ci/src/starintel.asd"))' \
+            --eval '(asdf:load-asd (truename "source/hackmode-core/hackmode.asd"))' \
+            --eval '(asdf:load-asd (truename "source/hackmode-core/hackmode-tests.asd"))' \
+            --eval '(ql:quickload :hackmode-tests)' \
+            --eval '(asdf:test-system :hackmode)'

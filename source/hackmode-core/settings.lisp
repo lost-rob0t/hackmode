@@ -1,58 +1,84 @@
-;;;;  This file is ment to be a user facing config options that is ment to be changed,
-;;;;  although everything can be, just these are explitit options
+;;;; User-facing Hackmode configuration.
 (in-package :hackmode)
 
+(defvar config-dir
+  (nfiles:expand (make-instance 'nfiles:config-file :base-path #p"hackmode/"))
+  "Path to user configuration.")
 
-(defvar config-dir (nfiles:expand (make-instance 'nfiles:config-file :base-path #p"hackmode/")) "A Path to user configuration")
+(defvar hackmode-init-file
+  (nfiles:expand
+   (make-instance 'nfiles:config-file
+                  :base-path (uiop:merge-pathnames* config-dir #p"init.lisp")))
+  "Path to the Hackmode init file. Defaults to ~/.config/hackmode/init.lisp.")
 
-(defvar hackmode-init-file (nfiles:expand (make-instance 'nfiles:config-file :base-path (uiop:merge-pathnames* config-dir #p"init.lisp"))) "The path to the init file for hackmode. Defaults to ~/.config/hackmode/init.lisp")
+(defvar data-dir
+  (nfiles:expand (make-instance 'nfiles:data-file :base-path #p"hackmode/"))
+  "Local Hackmode data path. Defaults to ~/.local/share/hackmode.")
 
-(defvar data-dir (nfiles:expand (make-instance 'nfiles:data-file :base-path #p"hackmode/")) "The local data path, defaults to ~/.local/share/hackmode")
+(defvar hackmode-operations-database
+  (nfiles:expand
+   (make-instance 'nfiles:data-file
+                  :base-path (uiop:merge-pathnames* ".db/" data-dir)))
+  "Path to the database that maintains operation workspace records.")
 
-(defvar hackmode-operations-database (nfiles:expand (make-instance 'nfiles:data-file :base-path (uiop:merge-pathnames* ".db/" data-dir ))) "The Path to database file that maintains paths to operations.")
+(defvar RHOST nil "Target host address for a payload.")
+(defvar LHOST nil "Local listen address for a payload.")
+(defvar payloads nil "List of payloads.")
 
-(defvar RHOST nil "The target host address for a payload")
+(defvar wordlist-dir
+  (nfiles:expand
+   (make-instance 'nfiles:data-file
+                  :base-path (uiop:merge-pathnames* "wordlists/" data-dir)))
+  "User wordlist directory.")
 
-(defvar LHOST nil "The target Listen Address for payload")
+(defvar wordlist-alist nil "Alist of tasks/tools to default wordlists.")
+(defvar wordlist nil "Current wordlist; has highest priority.")
+(defvar target-platform nil "Current target platform operating system.")
 
-(defvar payloads nil "A List of payloads.")
+(defvar socks5-proxy-list nil
+  "SOCKS5 proxy addresses in socks5://ip:port form.")
+(defvar http-proxy-list nil
+  "HTTP proxy addresses in http://ip:port form.")
 
-(defvar wordlist-dir (nfiles:expand (make-instance 'nfiles:data-file :base-path (uiop:merge-pathnames* "wordlists/" data-dir))) "The Path to user directory of wordlists, defaults to data-dir/wordlists/")
+(defvar exploits-dir
+  (nfiles:expand
+   (make-instance 'nfiles:data-file
+                  :base-path (uiop:merge-pathnames* "exploits/" data-dir)))
+  "Path to the exploit directory.")
 
-(defvar wordlist-alist nil "An Alist of tasks/tools to default wordlists to be used.")
+(defvar exploits-dependency-dir
+  (nfiles:expand
+   (make-instance 'nfiles:data-file
+                  :base-path (uiop:merge-pathnames* "exploits/" data-dir)))
+  "Path to exploit dependencies.")
 
-(defvar wordlist nil "The current wordlist to use, it has the highest priority")
+(defvar history-dir
+  (nfiles:expand
+   (make-instance 'nfiles:data-file
+                  :base-path (uiop:merge-pathnames* data-dir "history.lisp")))
+  "History file path.")
 
-(defvar target-platform nil "The target platform Operating system.")
+(defvar prompt "HACK$> " "Prompt used for interactive command input.")
 
-;; NOTE Platforms are represented as a symbol
+(defvar dependency-dir
+  (nfiles:expand
+   (make-instance 'nfiles:data-file
+                  :base-path (uiop:merge-pathnames* "deps/" data-dir)))
+  "Path where tool dependencies are downloaded.")
 
-;; TODO Use a scheme://ip:port proxy system
-(defvar socks5-proxy-list nil "List of socks5 proxy addresses. Must be in the format of socks5://ip:port")
+;; Hook contracts matter: HOOK-VOID is only for callbacks that take no
+;; arguments. Finding/domain handlers receive the discovered object, so these
+;; must be HOOK-ANY.
+(defvar *startup-hook*
+  (make-instance 'nhooks:hook-void :handlers nil)
+  "Hook run when Hackmode starts. Handlers take no arguments.")
 
-(defvar http-proxy-list nil "List of http proxy addresses. Must be in the format of http://ip:port")
+(defvar *finding-hook*
+  (make-instance 'nhooks:hook-any :handlers nil)
+  "Compatibility hook run with a discovered finding object.")
 
-(defvar exploits-dir (nfiles:expand (make-instance 'nfiles:data-file :base-path (uiop:merge-pathnames* "exploits/" data-dir))) "Path to exploit dir where exploits are stored.")
+(defvar *domain-hook*
+  (make-instance 'nhooks:hook-any :handlers nil)
+  "Compatibility hook run with a discovered domain object.")
 
-(defvar exploits-dependency-dir (nfiles:expand (make-instance 'nfiles:data-file :base-path (uiop:merge-pathnames* "exploits/" data-dir))) "Path to exploit dir where exploit dependencies are stored.")
-
-(defvar history-dir (nfiles:expand (make-instance 'nfiles:data-file :base-path (uiop:merge-pathnames* data-dir "history.lisp"))) "The history File, defaults to data-dir/history.lisp")
-
-;; Ricing related
-(defvar prompt "HACK$> " "The prompt to be used for command inputs.")
-
-(defvar dependency-dir (nfiles:expand (make-instance 'nfiles:data-file :base-path (uiop:merge-pathnames* "deps/" data-dir)))
-  "The Path for where dependency of tools will be downloaded. ")
-
-;; hackmode internals
-(defvar *startup-hook* (make-instance 'nhooks:hook-void
-                                      :handlers nil) "Hook That is called when hackmode-user is started.")
-(defvar *finding-hook* (make-instance 'nhooks:hook-void
-                                      :handlers nil)
-  "Hook That is called when a finding is found. Takes the finding object as the argument")
-
-(defvar *domain-hook* (make-instance 'nhooks:hook-void
-                                     :handlers nil)
-  "Hook That is called when a domain is found. Takes the domain object as the argument")
-
-(defvar *interactive* nil "Is hackmode being run from a repl/shell?")
+(defvar *interactive* nil "Whether Hackmode is running from a REPL/shell.")
