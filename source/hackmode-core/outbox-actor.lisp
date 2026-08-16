@@ -1,29 +1,5 @@
 (in-package :hackmode)
 
-(defvar *hackmode-actor-system* nil
-  "Hackmode-owned Sento actor system for local asynchronous workers.")
-
-(defvar *outbox-actor* nil
-  "Current Hackmode outbox actor.")
-
-(defun ensure-hackmode-actor-system ()
-  "Return a Hackmode-owned actor system with a dedicated outbox dispatcher."
-  (or *hackmode-actor-system*
-      (setf *hackmode-actor-system*
-            (sento.actor-system:make-actor-system
-             '(:dispatchers
-               (:outbox (:workers 1 :strategy :random))
-               :timeout-timer
-               (:resolution 100 :max-size 100))))))
-
-(defun stop-hackmode-actor-system ()
-  "Shutdown the Hackmode-owned actor system, if any."
-  (when *hackmode-actor-system*
-    (sento.actor-context:shutdown *hackmode-actor-system*)
-    (setf *hackmode-actor-system* nil
-          *outbox-actor* nil))
-  t)
-
 (defun outbox-actor-handler (database transport)
   "Return a Sento receive function bound to DATABASE and TRANSPORT."
   (lambda (message)
@@ -43,7 +19,7 @@
                             dispatcher)
   "Start an asynchronous outbox actor and return it.
 
-When SYSTEM is omitted Hackmode creates an actor system with a dedicated
+When SYSTEM is omitted Hackmode uses the shared actor runtime's dedicated
 :OUTBOX dispatcher. Callers embedding Hackmode in another actor runtime may
 supply SYSTEM and DISPATCHER explicitly."
   (unless (and database (tek9:db-is-open-p database))
