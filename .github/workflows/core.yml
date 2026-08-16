@@ -39,12 +39,18 @@ jobs:
           fetch-depth: 1
 
       - name: Checkout pinned Sento actor runtime
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          repository: mdbergmann/cl-gserver
-          ref: 6a510c5b58469e72e6363bd3a6059d80b9a5c320
-          path: deps/sento-ci
-          fetch-depth: 1
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf deps/sento-ci
+          git clone --filter=blob:none --no-checkout \
+            https://github.com/mdbergmann/cl-gserver.git \
+            deps/sento-ci
+          git -C deps/sento-ci fetch --depth=1 origin \
+            6a510c5b58469e72e6363bd3a6059d80b9a5c320
+          git -C deps/sento-ci checkout --detach \
+            6a510c5b58469e72e6363bd3a6059d80b9a5c320
+          test -f deps/sento-ci/sento.asd
 
       - name: Checkout pinned cms-ulid
         shell: bash
