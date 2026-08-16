@@ -11,6 +11,7 @@
                :nhooks
                #:tek9
                #:starintel
+               #:jsown
                #:cl-ppcre
                #:dexador
                #:shellpool)
@@ -21,6 +22,7 @@
                (:file "database")
                (:file "operations")
                (:file "assets")
+               (:file "starintel-documents")
                (:file "functions")
                (:file "exploits")
                (:file "hackmode")))
