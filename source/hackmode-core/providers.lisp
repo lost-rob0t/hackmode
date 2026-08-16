@@ -35,6 +35,10 @@
 (defvar *capability-providers* (make-hash-table :test #'equal)
   "Registry of backend capability providers keyed by capability/provider name.")
 
+(defvar *provider-persistence-lock*
+  (bordeaux-threads:make-lock "hackmode-provider-persistence")
+  "Serializes provider dedupe/write sections for synchronous and async callers.")
+
 (defun canonical-capability-name (value)
   (string-downcase (string value)))
 
@@ -137,7 +141,10 @@ owned by the canonical provider completion path, never by the provider itself."
   asset)
 
 (defun persist-provider-output (definition output database)
-  "Persist provider OUTPUT through DISCOVER-ASSET and return assets/created count."
+  "Persist provider OUTPUT through DISCOVER-ASSET and return assets/created count.
+
+Only the canonical dedupe/write section is locked. Asset events publish after
+that lock is released, so handlers can safely dispatch additional capabilities."
   (unless (and database (tek9:db-is-open-p database))
     (error "Provider execution requires an open operation database."))
   (let ((seen (make-hash-table :test #'equal))
@@ -146,9 +153,11 @@ owned by the canonical provider completion path, never by the provider itself."
     (dolist (asset (provider-output-list output))
       (validate-provider-output definition asset)
       (multiple-value-bind (stored created-p)
-          (discover-asset asset :database database)
+          (bordeaux-threads:with-lock-held (*provider-persistence-lock*)
+            (discover-asset asset :database database :publish nil))
         (when created-p
-          (incf created-count))
+          (incf created-count)
+          (publish-asset-event :discovered stored))
         (unless (gethash (doc-id stored) seen)
           (setf (gethash (doc-id stored) seen) t)
           (push stored assets))))
@@ -214,8 +223,9 @@ asset validation/persistence happens later in FINALIZE-PROVIDER-INVOCATION."
 (defun finalize-provider-invocation (invocation database)
   "Convert INVOCATION into a persisted PROVIDER-JOB-RESULT.
 
-Async callers route this function through the provider supervisor so all Tek9
-writes are serialized even when backend workers execute concurrently."
+Async callers route this function through the provider supervisor so operation
+store completions are ordered. The persistence lock also protects synchronous
+or externally embedded callers from racing the canonical dedupe/write section."
   (if (eq :failed (provider-invocation-state invocation))
       (failed-provider-job-result invocation
                                   (provider-invocation-error invocation))
