@@ -38,6 +38,18 @@ jobs:
           path: deps/star-cl-ci
           fetch-depth: 1
 
+      - name: Checkout pinned cms-ulid
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none --no-checkout \
+            https://gitlab.com/colinstrickland/cms-ulid.git \
+            deps/cms-ulid-ci
+          git -C deps/cms-ulid-ci fetch --depth=1 origin \
+            fff84302dee5db42fb90aafd834af3ffbfd6c2bb
+          git -C deps/cms-ulid-ci checkout --detach \
+            fff84302dee5db42fb90aafd834af3ffbfd6c2bb
+
       - name: Install native dependencies
         shell: bash
         run: |
@@ -66,6 +78,7 @@ jobs:
           set -euo pipefail
           sbcl --non-interactive \
             --load "$HOME/quicklisp/setup.lisp" \
+            --eval '(push (truename "deps/cms-ulid-ci/") asdf:*central-registry*)' \
             --eval '(asdf:load-asd (truename "deps/tek9-ci/src/tek9.asd"))' \
             --eval '(asdf:load-asd (truename "deps/star-cl-ci/src/starintel.asd"))' \
             --eval '(asdf:load-asd (truename "source/hackmode-core/hackmode.asd"))' \
