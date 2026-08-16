@@ -97,11 +97,11 @@ enqueue calls for byte-identical payloads collapse to one durable record."
 
 (defun make-outbox-entry-for-json (json &key operation (now (unix-now)))
   "Construct an outbox entry for canonical StarIntel JSON object JSON."
-  (let* ((document-id (jsown:val-safe json "id"))
+  (let* ((document-id (jsown:val-safe json "_id"))
          (dtype (jsown:val-safe json "dtype"))
          (payload (jsown:to-json json)))
     (unless (and (stringp document-id) (plusp (length document-id)))
-      (error "Cannot enqueue StarIntel document without a canonical id."))
+      (error "Cannot enqueue StarIntel document without a canonical _id."))
     (unless (and (stringp dtype) (plusp (length dtype)))
       (error "Cannot enqueue StarIntel document without dtype."))
     (make-instance 'outbox-entry
