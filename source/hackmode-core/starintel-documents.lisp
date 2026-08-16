@@ -12,9 +12,23 @@
       (setf (jsown:val provenance "producer") (doc-tool asset)))
     provenance))
 
+(defun unix-seconds->starintel-timestring (seconds)
+  "Format Unix SECONDS as a stable UTC StarIntel timestamp string."
+  (local-time:format-timestring
+   nil
+   (local-time:unix-to-timestamp seconds)
+   :format local-time:+iso-8601-format+
+   :timezone local-time:+utc-zone+))
+
 (defun asset-starintel-common-initargs (asset)
-  "Return shared StarIntel document initargs for ASSET."
+  "Return shared StarIntel document initargs for ASSET.
+
+Carry Hackmode's persisted timestamps into the projection so serializing the
+same asset repeatedly does not create a different outbox payload merely because
+the projection happened at a later wall-clock time."
   (list :tags (copy-list (doc-tags asset))
+        :date-added (unix-seconds->starintel-timestring (doc-date-added asset))
+        :date-updated (unix-seconds->starintel-timestring (doc-date-updated asset))
         :provenance (asset-starintel-provenance asset)))
 
 (defmethod asset->starintel-document ((asset domain) &key (dataset *starintel-dataset*))

@@ -122,6 +122,46 @@
    :query-assets
    :publish-asset-event
    :publish-legacy-asset-hook
-   :subscribe-asset-events))
+   :subscribe-asset-events
+   ;; Persistent StarIntel outbox
+   :+outbox-database-name+
+   :outbox-entry
+   :outbox-entry-id
+   :outbox-entry-document-id
+   :outbox-entry-dtype
+   :outbox-entry-operation
+   :outbox-entry-payload
+   :outbox-entry-state
+   :outbox-entry-attempts
+   :outbox-entry-created-at
+   :outbox-entry-updated-at
+   :outbox-entry-next-attempt-at
+   :outbox-entry-last-error
+   :outbox-entry-last-status
+   :outbox-entry-ack-kind
+   :outbox-entry-acknowledged-at
+   :outbox-transport-error
+   :outbox-transport-error-message
+   :*outbox-max-attempts*
+   :*outbox-backoff-base-seconds*
+   :*outbox-backoff-max-seconds*
+   :*starintel-ingest-base-url*
+   :outbox-payload-id
+   :enqueue-starintel-json
+   :enqueue-asset-for-starintel
+   :fetch-outbox-entry
+   :list-outbox-entries
+   :outbox-backoff-seconds
+   :outbox-due-p
+   :process-outbox-entry
+   :drain-outbox
+   :make-starintel-http-transport
+   ;; Outbox actor
+   :*hackmode-actor-system*
+   :*outbox-actor*
+   :ensure-hackmode-actor-system
+   :stop-hackmode-actor-system
+   :start-outbox-actor
+   :drain-outbox-async))
 
 (in-package :hackmode)

@@ -38,6 +38,20 @@ jobs:
           path: deps/star-cl-ci
           fetch-depth: 1
 
+      - name: Checkout pinned Sento actor runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf deps/sento-ci
+          git clone --filter=blob:none --no-checkout \
+            https://github.com/mdbergmann/cl-gserver.git \
+            deps/sento-ci
+          git -C deps/sento-ci fetch --depth=1 origin \
+            6a510c5b58469e72e6363bd3a6059d80b9a5c320
+          git -C deps/sento-ci checkout --detach \
+            6a510c5b58469e72e6363bd3a6059d80b9a5c320
+          test -f deps/sento-ci/sento.asd
+
       - name: Checkout pinned cms-ulid
         shell: bash
         run: |
@@ -79,9 +93,21 @@ jobs:
           sbcl --non-interactive \
             --load "$HOME/quicklisp/setup.lisp" \
             --eval '(push (truename "deps/cms-ulid-ci/") asdf:*central-registry*)' \
+            --eval '(push (truename "deps/sento-ci/") asdf:*central-registry*)' \
             --eval '(asdf:load-asd (truename "deps/tek9-ci/src/tek9.asd"))' \
             --eval '(asdf:load-asd (truename "deps/star-cl-ci/src/starintel.asd"))' \
+            --eval '(asdf:load-asd (truename "deps/sento-ci/sento.asd"))' \
             --eval '(asdf:load-asd (truename "source/hackmode-core/hackmode.asd"))' \
             --eval '(asdf:load-asd (truename "source/hackmode-core/hackmode-tests.asd"))' \
             --eval '(ql:quickload :hackmode-tests)' \
-            --eval '(asdf:test-system :hackmode)'
+            --eval '(asdf:test-system :hackmode)' \
+            2>&1 | tee "$RUNNER_TEMP/hackmode-core.log"
+
+      - name: Upload Common Lisp diagnostic log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hackmode-core-log
+          path: ${{ runner.temp }}/hackmode-core.log
+          if-no-files-found: warn
+          retention-days: 3
