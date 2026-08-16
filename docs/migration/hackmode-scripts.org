@@ -10,7 +10,7 @@ The following source is retained under =tools/legacy/recon/= with executable bit
 - =alt.py= — domain word/permutation logic
 - =bbot.sh= — BBOT provider orchestration
 - =dex.sh= — fan-out recon workflow prototype; useful mainly as actor/event decomposition input
-- =dns-up.sh= — massdns resolution/filtering
+- =dns-up.sh= — replaced by =hackmode-provider-dns= / the typed =massdns= backend; retained only as migration reference
 - =dork.sh= — domain-scoped public search wrapper
 - =parse-nmap.py= — Nmap XML conversion prototype
 - =photon-scan.sh= — crawler wrapper
@@ -40,7 +40,7 @@ These are outside this migration's stated recon boundary and should only be reco
 The old =source/rules/= Prolog/Lisp material is not copied into the active tree in this slice. Inspection found malformed/incomplete experiments mixed with generated artifacts. Any useful expert-system knowledge should be re-expressed against StarIntel/Hackmode typed facts rather than preserved as an opaque rule dump.
 
 * Port order
-1. DNS/massdns provider -> DomainSupervisor
+1. DONE DNS/massdns provider -> typed =:dns-resolve= capability / provider supervisor
 2. Nmap import -> HostSupervisor parser adapter
 3. BBOT provider -> provider actor emitting typed assets
 4. Photon/URL crawling -> WebSupervisor
