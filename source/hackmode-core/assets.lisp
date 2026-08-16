@@ -22,13 +22,21 @@
 (defgeneric asset-requires-parent-p (asset)
   (:documentation "Whether ASSET identity requires a parent asset id."))
 
+(defgeneric asset->starintel-document (asset &key dataset)
+  (:documentation
+   "Project ASSET to the canonical StarIntel document model when supported."))
+
 (defmethod asset-requires-parent-p ((asset t))
   (declare (ignore asset))
   nil)
 
+(defmethod asset->starintel-document ((asset t) &key dataset)
+  (declare (ignore asset dataset))
+  nil)
+
 (defun normalize-name (value)
   (string-downcase
-   (string-trim '(#\Space #\Tab #\Newline #\Return) value)))
+   (string-trim '(#\Space #\Tab #\Newline #\Return) (or value ""))))
 
 (defun normalize-domain-name (value)
   (string-right-trim '(#\.) (normalize-name value)))
@@ -36,7 +44,7 @@
 (defmethod asset-kind ((asset domain)) "domain")
 (defmethod normalize-asset ((asset domain))
   (setf (domain-name asset) (normalize-domain-name (domain-name asset))
-        (domain-type asset) (string-upcase (string-trim " " (domain-type asset)))
+        (domain-type asset) (string-upcase (string-trim " " (or (domain-type asset) "")))
         (doc-type asset) "domain")
   asset)
 (defmethod asset-canonical-value ((asset domain))
@@ -45,20 +53,22 @@
 (defmethod asset-kind ((asset host)) "host")
 (defmethod normalize-asset ((asset host))
   (setf (doc-host asset) (normalize-domain-name (doc-host asset))
-        (doc-ip asset) (string-trim " " (doc-ip asset))
+        (doc-ip asset) (string-trim " " (or (doc-ip asset) ""))
         (doc-type asset) "host")
   asset)
 (defmethod asset-canonical-value ((asset host))
-  ;; StarIntel's canonical host model prefers IP identity. Preserve unresolved
-  ;; hostnames without collapsing them all onto an empty-IP digest.
+  ;; StarIntel's current host identity is IP-based. Preserve unresolved hostnames
+  ;; locally until they can be projected without collapsing onto the empty IP.
   (if (plusp (length (doc-ip asset)))
       (doc-ip asset)
       (doc-host asset)))
 
 (defmethod asset-kind ((asset url)) "url")
 (defmethod normalize-asset ((asset url))
-  (setf (url-scheme asset) (normalize-name (url-scheme asset))
+  (setf (url-scheme asset) (normalize-name (or (url-scheme asset) "http"))
         (url-host asset) (normalize-domain-name (url-host asset))
+        (url-path asset) (or (url-path asset) "")
+        (url-query asset) (or (url-query asset) "")
         (doc-type asset) "url")
   asset)
 (defmethod asset-canonical-value ((asset url))
@@ -103,26 +113,44 @@
   (declare (ignore asset))
   t)
 
-(defun asset-deterministic-id (asset &key parent-id)
-  "Return a deterministic id using StarIntel's canonical digest primitive.
+(defun asset-starintel-id (asset)
+  "Return StarIntel's canonical document ID for ASSET when projection exists."
+  (let ((document (asset->starintel-document asset)))
+    (when document
+      (starintel:doc-id document))))
 
-PARENT-ID is required for assets such as ports whose value is not globally
-unique. Exact StarIntel document projection remains the asset-registry layer's
-responsibility; this function deliberately reuses STARINTEL:DIGEST-ID instead of
-inventing another hashing convention."
+(defun asset-deterministic-id (asset &key parent-id)
+  "Return the canonical deterministic ID for ASSET.
+
+When ASSET projects to a StarIntel document, use that document's own ID rule so
+local Hackmode and central StarIntel address the same logical record identically.
+PARENT-ID is required for child assets such as ports that have no standalone
+canonical StarIntel document identity yet. Unsupported compatibility assets use
+STARINTEL:DIGEST-ID as a local deterministic fallback."
   (when (and (asset-requires-parent-p asset) (not parent-id))
     (error "Asset type ~a requires :PARENT-ID for deterministic identity."
            (asset-kind asset)))
-  (if parent-id
-      (starintel:digest-id (asset-kind asset)
-                           parent-id
-                           (asset-canonical-value asset))
-      (starintel:digest-id (asset-kind asset)
-                           (asset-canonical-value asset))))
+  (or (and (null parent-id) (asset-starintel-id asset))
+      (if parent-id
+          (starintel:digest-id (asset-kind asset)
+                               parent-id
+                               (asset-canonical-value asset))
+          (starintel:digest-id (asset-kind asset)
+                               (asset-canonical-value asset)))))
 
 (defun bind-asset-operation (asset)
   (when (and (string= (doc-operation asset) "") *current-operation*)
     (setf (doc-operation asset) (operation-name *current-operation*)))
+  asset)
+
+(defun publish-legacy-asset-hook (asset)
+  "Dispatch persisted ASSET to compatibility hooks.
+
+New code should subscribe to `*asset-event-hook*'. These hooks remain only for
+older recon/client integrations while they migrate to the generic event stream."
+  (typecase asset
+    (domain (nhooks:run-hook *domain-hook* asset))
+    (finding (nhooks:run-hook *finding-hook* asset)))
   asset)
 
 (defun publish-asset-event (event-type asset)
@@ -133,6 +161,7 @@ inventing another hashing convention."
                 :operation (doc-operation asset)
                 :timestamp (unix-now))))
     (nhooks:run-hook *asset-event-hook* event)
+    (publish-legacy-asset-hook asset)
     event))
 
 (defun subscribe-asset-events (handler)
@@ -167,6 +196,22 @@ observe an asset that is absent from the local operation store."
           (when publish
             (publish-asset-event :discovered asset))
           (values asset t)))))
+
+(defun record-recon-asset (asset &key (database *db*) parent-id)
+  "Accept ASSET from a recon provider without forcing a standalone DB mode.
+
+When DATABASE is open, route through the canonical persisted discovery path and
+return ASSET, CREATED-P, T. Without an operation store, normalize the object and
+run only the legacy compatibility hook, returning ASSET, NIL, NIL. Generic asset
+events are never published for unpersisted results."
+  (if (and database (tek9:db-is-open-p database))
+      (multiple-value-bind (stored created-p)
+          (discover-asset asset :database database :parent-id parent-id)
+        (values stored created-p t))
+      (progn
+        (normalize-asset asset)
+        (publish-legacy-asset-hook asset)
+        (values asset nil nil))))
 
 (defun query-assets (&key (database *db*) type predicate)
   "Return operation-local assets matching TYPE and PREDICATE.
