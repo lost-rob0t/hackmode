@@ -9,6 +9,7 @@
                :local-time
                :nfiles
                :nhooks
+               #:bordeaux-threads
                #:tek9
                #:starintel
                #:jsown
