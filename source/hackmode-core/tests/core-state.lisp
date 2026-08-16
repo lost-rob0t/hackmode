@@ -54,11 +54,47 @@
       (remove-test-path root)
       (remove-test-path workspace))))
 
+(defun run-starintel-projection-test ()
+  (let* ((asset (make-instance 'hackmode:domain
+                               :record "Example.COM."
+                               :record-type "a"
+                               :operation "op-alpha"
+                               :tool "crt.sh"
+                               :tags '("dns" "ct")))
+         (_normalized (hackmode:normalize-asset asset))
+         (document (hackmode:asset->starintel-document asset))
+         (json (hackmode:asset->starintel-json asset)))
+    (declare (ignore _normalized))
+    (assert (typep document 'starintel:domain))
+    (assert-equal "example.com" (starintel:domain-record document)
+                  "StarIntel domain record")
+    (assert-equal "A" (starintel:domain-record-type document)
+                  "StarIntel record type")
+    (assert-equal (starintel:doc-id document)
+                  (hackmode:asset-deterministic-id asset)
+                  "shared canonical domain id")
+    (assert-equal "domain" (jsown:val json "dtype") "wire dtype")
+    (assert-equal "example.com"
+                  (jsown:val (jsown:val json "data") "record")
+                  "wire domain record")
+    (assert-equal "op-alpha"
+                  (jsown:val (jsown:val json "provenance") "operation")
+                  "wire operation provenance"))
+  (let ((unresolved (make-instance 'hackmode:host
+                                   :hostname "Pending.Example"
+                                   :ip "")))
+    (hackmode:normalize-asset unresolved)
+    (assert (null (hackmode:asset->starintel-document unresolved)) ()
+            "Unresolved host must not collapse onto StarIntel empty-IP identity.")))
+
 (defun run-asset-lifecycle-test ()
   (let* ((root (fresh-test-path "hackmode-assets"))
          (db (tek9:new-database "assets" :path root))
          (events 0)
+         (legacy-domain-events 0)
          (hackmode:*asset-event-hook*
+           (make-instance 'nhooks:hook-any :handlers nil))
+         (hackmode:*domain-hook*
            (make-instance 'nhooks:hook-any :handlers nil)))
     (unwind-protect
          (progn
@@ -72,22 +108,33 @@
                 (assert persisted ()
                         "Asset event fired before local persistence."))
               (incf events)))
+           (nhooks:add-hook hackmode:*domain-hook*
+                            (lambda (domain)
+                              (declare (ignore domain))
+                              (incf legacy-domain-events)))
            (let ((first (make-instance 'hackmode:domain
                                        :record "Example.COM."
                                        :record-type "a"))
                  (second (make-instance 'hackmode:domain
                                         :record "example.com"
                                         :record-type "A")))
-             (multiple-value-bind (stored created-p)
-                 (hackmode:discover-asset first :database db)
+             (multiple-value-bind (stored created-p persisted-p)
+                 (hackmode:record-recon-asset first :database db)
                (assert created-p)
+               (assert persisted-p)
                (assert-equal "example.com" (hackmode:domain-name stored)
-                             "normalized domain"))
-             (multiple-value-bind (stored created-p)
-                 (hackmode:discover-asset second :database db)
+                             "normalized domain")
+               (assert-equal (starintel:doc-id
+                              (hackmode:asset->starintel-document stored))
+                             (hackmode:doc-id stored)
+                             "persisted canonical StarIntel id"))
+             (multiple-value-bind (stored created-p persisted-p)
+                 (hackmode:record-recon-asset second :database db)
                (declare (ignore stored))
+               (assert persisted-p)
                (assert (not created-p)))
              (assert (= events 1))
+             (assert (= legacy-domain-events 1))
              (assert (= 1 (length (hackmode:query-assets
                                    :database db
                                    :type :domain))))))
@@ -98,6 +145,7 @@
 (defun run-tests ()
   (run-instance-state-test)
   (run-operation-registry-test)
+  (run-starintel-projection-test)
   (run-asset-lifecycle-test)
   (format t "Hackmode core tests passed.~%")
   t)
