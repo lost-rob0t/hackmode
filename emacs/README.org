@@ -1,0 +1,9 @@
+#+title: Hackmode Emacs Integration
+
+This directory is the canonical destination for the Hackmode Emacs package.
+
+The active historical implementation is being migrated from =lost-rob0t/emacs-hackmode= under Hackmode issue #4. Do not add new Hackmode Emacs features to the old repository while the migration is in progress.
+
+The migrated package must converge on the Common Lisp runtime rather than preserve duplicate state indefinitely. In particular, direct operation metadata files and BBRF-backed asset state are compatibility behavior, not the target architecture. Issue #6 defines the canonical runtime boundary.
+
+Long-running recon/network operations must be asynchronous and must not freeze Emacs.

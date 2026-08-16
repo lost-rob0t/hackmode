@@ -1,48 +1,91 @@
-#+title: Readme
+#+title: Hackmode
 
+[[./ralp.jpg]]
+#+CAPTION: Ralp the red teaming Lisp alien
 
 * Hackmode
-[[./ralp.jpg]]
-#+CAPTION: Ralp The red teaming lisp alien
+Hackmode is a Common Lisp, actor-oriented investigation and reconnaissance environment built to work with StarIntel.
 
-hackmode is a metaframework for running pentesting tools and exploits.
+This repository is now the canonical Hackmode monorepo. Hackmode-owned runtime code, shell integration, Emacs integration, operation templates, and maintained helper tooling belong here. StarIntel Server, Quasar, Quasar UI, Tek9, and user dotfiles remain separate repositories and integrate through protocols/APIs rather than being vendored into this tree.
 
+* Monorepo layout
+- =source/= :: Common Lisp runtime, operation model, local storage, recon capabilities, and shell integration.
+- =emacs/= :: Hackmode Emacs package. Migration from =lost-rob0t/emacs-hackmode= is tracked by issue #4.
+- =templates/= :: Operation templates migrated from =lost-rob0t/hackmode-templates=.
+- =tools/= :: Maintained helpers and explicitly temporary legacy script compatibility. Curated migration from =lost-rob0t/hackmode-scripts= is tracked separately; generated binaries/FASLs are not accepted.
+- =docs/architecture/= :: Architecture and repository-boundary decisions.
+
+See =docs/architecture/monorepo.org= before adding a new Hackmode repository.
+
+* Architecture direction
+Hackmode is local-first. An operation must keep working when StarIntel Server is unavailable. The Common Lisp runtime is becoming the canonical owner of operation and typed asset state; Emacs and shell clients should call that boundary instead of maintaining parallel state.
+
+The intended flow is:
+
+#+begin_example
+recon actor
+    |
+    v
+operation mailbox/event stream
+    |
+    v
+local operation store
+    |
+    v
+normalize + construct StarIntel-compatible document
+    |
+    v
+persistent outbox
+    |
+    v
+StarIntel ingest bridge
+    |
+    v
+starintel-server
+#+end_example
 
 * Install
-** TODO Setup git artifacts/release downloads
-** Install from source
-*** Install deps
-**** Debian/Kali
+** Dependencies
+*** Debian/Kali
 #+begin_src shell
 sudo apt install sbcl git
 #+end_src
-**** Arch
+
+*** Arch
 #+begin_src shell
 sudo pacman -S sbcl git
 #+end_src
-**** Nixos
-install direnv
+
+*** NixOS
+Install direnv, then allow the repository environment:
 #+begin_src shell
-nix-shell -p direnv
 direnv allow
 #+end_src
-It should install deps everytime you enter the project dir.
-*** Install
+
+** Build
 #+begin_src shell
 make build
 #+end_src
+
 #+begin_src shell
 sudo make install
 #+end_src
 
+* Configure
+Hackmode follows the Lisp tradition of a user init file so the environment can be extended without forking the runtime.
 
-* TODO Configure
-Hackmode follows the lisp tradition of using a initfile for configuration, which allows you to fully extend hackmode to any use case. Hackmode tools are written in CL and with the idea that they may be called outside of the [[https://github.com/nibbula/yew/tree/master/lish][lisp shell]] that is provided for you.
+The default init file is =~/.config/hackmode/init.lisp=.
 
-The initfile is located at =/home/username/.config/hackmode/init.lisp=
+The shell work is inspired by LISH and should operate on typed Hackmode objects, not only strings. Existing commands remain callable as Common Lisp functions outside the interactive shell.
 
+* Migration status
+- Common Lisp runtime: already here.
+- Tek9-backed operation/local database: already here; being hardened rather than replaced casually.
+- Emacs package: migration in progress under issue #4.
+- Operation templates: migrated into =templates/= by issue #4.
+- Script collection: source-only curation tracked by issue #5; do not import compiled/generated artifacts.
+- Canonical operation/asset protocol: issue #6.
+- CouchDB/BBRF asset convergence: issue #3.
 
 * Contributions
-+ XMR: 8AhCtQzxMN63GmK6t1tsSzQmwWpuzFiCrFgMT1AZxrf23NHB9B8GJvYJJYB3Pq95xEHAYiKQt2g6ieDwJXb6P2Dk1wjQHFu
-+ PR/Issues alway welcome
-+ Spread the word
+PRs and issues are welcome. New functionality should reuse existing Hackmode/StarIntel protocols and actors before creating another repository or provider implementation.
