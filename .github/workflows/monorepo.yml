@@ -23,6 +23,8 @@ jobs:
           test -d emacs
           test -d templates
           test -f docs/architecture/monorepo.org
+          test -f emacs/hackmode.el
+          test -f emacs/hackmode-ac.el
           test -f templates/bounty/assets.org
           test -f templates/htb/notes.org
           test -f templates/htb/tasks.org
@@ -52,3 +54,18 @@ jobs:
             fi
           done < <(git ls-files -z)
           exit "$bad"
+
+      - name: Install Emacs for Lisp syntax checks
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends emacs-nox
+
+      - name: Check migrated Emacs Lisp syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in emacs/hackmode.el emacs/hackmode-ac.el; do
+            emacs -Q --batch \
+              --eval "(with-temp-buffer (insert-file-contents \"$file\") (emacs-lisp-mode) (check-parens))"
+          done
