@@ -1,0 +1,11 @@
+#+title: Tasks
+
+
+* Tasks
+
+These are common tasks i run
+
+#+Name: DorkXNG
+#+begin_src shell :async :results none
+docker run researchanddestroy/searxng:latest
+#+end_src

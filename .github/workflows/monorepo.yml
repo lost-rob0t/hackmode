@@ -1,0 +1,71 @@
+name: monorepo
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  hygiene:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify canonical monorepo layout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d source
+          test -d emacs
+          test -d templates
+          test -f docs/architecture/monorepo.org
+          test -f emacs/hackmode.el
+          test -f emacs/hackmode-ac.el
+          test -f templates/bounty/assets.org
+          test -f templates/htb/notes.org
+          test -f templates/htb/tasks.org
+
+      - name: Reject generated binaries and compiled Lisp artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          bad="$(git ls-files | grep -E '(^|/)ralp$|\.(fasl|fas|o|so|a)$' || true)"
+          if [[ -n "$bad" ]]; then
+            echo 'Generated/compiled artifacts are not allowed in the Hackmode monorepo:' >&2
+            echo "$bad" >&2
+            exit 1
+          fi
+
+      - name: Reject unexpectedly large tracked files
+        shell: bash
+        run: |
+          set -euo pipefail
+          bad=0
+          while IFS= read -r -d '' file; do
+            [[ -f "$file" ]] || continue
+            size="$(stat -c '%s' "$file")"
+            if (( size > 10485760 )); then
+              echo "tracked file exceeds 10 MiB: $file ($size bytes)" >&2
+              bad=1
+            fi
+          done < <(git ls-files -z)
+          exit "$bad"
+
+      - name: Install Emacs for Lisp syntax checks
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends emacs-nox
+
+      - name: Check migrated Emacs Lisp syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in emacs/hackmode.el emacs/hackmode-ac.el; do
+            emacs -Q --batch \
+              --eval "(with-temp-buffer (insert-file-contents \"$file\") (emacs-lisp-mode) (check-parens))"
+          done

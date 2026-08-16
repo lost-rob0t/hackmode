@@ -1,0 +1,87 @@
+#+title: Hackmode Monorepo Ownership
+
+* Decision
+=lost-rob0t/hackmode= is the canonical repository for Hackmode-owned code and assets.
+
+The monorepo decision fixes an existing architectural split: the Common Lisp runtime, Emacs integration, templates, and helper scripts had evolved in separate repositories and duplicated operation/asset state.
+
+* What belongs here
+** Runtime
+- typed Hackmode objects/assets
+- operation lifecycle
+- local operation storage
+- actor/event protocols
+- recon supervisors/providers owned by Hackmode
+- LISH/Hackmode shell integration
+- persistent outbox and StarIntel ingest bridge
+
+** Interfaces
+- Hackmode Emacs package
+- typed shell commands and pipelines
+- client protocol code specific to Hackmode
+
+** Assets
+- operation templates
+- maintained rules/fixtures
+- curated helper source that has not yet been promoted to Common Lisp
+
+* What stays external
+** starintel-server
+Central StarIntel document storage, server-side actors, RabbitMQ/CouchDB services, ingest APIs, collaboration services that are StarIntel-wide rather than Hackmode-specific.
+
+Hackmode integrates with it; it is not vendored.
+
+** tek9
+Reusable local document/query/index/view library. Hackmode depends on it for operation-local storage where appropriate. Hackmode-specific views belong in Hackmode; generally reusable storage/query primitives belong in Tek9.
+
+** quasar
+Separate Common Lisp investigation/control-plane product. Reuse provider/actor protocols instead of copying provider implementations.
+
+** quasar-ui
+Browser UI. It receives only the web/API boundary required to invoke reusable backend capabilities. Provider secrets never belong in browser code.
+
+** dotfiles
+User configuration. Shared StarIntel Emacs configuration may live there as =starintel.el=, but reusable Hackmode package code belongs under =emacs/= in this monorepo.
+
+* Migration sources
+| Repository | Status | Monorepo destination | Policy |
+|-
+| lost-rob0t/emacs-hackmode | active migration source | emacs/ | migrate package, then stop feature development in old repo |
+| lost-rob0t/hackmode-templates | active migration source | templates/ | migrate source templates |
+| lost-rob0t/hackmode-scripts | active migration source | source/ or tools/legacy/ | curate; never copy binaries/FASLs blindly |
+| lost-rob0t/hackmode-server | archived prototype | none by default | mine for requirements only; do not revive blindly |
+| lost-rob0t/hackmode-dotfiles | archived prototype | none by default | mine for useful configuration only |
+| lost-rob0t/yew-for-hackmode | dependency fork | deps/ only if still required | dependency, not a Hackmode product boundary |
+
+* Canonical state rule
+The Common Lisp runtime is the target canonical owner of operation and typed asset lifecycle.
+
+Temporary duplicate state exists today:
+- runtime operation registry/local store through Tek9
+- Emacs =current-op=/=op-path= files and BBRF command state
+
+Issue #6 removes that split behind a stable protocol. Until then, new stateful features must not add a third model.
+
+* Dependency order
+#+begin_example
+#4 monorepo layout
+ |
+ +--> #5 script curation
+ |
+ +--> #6 canonical operation + asset protocol
+        |
+        +--> #3 CouchDB/StarIntel-compatible asset registry
+        +--> persistent outbox / StarIntel ingest
+        +--> typed LISH shell
+        +--> asynchronous Emacs client
+        +--> shared Quasar actor/provider integration
+#+end_example
+
+* Migration rules
+1. Reuse before rewriting.
+2. Move Hackmode-owned code here; keep reusable libraries/products external.
+3. No generated binaries, FASLs, or vendored tool payloads in source migrations.
+4. Do not preserve repository boundaries that only exist due to history.
+5. Preserve provenance: migration commits and docs must name source repositories.
+6. Do not make Emacs, shell, and Quasar each own separate recon provider implementations.
+7. Do not introduce a second StarIntel document schema.

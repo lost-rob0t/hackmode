@@ -1,0 +1,21 @@
+#+title: Hackmode Emacs Integration
+
+This directory is the canonical home of the Hackmode Emacs package, migrated from =lost-rob0t/emacs-hackmode=.
+
+* Migrated source
+- =hackmode.el= — operation/workspace UX, capture helpers, BBRF compatibility, transients.
+- =hackmode-ac.el= — completion support for the current BBRF-backed compatibility layer.
+- =TODO.org= and =changelog.org= — historical backlog/context from the former standalone repository.
+
+The old standalone repository is now a migration source, not the place for new Hackmode Emacs features.
+
+* Architecture debt carried intentionally
+The source was migrated before redesign so behavior is not lost. It still duplicates state that already exists in the Common Lisp runtime:
+- =current-op= / =op-path= files
+- operation directories as the primary registry
+- direct BBRF commands and per-type BBRF hooks
+
+Issue #6 replaces this split with the canonical Common Lisp operation/asset protocol. Do not deepen the duplicate state model while that work is pending.
+
+* Async requirement
+Long-running network/recon operations must use asynchronous Emacs processes/requests and must not freeze the editor. The migrated BBRF compatibility functions that use synchronous shell calls are technical debt to replace as the runtime API lands.
