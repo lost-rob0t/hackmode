@@ -1,25 +1,49 @@
 (in-package :hackmode)
 
-(defun provider-supervisor-handler (database)
-  "Return a Sento receive function for asynchronous capability execution."
+(defun provider-job-actor-handler (database)
+  "Return a one-job worker receive function bound to DATABASE."
+  (lambda (message)
+    (destructuring-bind (command &key capability input provider reply-to) message
+      (case command
+        (:execute
+         (let ((result (execute-provider-job capability input
+                                             :provider provider
+                                             :database database)))
+           (when reply-to
+             (sento.actor:tell reply-to result))
+           (sento.actor:tell sento.actor:*self* :stop)
+           result))
+        (otherwise
+         (error "Unknown Hackmode provider job actor command: ~s" command))))))
+
+(defun provider-supervisor-handler (database dispatcher)
+  "Return a supervisor receive function that fans jobs out to child actors."
   (lambda (message)
     (destructuring-bind (command &key capability input provider) message
       (case command
         (:run
-         (let ((result (execute-provider-job capability input
-                                             :provider provider
-                                             :database database)))
-           (when sento.actor:*sender*
-             (sento.actor:tell sento.actor:*sender* result))
-           result))
+         (let ((worker
+                 (sento.actor-context:actor-of
+                  sento.actor:*self*
+                  :dispatcher dispatcher
+                  :receive (provider-job-actor-handler database))))
+           (sento.actor:tell
+            worker
+            (list :execute
+                  :capability capability
+                  :input input
+                  :provider provider
+                  :reply-to sento.actor:*sender*))
+           worker))
         (otherwise
          (error "Unknown Hackmode provider supervisor command: ~s" command))))))
 
 (defun start-provider-supervisor (&key (database *db*) system dispatcher)
   "Start the provider supervisor actor and return it.
 
-The supervisor isolates blocking provider work from shell/Emacs callers. When
-SYSTEM is omitted, providers use Hackmode's dedicated :PROVIDERS dispatcher."
+The supervisor itself only dispatches work. Each capability invocation runs in
+a short-lived child actor on the provider dispatcher so blocking backends do not
+serialize unrelated jobs or block shell/Emacs callers."
   (unless (and database (tek9:db-is-open-p database))
     (error "START-PROVIDER-SUPERVISOR requires an open operation database."))
   (let* ((owned-system-p (null system))
@@ -30,7 +54,7 @@ SYSTEM is omitted, providers use Hackmode's dedicated :PROVIDERS dispatcher."
            context
            :name "hackmode-provider-supervisor"
            :dispatcher dispatcher-id
-           :receive (provider-supervisor-handler database)))))
+           :receive (provider-supervisor-handler database dispatcher-id)))))
 
 (defun dispatch-capability (capability input
                             &key provider
