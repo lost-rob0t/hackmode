@@ -27,7 +27,8 @@
   nil)
 
 (defun normalize-name (value)
-  (string-downcase (string-trim '(#\Space #\Tab #\Newline #\Return) value)))
+  (string-downcase
+   (string-trim '(#\Space #\Tab #\Newline #\Return) value)))
 
 (defun normalize-domain-name (value)
   (string-right-trim '(#\.) (normalize-name value)))
@@ -48,7 +49,7 @@
         (doc-type asset) "host")
   asset)
 (defmethod asset-canonical-value ((asset host))
-  ;; StarIntel's canonical host model prefers IP identity.  Preserve unresolved
+  ;; StarIntel's canonical host model prefers IP identity. Preserve unresolved
   ;; hostnames without collapsing them all onto an empty-IP digest.
   (if (plusp (length (doc-ip asset)))
       (doc-ip asset)
@@ -106,7 +107,7 @@
   "Return a deterministic id using StarIntel's canonical digest primitive.
 
 PARENT-ID is required for assets such as ports whose value is not globally
-unique.  Exact StarIntel document projection remains the asset-registry layer's
+unique. Exact StarIntel document projection remains the asset-registry layer's
 responsibility; this function deliberately reuses STARINTEL:DIGEST-ID instead of
 inventing another hashing convention."
   (when (and (asset-requires-parent-p asset) (not parent-id))
@@ -151,7 +152,7 @@ inventing another hashing convention."
   "Persist ASSET exactly once, then publish a :DISCOVERED event.
 
 Returns two values: the canonical stored asset and true only when this call
-created it.  Persistence happens before event publication, so subscribers never
+created it. Persistence happens before event publication, so subscribers never
 observe an asset that is absent from the local operation store."
   (unless (and database (tek9:db-is-open-p database))
     (error "DISCOVER-ASSET requires an open local operation database."))
@@ -182,12 +183,11 @@ it."
      :map-fn
      (lambda (key document)
        (declare (ignore key))
-       (let ((value (tek9:doc-value document)))
-         (when (and (typep value 'meta)
-                    (or (null wanted)
-                        (handler-case
-                            (string= wanted (asset-kind value))
-                          (no-applicable-method () nil)))
+       (let* ((value (tek9:doc-value document))
+              (kind (and (typep value 'meta)
+                         (ignore-errors (asset-kind value)))))
+         (when (and kind
+                    (or (null wanted) (string= wanted kind))
                     (or (null predicate) (funcall predicate value)))
            (push value assets)))))
     (nreverse assets)))

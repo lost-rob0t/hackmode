@@ -28,11 +28,14 @@
 
 (defun new-operation (name
                       &optional
-                        (path (uiop:merge-pathnames* ".hackmode/" (uiop:getcwd)))
+                        (path (uiop:getcwd))
                         (description "Hackmode operation"))
-  "Create and persist an operation named NAME."
+  "Create and persist an operation named NAME.
+
+PATH is the operation workspace root.  Its local Tek9 store lives under
+PATH/.hackmode rather than making the workspace itself a hidden database dir."
   (ensure-operations-database-open)
-  (let* ((dir (namestring (pathname path)))
+  (let* ((dir (namestring (uiop:ensure-directory-pathname (pathname path))))
          (doc (make-instance 'operation
                              :id name
                              :name name
@@ -68,10 +71,18 @@
 (defun operation-status (&optional (operation *current-operation*))
   "Return a stable plist describing OPERATION's current local state."
   (when operation
-    (list :name (operation-name operation)
-          :description (operation-description operation)
-          :directory (operation-dir operation)
-          :database-open (and *db* (tek9:db-is-open-p *db*)))))
+    (let ((active-p (eq operation *current-operation*)))
+      (list :name (operation-name operation)
+            :description (operation-description operation)
+            :directory (operation-dir operation)
+            :active active-p
+            :database-open (and active-p *db* (tek9:db-is-open-p *db*))))))
+
+(defun operation-store-path (operation)
+  "Return OPERATION's local Tek9 store directory."
+  (uiop:merge-pathnames* ".hackmode/"
+                         (uiop:ensure-directory-pathname
+                          (pathname (operation-dir operation)))))
 
 (defun use-operation (name)
   "Select NAME as the current operation and open its local Tek9 store."
@@ -84,11 +95,7 @@
     (when (and *db* (tek9:db-is-open-p *db*))
       (tek9:close-database *db*))
     (setf *db*
-          (tek9:new-database
-           name
-           :path (uiop:merge-pathnames*
-                  (uiop:parse-unix-namestring dir)
-                  ".hackmode/")))
+          (tek9:new-database name :path (operation-store-path op)))
     (tek9:open-database *db*)
     (uiop:chdir dir)
     op))
