@@ -33,7 +33,8 @@ while also carrying matching A/AAAA answer data into DOMAIN-IPS."
       (let* ((object (jsown:parse trimmed))
              (status (jsown:val-safe object "status"))
              (name (jsown:val-safe object "name"))
-             (record-type (or (jsown:val-safe object "type") "A")))
+             (candidate-type (jsown:val-safe object "type"))
+             (record-type (if (stringp candidate-type) candidate-type "A")))
         (when (and (stringp status)
                    (string-equal status "NOERROR")
                    (stringp name)
@@ -47,9 +48,11 @@ while also carrying matching A/AAAA answer data into DOMAIN-IPS."
 
 (defun parse-massdns-output (output)
   "Parse MassDNS NDJSON OUTPUT into typed domain assets."
-  (loop for line in (uiop:split-string output :separator '(#\Newline))
-        for asset = (parse-massdns-json-line line)
-        when asset collect asset))
+  (with-input-from-string (stream output)
+    (loop for line = (read-line stream nil nil)
+          while line
+          for asset = (parse-massdns-json-line line)
+          when asset collect asset)))
 
 (defun fresh-massdns-input-path ()
   (merge-pathnames
