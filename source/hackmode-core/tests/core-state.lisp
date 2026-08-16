@@ -59,7 +59,7 @@
          (db (tek9:new-database "assets" :path root))
          (events 0)
          (hackmode:*asset-event-hook*
-           (make-instance 'nhooks:hook-void :handlers nil)))
+           (make-instance 'nhooks:hook-any :handlers nil)))
     (unwind-protect
          (progn
            (tek9:open-database db)
