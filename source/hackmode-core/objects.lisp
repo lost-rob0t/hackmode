@@ -1,21 +1,20 @@
 (in-package :hackmode)
 
-
+;; Compatibility objects used by the historical Hackmode API.  State on these
+;; objects must be instance-local.  The old :ALLOCATION :CLASS declarations
+;; caused separate assets and operations to overwrite each other.
 (defclass meta ()
-  ((date-added :initarg :date-added :initform (unix-now) :type integer :accessor doc-date-added :allocation :class)
-   (date-updated :initarg :date-updated :initform (unix-now) :type integer :accessor doc-date-updated :allocation :class)
-   (operation :initarg :operation :initform "" :type string :accessor doc-operation :allocation :class)
-   (dtype :initarg :dtype :initform nil :accessor doc-type :allocation :class)
-   (tags :initarg :tags :type list :initform  () :accessor doc-tags :allocation :class)
-   (tool :initarg :tool :type string :initform "hackmode" :accessor doc-tool :allocation :class)
-   (doc-id :initarg :id :type string :initform (tek9:make-key-id) :allocation :class :accessor doc-id)))
-
-
+  ((date-added :initarg :date-added :initform (unix-now) :type integer :accessor doc-date-added)
+   (date-updated :initarg :date-updated :initform (unix-now) :type integer :accessor doc-date-updated)
+   (operation :initarg :operation :initform "" :type string :accessor doc-operation)
+   (dtype :initarg :dtype :initform nil :accessor doc-type)
+   (tags :initarg :tags :type list :initform () :accessor doc-tags)
+   (tool :initarg :tool :type string :initform "hackmode" :accessor doc-tool)
+   (doc-id :initarg :id :type string :initform (tek9:make-key-id) :accessor doc-id)))
 
 (defclass output (meta)
-  ((tool :initarg :tool :initform "" :type string :accessor doc-tool :allocation :class)
-   (output :initarg :output :initform  "" :type string :accessor doc-output :allocation :class)))
-
+  ((tool :initarg :tool :initform "" :type string :accessor doc-tool)
+   (output :initarg :output :initform "" :type string :accessor doc-output)))
 
 (defclass domain (meta)
   ((ips :initarg :ips :initform nil :type list :accessor domain-ips)
@@ -23,38 +22,39 @@
    (record-type :initarg :record-type :initform "" :type string :accessor domain-type)
    (zone :initarg :zone :initform "" :accessor doman-zone :type string)))
 
-
 (defclass host (meta)
-  ((hostname :initarg :hostname :type string :accessor doc-host :allocation :class)
-   (ip :initarg :ip :type string :accessor doc-ip :allocation :class)))
-
+  ((hostname :initarg :hostname :initform "" :type string :accessor doc-host)
+   (ip :initarg :ip :initform "" :type string :accessor doc-ip)))
 
 (defclass port (meta)
-  ((number :initarg :number :type integer :accessor doc-port :allocation :class)
-   (services :initarg :services :type list :accessor doc-services :allocation :class)))
-
+  ((number :initarg :number :initform 0 :type integer :accessor doc-port)
+   (services :initarg :services :initform nil :type list :accessor doc-services)))
 
 (defclass finding (meta)
-  ((id :initarg :id :type string :initform "" :accessor finding-id :allocation :class)
-   (doc-id :initarg :host :type string :initform "" :accessor finding-doc :allocation :class)
-   (finding-type :initarg :finding-type :type string :initform "Bug" :accessor finding-finding-type :allocation :class)
-   (data :initarg :data :type string :initform "" :accessor finding-data)))
-
-
+  ((id :initarg :finding-id :initform "" :type string :accessor finding-id)
+   ;; Keep :HOST as a compatibility initarg, but do not shadow META's DOC-ID.
+   (finding-document-id :initarg :document-id :initarg :host :initform ""
+                        :type string :accessor finding-doc)
+   (finding-type :initarg :finding-type :initform "Bug" :type string
+                 :accessor finding-finding-type)
+   (data :initarg :data :initform "" :type string :accessor finding-data)))
 
 (defclass url (meta)
-  ((scheme :initarg :scheme :type string :reader url-scheme :allocation :class)
-   (host :initarg :host :type string :reader url-host :allocation :class)
-   (port :initarg :port :type integer :reader url-port :allocation :class)
-   (path :initarg :path :type string :reader url-path :allocation :class)
-   (query :initarg :query :type string :reader url-query :allocation :class)))
-
+  ((scheme :initarg :scheme :initform "http" :type string :accessor url-scheme)
+   (host :initarg :host :initform "" :type string :accessor url-host)
+   (port :initarg :port :initform 80 :type integer :accessor url-port)
+   (path :initarg :path :initform "" :type string :accessor url-path)
+   (query :initarg :query :initform "" :type string :accessor url-query)))
 
 (defclass cert (meta)
-  ((not-before :initarg :not-before :type integer :accessor cert-not-before :initform (unix-now) :allocation :class)
-   (not-after :initarg :not-after :type integer :accessor cert-not-after :initform (unix-now) :allocation :class)
-   (common-name :initarg :common-name :type string :accessor cert-common-name :initform "" :allocation :class)
-   (org-unit-name :initarg :org-unit-name :type string :accessor cert-org-unit-name :initform "" :allocation :class)
-   (locality :initarg :locality :type string :accessor cert-locality :initform "" :allocation :class)
-   (country-name :initarg :country :type string :accessor cert-country :initform "" :allocation :class)
-   (province :initarg :province :type string :accessor cert-province :initform "" :allocation :class)))
+  ((not-before :initarg :not-before :type integer :accessor cert-not-before
+               :initform (unix-now))
+   (not-after :initarg :not-after :type integer :accessor cert-not-after
+              :initform (unix-now))
+   (common-name :initarg :common-name :type string :accessor cert-common-name
+                :initform "")
+   (org-unit-name :initarg :org-unit-name :type string :accessor cert-org-unit-name
+                  :initform "")
+   (locality :initarg :locality :type string :accessor cert-locality :initform "")
+   (country-name :initarg :country :type string :accessor cert-country :initform "")
+   (province :initarg :province :type string :accessor cert-province :initform "")))

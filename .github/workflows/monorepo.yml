@@ -55,6 +55,20 @@ jobs:
           done < <(git ls-files -z)
           exit "$bad"
 
+      - name: Check canonical state source contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -nE ':allocation[[:space:]]+:class' \
+            source/hackmode-core/objects.lisp \
+            source/hackmode-core/operations.lisp; then
+            echo 'Per-object/operation state must never use :allocation :class.' >&2
+            exit 1
+          fi
+          grep -q 'starintel:digest-id' source/hackmode-core/assets.lisp
+          test -f source/hackmode-core/tests/core-state.lisp
+          test -f source/hackmode-core/hackmode-tests.asd
+
       - name: Install Emacs for Lisp syntax checks
         shell: bash
         run: |

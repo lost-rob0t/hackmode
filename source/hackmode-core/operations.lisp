@@ -1,47 +1,94 @@
 (in-package :hackmode)
 
-;;;  This file is ment to handle the handling of operation, which put simply is just a current working directory
-;;;  This is the common pattern when doing hacking i find myself in
-(defvar *operations-database* (tek9:new-database "operations" :path hackmode-operations-database))
+(defvar *operations-database*
+  (tek9:new-database "operations" :path hackmode-operations-database))
 
-(nhooks:add-hook *startup-hook* #'(lambda ()
-                                    (tek9:open-database *operations-database*)))
-
-
+(nhooks:add-hook *startup-hook*
+                 (lambda ()
+                   (ensure-operations-database-open)))
 
 (defclass operation (meta)
-  ((working-dir :initarg :dir :accessor operation-dir :initform (uiop/os:getcwd) :allocation :class)
-   (name :initarg :name :accessor operation-name :initform "" :allocation :class)
-   (description :initarg :description :accessor operation-description :initform "" :allocation :class)))
+  ((working-dir :initarg :dir :accessor operation-dir
+                :initform (namestring (uiop/os:getcwd)) :type string)
+   (name :initarg :name :accessor operation-name :initform "" :type string)
+   (description :initarg :description :accessor operation-description
+                :initform "" :type string)))
 
-(defvar *current-operation* nil "The current operation")
+(conspack:defencoding operation
+  doc-id tags dtype date-added date-updated operation tool
+  working-dir name description)
 
+(defvar *current-operation* nil "The current Hackmode operation.")
 
-(defun new-operation (name &optional (path (uiop:merge-pathnames* ".hackmode/" (uiop:getcwd)) ) (description "Hackmode operation"))
-  (let ((doc (make-instance 'operation :name name :description description :dir path :dtype "operation")))
-    (tek9:put* *operations-database* doc :id  (operation-name doc))))
+(defun ensure-operations-database-open ()
+  "Open the operation registry if it is not already open."
+  (unless (tek9:db-is-open-p *operations-database*)
+    (tek9:open-database *operations-database*))
+  *operations-database*)
 
-;; TODO A function/helper should do this!
+(defun new-operation (name
+                      &optional
+                        (path (uiop:merge-pathnames* ".hackmode/" (uiop:getcwd)))
+                        (description "Hackmode operation"))
+  "Create and persist an operation named NAME."
+  (ensure-operations-database-open)
+  (let* ((dir (namestring (pathname path)))
+         (doc (make-instance 'operation
+                             :id name
+                             :name name
+                             :operation name
+                             :description description
+                             :dir dir
+                             :dtype "operation")))
+    (tek9:put* *operations-database* doc :id name)
+    doc))
 
-
-
-
-
-;; NOTE For others reading the source code of hackmode this is a good example
-;; On how to query tek9
 (defun select-operation (name)
-  "Selection query for tek9."
+  "Return the persisted operation named NAME, or NIL."
+  (ensure-operations-database-open)
   (tek9:fetch* *operations-database* name))
 
+(defun list-operations ()
+  "Return all persisted operations sorted by name."
+  (ensure-operations-database-open)
+  (let (operations)
+    (tek9:map-database
+     *operations-database*
+     :map-fn (lambda (key document)
+               (declare (ignore key))
+               (let ((value (tek9:doc-value document)))
+                 (when (typep value 'operation)
+                   (push value operations)))))
+    (sort operations #'string< :key #'operation-name)))
+
+(defun current-operation ()
+  "Return the active operation object, or NIL."
+  *current-operation*)
+
+(defun operation-status (&optional (operation *current-operation*))
+  "Return a stable plist describing OPERATION's current local state."
+  (when operation
+    (list :name (operation-name operation)
+          :description (operation-description operation)
+          :directory (operation-dir operation)
+          :database-open (and *db* (tek9:db-is-open-p *db*)))))
 
 (defun use-operation (name)
-  "Select a operation by name to be the current operation."
+  "Select NAME as the current operation and open its local Tek9 store."
   (let* ((op (select-operation name))
-         (dir (if op (operation-dir op) (error (format nil  "No Such Operation exist. Use (hackmode:new-operation \"~a\") to create one" name)))))
-    (setq *current-operation* op)
+         (dir (if op
+                  (operation-dir op)
+                  (error "No such operation ~s. Create it with NEW-OPERATION first." name))))
+    (setf *current-operation* op)
     (uiop:ensure-all-directories-exist (list dir))
-    (when *db*
+    (when (and *db* (tek9:db-is-open-p *db*))
       (tek9:close-database *db*))
-    (setq *db* (tek9:new-database name :path (uiop:merge-pathnames* (uiop:parse-unix-namestring dir) (format nil ".hackmode/"))))
+    (setf *db*
+          (tek9:new-database
+           name
+           :path (uiop:merge-pathnames*
+                  (uiop:parse-unix-namestring dir)
+                  ".hackmode/")))
     (tek9:open-database *db*)
-    (uiop:chdir dir)))
+    (uiop:chdir dir)
+    op))

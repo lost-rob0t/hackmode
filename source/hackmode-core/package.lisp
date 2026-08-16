@@ -1,7 +1,6 @@
 (uiop:define-package :hackmode
-
   (:import-from :serapeum :dict :@)
-  (:documentation "Core hackmode internalls.")
+  (:documentation "Core Hackmode runtime and compatibility API.")
   (:export
    :EXPLOIT-OPTION-DOCUMENTATION
    :EXPLOIT-NAME
@@ -41,6 +40,7 @@
    :port
    :finding
    :url
+   :cert
    :*api-common-patterns*
    :find-api
    :find-apis
@@ -50,9 +50,12 @@
    :exploit
    :operation
    :operation-dir
+   :operation-name
+   :operation-description
    :domain
    :domain-name
    :domain-type
+   :domain-ips
    :doman-zone
    :use-operation
    :parse-url
@@ -66,9 +69,14 @@
    :*domain-hook*
    :flatten
    :*current-operation*
+   :current-operation
    :new-operation
    :select-operation
+   :list-operations
+   :operation-status
+   :ensure-operations-database-open
    :make-command
+   :doc-id
    :doc-tags
    :doc-type
    :doc-operation
@@ -90,7 +98,23 @@
    :cert-org-unit-name
    :cert-locality
    :cert-country
-   :cert-province))
-
+   :cert-province
+   ;; Asset protocol
+   :asset-event
+   :asset-event-event-type
+   :asset-event-asset
+   :asset-event-operation
+   :asset-event-timestamp
+   :*asset-event-hook*
+   :asset-kind
+   :normalize-asset
+   :asset-canonical-value
+   :asset-deterministic-id
+   :asset-requires-parent-p
+   :store-asset
+   :discover-asset
+   :query-assets
+   :publish-asset-event
+   :subscribe-asset-events))
 
 (in-package :hackmode)
