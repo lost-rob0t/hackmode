@@ -8,6 +8,18 @@
   handler
   (priority 100 :type integer))
 
+(defstruct provider-invocation
+  id
+  capability
+  provider
+  input
+  definition
+  output
+  state
+  error
+  started-at
+  finished-at)
+
 (defstruct provider-job-result
   id
   capability
@@ -36,7 +48,7 @@
 
 Provider handlers are backend functions. They consume a typed input object and
 return either one typed Hackmode asset, a list of assets, or NIL. Persistence is
-owned by RUN-CAPABILITY/EXECUTE-PROVIDER-JOB, never by the provider itself."
+owned by the canonical provider completion path, never by the provider itself."
   (check-type handler function)
   (let ((definition
           (make-capability-provider
@@ -94,8 +106,9 @@ owned by RUN-CAPABILITY/EXECUTE-PROVIDER-JOB, never by the provider itself."
       (progn
         (normalize-asset input)
         (asset-deterministic-id input))
-      (starintel:digest-id (with-output-to-string (stream)
-                            (prin1 input stream)))))
+      (starintel:digest-id
+       (with-output-to-string (stream)
+         (prin1 input stream)))))
 
 (defun provider-job-id (capability provider input)
   "Return the deterministic logical job ID for one provider invocation."
@@ -141,13 +154,11 @@ owned by RUN-CAPABILITY/EXECUTE-PROVIDER-JOB, never by the provider itself."
           (push stored assets))))
     (values (nreverse assets) created-count)))
 
-(defun execute-provider-job (capability input
-                             &key provider (database *db*) (now (unix-now)))
-  "Execute one capability provider and return a PROVIDER-JOB-RESULT.
+(defun invoke-provider (capability input &key provider (now (unix-now)))
+  "Run one provider backend without mutating the operation store.
 
-Provider exceptions are contained and returned as :FAILED results. Successful
-outputs are normalized and persisted only through DISCOVER-ASSET before the
-result is exposed to callers."
+This phase is safe to execute concurrently in provider worker actors. Canonical
+asset validation/persistence happens later in FINALIZE-PROVIDER-INVOCATION."
   (let* ((requested-provider (and provider (canonical-capability-name provider)))
          (definition (find-capability-provider capability provider))
          (provider-name (or (and definition (capability-provider-name definition))
@@ -163,34 +174,77 @@ result is exposed to callers."
             (when (and input-type (not (typep input input-type)))
               (error "Provider ~a requires input type ~s, got ~s."
                      provider-name input-type (type-of input))))
-          (multiple-value-bind (assets created-count)
-              (persist-provider-output
-               definition
-               (funcall (capability-provider-handler definition) input)
-               database)
-            (make-provider-job-result
-             :id job-id
-             :capability (capability-provider-capability definition)
-             :provider provider-name
-             :input input
-             :assets assets
-             :created-count created-count
-             :state :succeeded
-             :error nil
-             :started-at now
-             :finished-at (unix-now))))
+          (make-provider-invocation
+           :id job-id
+           :capability (capability-provider-capability definition)
+           :provider provider-name
+           :input input
+           :definition definition
+           :output (funcall (capability-provider-handler definition) input)
+           :state :succeeded
+           :error nil
+           :started-at now
+           :finished-at (unix-now)))
       (error (condition)
-        (make-provider-job-result
+        (make-provider-invocation
          :id job-id
          :capability (canonical-capability-name capability)
          :provider provider-name
          :input input
-         :assets nil
-         :created-count 0
+         :definition definition
+         :output nil
          :state :failed
          :error (format nil "~a" condition)
          :started-at now
          :finished-at (unix-now))))))
+
+(defun failed-provider-job-result (invocation error)
+  (make-provider-job-result
+   :id (provider-invocation-id invocation)
+   :capability (provider-invocation-capability invocation)
+   :provider (provider-invocation-provider invocation)
+   :input (provider-invocation-input invocation)
+   :assets nil
+   :created-count 0
+   :state :failed
+   :error error
+   :started-at (provider-invocation-started-at invocation)
+   :finished-at (unix-now)))
+
+(defun finalize-provider-invocation (invocation database)
+  "Convert INVOCATION into a persisted PROVIDER-JOB-RESULT.
+
+Async callers route this function through the provider supervisor so all Tek9
+writes are serialized even when backend workers execute concurrently."
+  (if (eq :failed (provider-invocation-state invocation))
+      (failed-provider-job-result invocation
+                                  (provider-invocation-error invocation))
+      (handler-case
+          (multiple-value-bind (assets created-count)
+              (persist-provider-output
+               (provider-invocation-definition invocation)
+               (provider-invocation-output invocation)
+               database)
+            (make-provider-job-result
+             :id (provider-invocation-id invocation)
+             :capability (provider-invocation-capability invocation)
+             :provider (provider-invocation-provider invocation)
+             :input (provider-invocation-input invocation)
+             :assets assets
+             :created-count created-count
+             :state :succeeded
+             :error nil
+             :started-at (provider-invocation-started-at invocation)
+             :finished-at (unix-now)))
+        (error (condition)
+          (failed-provider-job-result invocation (format nil "~a" condition))))))
+
+(defun execute-provider-job (capability input
+                             &key provider (database *db*) (now (unix-now)))
+  "Execute one provider through the canonical invoke -> persist completion path."
+  (finalize-provider-invocation
+   (invoke-provider capability input :provider provider :now now)
+   database))
 
 (defun run-capability (capability input &key provider (database *db*))
   "Synchronously execute CAPABILITY through the canonical provider job path."
