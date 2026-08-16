@@ -9,6 +9,7 @@
                :local-time
                :nfiles
                :nhooks
+               #:bordeaux-threads
                #:tek9
                #:starintel
                #:jsown
@@ -24,8 +25,11 @@
                (:file "operations")
                (:file "assets")
                (:file "starintel-documents")
+               (:file "actor-system")
                (:file "outbox")
                (:file "outbox-actor")
+               (:file "providers")
+               (:file "provider-actor")
                (:file "functions")
                (:file "exploits")
                (:file "hackmode")))

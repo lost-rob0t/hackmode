@@ -123,6 +123,33 @@
    :publish-asset-event
    :publish-legacy-asset-hook
    :subscribe-asset-events
+   ;; Capability/provider protocol
+   :capability-provider
+   :capability-provider-capability
+   :capability-provider-name
+   :capability-provider-input-type
+   :capability-provider-output-types
+   :capability-provider-priority
+   :provider-job-result
+   :provider-job-result-id
+   :provider-job-result-capability
+   :provider-job-result-provider
+   :provider-job-result-input
+   :provider-job-result-assets
+   :provider-job-result-created-count
+   :provider-job-result-state
+   :provider-job-result-error
+   :provider-job-result-started-at
+   :provider-job-result-finished-at
+   :*capability-providers*
+   :register-capability-provider
+   :unregister-capability-provider
+   :clear-capability-providers
+   :list-capability-providers
+   :find-capability-provider
+   :provider-job-id
+   :execute-provider-job
+   :run-capability
    ;; Persistent StarIntel outbox
    :+outbox-database-name+
    :outbox-entry
@@ -156,12 +183,17 @@
    :process-outbox-entry
    :drain-outbox
    :make-starintel-http-transport
-   ;; Outbox actor
+   ;; Shared actor runtime
    :*hackmode-actor-system*
    :*outbox-actor*
+   :*provider-supervisor*
    :ensure-hackmode-actor-system
    :stop-hackmode-actor-system
+   ;; Outbox actor
    :start-outbox-actor
-   :drain-outbox-async))
+   :drain-outbox-async
+   ;; Provider actor
+   :start-provider-supervisor
+   :dispatch-capability))
 
 (in-package :hackmode)

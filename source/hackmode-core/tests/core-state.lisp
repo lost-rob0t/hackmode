@@ -297,11 +297,93 @@
         (tek9:close-database db))
       (remove-test-path root))))
 
+(defun run-provider-capability-test ()
+  (let* ((root (fresh-test-path "hackmode-providers"))
+         (db (tek9:new-database "operation" :path root))
+         (input (make-instance 'hackmode:domain
+                               :record "Example.COM."
+                               :record-type "A")))
+    (unwind-protect
+         (progn
+           (tek9:open-database db)
+           (hackmode:clear-capability-providers)
+           (hackmode:register-capability-provider
+            :dns-resolve
+            :fixture
+            (lambda (domain)
+              (declare (ignore domain))
+              (list
+               (make-instance 'hackmode:domain
+                              :record "resolved.example"
+                              :record-type "A"
+                              :tool "fixture-dns")
+               (make-instance 'hackmode:domain
+                              :record "resolved.example"
+                              :record-type "A"
+                              :tool "fixture-dns")))
+            :input-type 'hackmode:domain
+            :output-types '(hackmode:domain))
+
+           ;; Sync and async callers share the same typed/persisted execution path.
+           (let ((first (hackmode:run-capability :dns-resolve input
+                                                 :provider :fixture
+                                                 :database db)))
+             (assert (eq :succeeded (hackmode:provider-job-result-state first)))
+             (assert (= 1 (hackmode:provider-job-result-created-count first)))
+             (assert (= 1 (length (hackmode:provider-job-result-assets first))))
+             (assert (= 1 (length (hackmode:query-assets
+                                   :database db :type :domain))))
+             (let ((repeat (hackmode:run-capability :dns-resolve input
+                                                    :provider :fixture
+                                                    :database db)))
+               (assert-equal (hackmode:provider-job-result-id first)
+                             (hackmode:provider-job-result-id repeat)
+                             "deterministic provider job id")
+               (assert (= 0 (hackmode:provider-job-result-created-count repeat)))
+               (assert (= 1 (length (hackmode:provider-job-result-assets repeat))))))
+
+           ;; Provider exceptions are isolated into observable failed job results.
+           (hackmode:register-capability-provider
+            :dns-resolve
+            :broken
+            (lambda (domain)
+              (declare (ignore domain))
+              (error "provider exploded"))
+            :input-type 'hackmode:domain
+            :output-types '(hackmode:domain))
+           (let ((failed (hackmode:run-capability :dns-resolve input
+                                                  :provider :broken
+                                                  :database db)))
+             (assert (eq :failed (hackmode:provider-job-result-state failed)))
+             (assert (search "provider exploded"
+                             (hackmode:provider-job-result-error failed))))
+
+           ;; Asynchronous dispatch returns Sento's Future, not a blocking result.
+           (hackmode:start-provider-supervisor :database db)
+           (let ((future (hackmode:dispatch-capability
+                          :dns-resolve input :provider :fixture)))
+             (assert (sento.future:futurep future))
+             (multiple-value-bind (result ignored-future)
+                 (sento.future:fawait future :timeout 2.0 :sleep-time 0.01)
+               (declare (ignore ignored-future))
+               (assert result () "Provider future did not resolve.")
+               (assert (eq :succeeded
+                           (hackmode:provider-job-result-state result)))
+               (assert (= 1
+                          (length
+                           (hackmode:provider-job-result-assets result)))))))
+      (ignore-errors (hackmode:stop-hackmode-actor-system))
+      (hackmode:clear-capability-providers)
+      (when (tek9:db-is-open-p db)
+        (tek9:close-database db))
+      (remove-test-path root))))
+
 (defun run-tests ()
   (run-instance-state-test)
   (run-operation-registry-test)
   (run-starintel-projection-test)
   (run-asset-lifecycle-test)
   (run-outbox-lifecycle-test)
+  (run-provider-capability-test)
   (format t "Hackmode core tests passed.~%")
   t)
