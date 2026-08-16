@@ -94,4 +94,14 @@ jobs:
             --eval '(asdf:load-asd (truename "source/hackmode-core/hackmode.asd"))' \
             --eval '(asdf:load-asd (truename "source/hackmode-core/hackmode-tests.asd"))' \
             --eval '(ql:quickload :hackmode-tests)' \
-            --eval '(asdf:test-system :hackmode)'
+            --eval '(asdf:test-system :hackmode)' \
+            2>&1 | tee "$RUNNER_TEMP/hackmode-core.log"
+
+      - name: Upload Common Lisp diagnostic log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hackmode-core-log
+          path: ${{ runner.temp }}/hackmode-core.log
+          if-no-files-found: warn
+          retention-days: 3
