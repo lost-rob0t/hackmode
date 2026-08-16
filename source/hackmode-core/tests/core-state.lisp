@@ -176,6 +176,7 @@
     (unwind-protect
          (progn
            (tek9:open-database db)
+
            ;; Enqueue is durable and byte-identical repeated projection dedupes.
            (multiple-value-bind (entry created-p)
                (hackmode:enqueue-asset-for-starintel asset :database db :now 1000)
@@ -188,10 +189,12 @@
                              "duplicate enqueue id"))
              (tek9:close-database db)
              (tek9:open-database db)
-             (let ((reloaded (hackmode:fetch-outbox-entry
-                              db (hackmode:outbox-entry-id entry))))
+             (let ((reloaded
+                     (hackmode:fetch-outbox-entry
+                      db (hackmode:outbox-entry-id entry))))
                (assert reloaded () "Queued outbox entry did not survive reopen.")
                (assert (eq :queued (hackmode:outbox-entry-state reloaded)))
+
                ;; Offline transport moves to retry without affecting operation data.
                (hackmode:process-outbox-entry db reloaded transport :now 1010)
                (assert (eq :retry (hackmode:outbox-entry-state reloaded)))
@@ -202,16 +205,20 @@
                                :record "still-working.example"
                                :record-type "A")
                 :database db)
-               (assert (= 1 (length (hackmode:query-assets
-                                     :database db :type :domain))))
-               ;; Restoration retries the same logical record and acknowledges
-               ;; broker acceptance; it does not mint another outbox entry.
+               (assert (= 1
+                          (length
+                           (hackmode:query-assets :database db :type :domain))))
+
+               ;; Restoration retries the same record and acknowledges acceptance.
                (hackmode:process-outbox-entry db reloaded transport :now 1012)
                (assert (eq :acknowledged (hackmode:outbox-entry-state reloaded)))
-               (assert (eq :ingest-accepted (hackmode:outbox-entry-ack-kind reloaded)))
+               (assert (eq :ingest-accepted
+                           (hackmode:outbox-entry-ack-kind reloaded)))
                (assert (= 202 (hackmode:outbox-entry-last-status reloaded)))
                (assert (= 2 (hackmode:outbox-entry-attempts reloaded)))
-               (assert (= 1 (length (hackmode:list-outbox-entries db)))))))
+               (assert (= 1
+                          (length (hackmode:list-outbox-entries db))))))
+
            ;; Permanent 4xx is inspectable quarantine, never silently dropped.
            (let ((bad (make-instance 'hackmode:domain
                                      :record "bad.example"
@@ -222,13 +229,18 @@
                  (hackmode:enqueue-asset-for-starintel bad :database db :now 2000)
                (assert created-p)
                (hackmode:process-outbox-entry
-                db entry (lambda (ignored)
-                           (declare (ignore ignored))
-                           (values 400 "invalid"))
+                db
+                entry
+                (lambda (ignored)
+                  (declare (ignore ignored))
+                  (values 400 "invalid"))
                 :now 2001)
                (assert (eq :quarantined (hackmode:outbox-entry-state entry)))
-               (assert (= 1 (length (hackmode:list-outbox-entries
-                                     db :state :quarantined))))))
+               (assert (= 1
+                          (length
+                           (hackmode:list-outbox-entries
+                            db :state :quarantined))))))
+
            ;; Bounded retries eventually become FAILED and remain inspectable.
            (let ((hackmode:*outbox-max-attempts* 2)
                  (doomed (make-instance 'hackmode:domain
@@ -237,29 +249,39 @@
                                         :date-added 3000
                                         :date-updated 3000)))
              (multiple-value-bind (entry created-p)
-                 (hackmode:enqueue-asset-for-starintel doomed :database db :now 3000)
+                 (hackmode:enqueue-asset-for-starintel doomed
+                                                       :database db
+                                                       :now 3000)
                (assert created-p)
                (flet ((fail (ignored)
                         (declare (ignore ignored))
-                        (error 'hackmode:outbox-transport-error :message "offline")))
+                        (error 'hackmode:outbox-transport-error
+                               :message "offline")))
                  (hackmode:process-outbox-entry db entry #'fail :now 3001)
-                 (hackmode:process-outbox-entry db entry #'fail
-                                                :now (hackmode:outbox-entry-next-attempt-at entry)))
+                 (hackmode:process-outbox-entry
+                  db
+                  entry
+                  #'fail
+                  :now (hackmode:outbox-entry-next-attempt-at entry)))
                (assert (eq :failed (hackmode:outbox-entry-state entry)))))
-           ;; Network delivery can run on a dedicated actor and return immediately.
+
+           ;; Network delivery runs on a dedicated actor and returns immediately.
            (let ((async-asset (make-instance 'hackmode:domain
                                              :record "async.example"
                                              :record-type "A"
                                              :date-added 4000
                                              :date-updated 4000)))
              (multiple-value-bind (entry created-p)
-                 (hackmode:enqueue-asset-for-starintel async-asset :database db :now 4000)
+                 (hackmode:enqueue-asset-for-starintel async-asset
+                                                       :database db
+                                                       :now 4000)
                (assert created-p)
                (hackmode:start-outbox-actor
                 :database db
-                :transport (lambda (ignored)
-                             (declare (ignore ignored))
-                             (values 200 "accepted")))
+                :transport
+                (lambda (ignored)
+                  (declare (ignore ignored))
+                  (values 200 "accepted")))
                (hackmode:drain-outbox-async :now 4001 :limit 10)
                (assert
                 (wait-until
@@ -268,7 +290,8 @@
                        (hackmode:outbox-entry-state
                         (hackmode:fetch-outbox-entry
                          db (hackmode:outbox-entry-id entry))))))
-                () "Async outbox actor did not acknowledge entry.")))
+                ()
+                "Async outbox actor did not acknowledge entry."))))
       (ignore-errors (hackmode:stop-hackmode-actor-system))
       (when (tek9:db-is-open-p db)
         (tek9:close-database db))
