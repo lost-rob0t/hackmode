@@ -2,7 +2,7 @@
   :description "Core Systems for hackmode"
   :author "nsaspy"
   :license "LGLV3"
-  :version "0.2.0"
+  :version "0.3.0"
   :serial t
   :in-order-to ((test-op (test-op "hackmode-tests")))
   :depends-on (#:serapeum
@@ -14,6 +14,7 @@
                #:jsown
                #:cl-ppcre
                #:dexador
+               #:sento
                #:shellpool)
   :components ((:file "package")
                (:file "utils")
@@ -23,6 +24,8 @@
                (:file "operations")
                (:file "assets")
                (:file "starintel-documents")
+               (:file "outbox")
+               (:file "outbox-actor")
                (:file "functions")
                (:file "exploits")
                (:file "hackmode")))
