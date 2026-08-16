@@ -31,7 +31,7 @@
    (services :initarg :services :initform nil :type list :accessor doc-services)))
 
 (defclass finding (meta)
-  ((id :initarg :finding-id :initform "" :type string :accessor finding-id)
+  ((id :initarg :id :initarg :finding-id :initform "" :type string :accessor finding-id)
    ;; Keep :HOST as a compatibility initarg, but do not shadow META's DOC-ID.
    (finding-document-id :initarg :document-id :initarg :host :initform ""
                         :type string :accessor finding-doc)
