@@ -111,10 +111,17 @@
    :asset-canonical-value
    :asset-deterministic-id
    :asset-requires-parent-p
+   :asset->starintel-document
+   :asset->starintel-json
+   :asset-starintel-id
+   :asset-starintel-supported-p
+   :*starintel-dataset*
    :store-asset
    :discover-asset
+   :record-recon-asset
    :query-assets
    :publish-asset-event
+   :publish-legacy-asset-hook
    :subscribe-asset-events))
 
 (in-package :hackmode)
