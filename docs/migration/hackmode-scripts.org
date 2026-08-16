@@ -1,0 +1,55 @@
+#+title: hackmode-scripts Migration Inventory
+
+* Source
+Historical source repository: =lost-rob0t/hackmode-scripts=.
+
+This migration is intentionally curated. The old repository mixed useful recon ideas with shell glue, generated Lisp artifacts, huge copied binaries, incomplete Prolog experiments, and functionality that does not belong in the current recon security boundary.
+
+* Migrated as quarantined reference source
+The following source is retained under =tools/legacy/recon/= with executable bits removed:
+- =alt.py= — domain word/permutation logic
+- =bbot.sh= — BBOT provider orchestration
+- =dex.sh= — fan-out recon workflow prototype; useful mainly as actor/event decomposition input
+- =dns-up.sh= — massdns resolution/filtering
+- =dork.sh= — domain-scoped public search wrapper
+- =parse-nmap.py= — Nmap XML conversion prototype
+- =photon-scan.sh= — crawler wrapper
+
+These are *not runtime dependencies*. Ports should use typed assets and the canonical Hackmode operation store.
+
+* Intentionally not migrated
+** Generated/compiled artifacts
+Rejected completely:
+- =source/rules/main.fasl=
+- =source/rules/ralp.fasl=
+- =source/rules/ralp= and duplicate copied =ralp= binaries under nested local-bin trees
+
+The old repo contains binaries tens of MiB in size. The monorepo CI rejects this artifact class.
+
+** Credential/cracking helpers
+Not migrated into the recon architecture:
+- =source/recon/git-dorks.sh= — specifically searches public code for passwords, private keys, tokens, credentials and similar secrets
+- =source/cracking/combo.awk= and cracking-oriented helpers
+
+These are outside this migration's stated recon boundary and should only be reconsidered under a separate explicit design/safety review.
+
+** BBRF state wrappers
+=source/bbrf/resolve-all.sh= is not migrated. BBRF is compatibility input, not canonical state; issue #6/#3 replace direct BBRF state with Hackmode's typed asset protocol and local store.
+
+** Rules prototype
+The old =source/rules/= Prolog/Lisp material is not copied into the active tree in this slice. Inspection found malformed/incomplete experiments mixed with generated artifacts. Any useful expert-system knowledge should be re-expressed against StarIntel/Hackmode typed facts rather than preserved as an opaque rule dump.
+
+* Port order
+1. DNS/massdns provider -> DomainSupervisor
+2. Nmap import -> HostSupervisor parser adapter
+3. BBOT provider -> provider actor emitting typed assets
+4. Photon/URL crawling -> WebSupervisor
+5. domain word/permutation generator -> DomainSupervisor
+6. domain-scoped search wrapper -> ProviderSupervisor
+7. decompose =dex.sh= ideas into asset events/recon subscriptions instead of a shell FIFO manager
+
+* Definition of done for deleting/archive-only use of the old repo
+- every retained source file is present here or intentionally rejected above
+- no generated binaries/FASLs enter the monorepo
+- no active code imports the old repository
+- follow-up provider ports refer to these monorepo paths, not the old repo

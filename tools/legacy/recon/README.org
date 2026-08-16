@@ -1,0 +1,25 @@
+#+title: Legacy Recon Migration Sources
+
+These files were migrated from =lost-rob0t/hackmode-scripts= as *non-executable reference source*.
+
+They are not installed, loaded, or called by Hackmode. Their purpose is to preserve useful behavior while the monorepo ports it into typed Common Lisp providers/actors.
+
+Do not build new workflows on these scripts.
+
+* Port map
+| File | Useful behavior | Target |
+|-
+| alt.py | word/stem variations for domain permutations | DomainSupervisor / domain permutation provider |
+| bbot.sh | BBOT subdomain/cloud/web wrapper | provider actor returning typed assets |
+| dex.sh | prototype fan-out recon workflow and FIFO queue ideas | ReconSupervisor + asset events; do not port shell queue bugs literally |
+| dns-up.sh | massdns resolution/filtering | DNS actor/provider |
+| dork.sh | domain-scoped public search queries | search provider actor |
+| parse-nmap.py | Nmap XML parsing | typed Nmap import/parser adapter |
+| photon-scan.sh | crawler wrapper | WebSupervisor crawler provider |
+
+* Rules
+- Files in this directory are mode =100644= deliberately: legacy source must not silently become executable runtime code.
+- Any port must emit typed assets through =discover-asset= rather than write ad-hoc findings files.
+- Provider failures must be isolated and observable.
+- Secrets/credentials must not be exposed to frontend clients.
+- Credential-hunting helpers from the old scripts repository were intentionally not migrated into the Hackmode recon architecture.
