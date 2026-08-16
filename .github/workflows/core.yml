@@ -38,6 +38,14 @@ jobs:
           path: deps/star-cl-ci
           fetch-depth: 1
 
+      - name: Checkout pinned Sento actor runtime
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: mdbergmann/cl-gserver
+          ref: 6a510c5b58469e72e6363bd3a6059d80b9a5c320
+          path: deps/sento-ci
+          fetch-depth: 1
+
       - name: Checkout pinned cms-ulid
         shell: bash
         run: |
@@ -79,8 +87,10 @@ jobs:
           sbcl --non-interactive \
             --load "$HOME/quicklisp/setup.lisp" \
             --eval '(push (truename "deps/cms-ulid-ci/") asdf:*central-registry*)' \
+            --eval '(push (truename "deps/sento-ci/") asdf:*central-registry*)' \
             --eval '(asdf:load-asd (truename "deps/tek9-ci/src/tek9.asd"))' \
             --eval '(asdf:load-asd (truename "deps/star-cl-ci/src/starintel.asd"))' \
+            --eval '(asdf:load-asd (truename "deps/sento-ci/sento.asd"))' \
             --eval '(asdf:load-asd (truename "source/hackmode-core/hackmode.asd"))' \
             --eval '(asdf:load-asd (truename "source/hackmode-core/hackmode-tests.asd"))' \
             --eval '(ql:quickload :hackmode-tests)' \
