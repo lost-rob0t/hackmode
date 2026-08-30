@@ -58,6 +58,10 @@
    #:persist-operational-kb-entry
    #:fetch-operational-kb-entry
    #:fetch-operational-kb-entries
+   #:+operational-kb-seed-import-limit+
+   #:+operational-kb-seed-kinds+
+   #:make-operational-kb-seed-assertions
+   #:persist-operational-kb-seed-values
    #:long-term-kb-validation-error
    #:long-term-kb-promotion
    #:long-term-kb-promotion-record-id
