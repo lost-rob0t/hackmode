@@ -7,7 +7,8 @@
                (:file "tests/global-kb")
                (:file "tests/replay-conflict")
                (:file "tests/kb-seed-import")
-               (:file "tests/execution-outcome-kb"))
+               (:file "tests/execution-outcome-kb")
+               (:file "tests/effective-operational-kb"))
   :perform (test-op (op system)
              (declare (ignore op system))
              (uiop:symbol-call :hackmode-database-tests :run-tests)
@@ -16,4 +17,6 @@
              (uiop:symbol-call :hackmode-database-tests :run-replay-conflict-tests)
              (uiop:symbol-call :hackmode-database-tests :run-kb-seed-import-tests)
              (uiop:symbol-call :hackmode-database-execution-outcome-tests
-                               :run-execution-outcome-kb-tests)))
+                               :run-execution-outcome-kb-tests)
+             (uiop:symbol-call :hackmode-database-tests
+                               :run-effective-operational-kb-tests)))
