@@ -27,6 +27,7 @@
    #:make-tool-call-record
    #:make-tool-result-record
    #:make-http-exchange-record
+   #:make-capture-checkpoint-record
    #:validate-tool-result-link
    #:execution-graph-name
    #:execution-record->tek9-node
@@ -35,6 +36,7 @@
    #:persist-execution-record
    #:persist-tool-execution
    #:fetch-operation-execution-records
+   #:fetch-latest-capture-checkpoint
    #:operational-kb-validation-error
    #:operational-kb-entry
    #:operational-kb-entry-kind

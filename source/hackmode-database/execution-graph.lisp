@@ -56,6 +56,13 @@
            :reason "expected non-negative integer milliseconds"))
   value)
 
+(defun %require-non-negative-integer (field value)
+  (unless (and (integerp value) (not (minusp value)))
+    (error 'execution-graph-validation-error
+           :field field :value value
+           :reason "expected non-negative integer"))
+  value)
+
 (defun %require-optional-string (field value)
   (when value
     (%require-string field value))
@@ -80,6 +87,16 @@
   (%require-string :raw-evidence-ref (getf payload :raw-evidence-ref))
   (%require-string :observed-at (getf payload :observed-at))
   (%require-duration-ms (getf payload :duration-ms))
+  payload)
+
+(defun %validate-capture-checkpoint-payload (payload)
+  (unless (listp payload)
+    (error 'execution-graph-validation-error
+           :field :payload :value payload
+           :reason "expected capture checkpoint property list"))
+  (%require-non-negative-integer :offset (getf payload :offset))
+  (%require-optional-string :last-record-id (getf payload :last-record-id))
+  (%require-string :framing-version (getf payload :framing-version))
   payload)
 
 (defun %key-part (value)
@@ -158,6 +175,28 @@
      :payload payload
      :provenance provenance)))
 
+(defun make-capture-checkpoint-record
+    (&key operation-id capture-session-id source-id offset last-record-id
+          framing-version provenance)
+  "Construct one immutable replay checkpoint in the operation execution graph."
+  (%require-string :operation-id operation-id)
+  (%require-string :capture-session-id capture-session-id)
+  (%require-string :source-id source-id)
+  (%require-provenance provenance)
+  (let ((payload (list :offset offset
+                       :last-record-id last-record-id
+                       :framing-version framing-version)))
+    (%validate-capture-checkpoint-payload payload)
+    (%make-execution-record
+     :kind :capture-checkpoint
+     :operation-id operation-id
+     :run-id capture-session-id
+     :call-id source-id
+     :record-id (%record-id "capture-checkpoint"
+                            operation-id capture-session-id source-id offset)
+     :payload payload
+     :provenance provenance)))
+
 (defun validate-tool-result-link (call result)
   (unless (eq :tool-call (execution-record-kind call))
     (error 'execution-graph-validation-error
@@ -200,7 +239,8 @@
          (status (getf props :status))
          (payload (getf props :payload))
          (provenance (getf props :provenance)))
-    (unless (member kind '(:tool-call :tool-result :http-exchange) :test #'eq)
+    (unless (member kind '(:tool-call :tool-result :http-exchange :capture-checkpoint)
+                    :test #'eq)
       (error 'execution-graph-validation-error
              :field :kind :value kind :reason "unsupported stored execution record kind"))
     (%require-string :operation-id operation-id)
@@ -216,6 +256,8 @@
              :field :status :value status :reason "unsupported stored tool result status"))
     (when (eq kind :http-exchange)
       (%validate-http-exchange-payload payload))
+    (when (eq kind :capture-checkpoint)
+      (%validate-capture-checkpoint-payload payload))
     (%make-execution-record
      :kind kind
      :operation-id operation-id

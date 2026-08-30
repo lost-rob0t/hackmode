@@ -9,7 +9,8 @@
                (:file "tests/kb-seed-import")
                (:file "tests/execution-outcome-kb")
                (:file "tests/effective-operational-kb")
-               (:file "tests/http-exchange-graph"))
+               (:file "tests/http-exchange-graph")
+               (:file "tests/capture-checkpoint"))
   :perform (test-op (op system)
              (declare (ignore op system))
              (uiop:symbol-call :hackmode-database-tests :run-tests)
@@ -22,4 +23,6 @@
              (uiop:symbol-call :hackmode-database-tests
                                :run-effective-operational-kb-tests)
              (uiop:symbol-call :hackmode-database-tests
-                               :run-http-exchange-graph-tests)))
+                               :run-http-exchange-graph-tests)
+             (uiop:symbol-call :hackmode-database-tests
+                               :run-capture-checkpoint-tests)))
