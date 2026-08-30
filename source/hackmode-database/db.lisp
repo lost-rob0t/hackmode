@@ -69,3 +69,23 @@
   "Fetch one operational KB graph node by stable RECORD-ID."
   (tek9:fetch-node database record-id
                    :database-name (operational-kb-graph-name operation-id)))
+
+(defun persist-long-term-kb-promotion (database promotion)
+  "Persist one immutable evidence-backed promotion through canonical Tek9 graph APIs."
+  (let ((graph-name (long-term-kb-graph-name)))
+    (tek9:put-nodes database
+                    (list (long-term-kb-root-node)
+                          (long-term-kb-promotion->tek9-node promotion))
+                    :database-name graph-name)
+    (tek9:put-edge database
+                   (long-term-kb-membership-edge promotion)
+                   :database-name graph-name)
+    (tek9:put-edge database
+                   (long-term-kb-source-edge promotion)
+                   :database-name graph-name))
+  promotion)
+
+(defun fetch-long-term-kb-promotion (database record-id)
+  "Fetch one long-term KB promotion by its stable record identity."
+  (tek9:fetch-node database record-id
+                   :database-name (long-term-kb-graph-name)))
