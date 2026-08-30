@@ -1,0 +1,163 @@
+name: rage-pr-serialization
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - ready_for_review
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: rage-pr-serialization
+  cancel-in-progress: false
+
+env:
+  # close-old: newest PR wins and older PRs in that worker lane are closed.
+  # refuse-new: oldest PR keeps the lane and newer PRs are closed/rejected.
+  RAGE_PR_POLICY: ${{ vars.RAGE_PR_POLICY || 'close-old' }}
+
+jobs:
+  serialize:
+    name: one-open-pr-per-rage-lane
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Enforce serialized Auto-RAGE pull requests
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          python3 <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          policy = os.environ.get("RAGE_PR_POLICY", "close-old").strip()
+          lanes = ("rage-hackpert/", "rage-database/")
+
+          if policy not in {"close-old", "refuse-new"}:
+              print(f"::error::Unsupported RAGE_PR_POLICY={policy!r}; use close-old or refuse-new")
+              raise SystemExit(2)
+
+          with open(os.environ["GITHUB_EVENT_PATH"], "r", encoding="utf-8") as fh:
+              event = json.load(fh)
+
+          current_pr = event.get("number") if event.get("pull_request") else None
+
+          def gh(*args):
+              proc = subprocess.run(
+                  ["gh", *args],
+                  check=True,
+                  text=True,
+                  stdout=subprocess.PIPE,
+                  stderr=subprocess.PIPE,
+              )
+              return proc.stdout
+
+          raw = gh(
+              "api",
+              "--paginate",
+              "--slurp",
+              f"repos/{repo}/pulls?state=open&base=master&per_page=100",
+          )
+          pages = json.loads(raw)
+          pulls = [pr for page in pages for pr in page]
+
+          # Only serialize Hackmode-owned Auto-RAGE branches. Human branches and
+          # same-prefix branches from forks are deliberately left alone.
+          pulls = [
+              pr
+              for pr in pulls
+              if pr.get("head", {}).get("repo", {}).get("full_name") == repo
+          ]
+
+          closed = []
+
+          for lane in lanes:
+              lane_pulls = [pr for pr in pulls if pr["head"]["ref"].startswith(lane)]
+              if len(lane_pulls) <= 1:
+                  continue
+
+              lane_pulls.sort(key=lambda pr: (pr["created_at"], pr["number"]))
+              keep = lane_pulls[-1] if policy == "close-old" else lane_pulls[0]
+
+              for pr in lane_pulls:
+                  if pr["number"] == keep["number"]:
+                      continue
+
+                  if policy == "close-old":
+                      body = (
+                          f"Auto-RAGE PR serialization closed this PR because "
+                          f"#{keep['number']} is the newer open `{lane}` lane PR. "
+                          "One open PR per worker lane is allowed."
+                      )
+                  else:
+                      body = (
+                          f"Auto-RAGE PR serialization rejected this PR because "
+                          f"#{keep['number']} already owns the open `{lane}` lane. "
+                          "Finish/close that PR before opening another."
+                      )
+
+                  gh(
+                      "api",
+                      "-X",
+                      "POST",
+                      f"repos/{repo}/issues/{pr['number']}/comments",
+                      "-f",
+                      f"body={body}",
+                  )
+                  gh(
+                      "api",
+                      "-X",
+                      "PATCH",
+                      f"repos/{repo}/pulls/{pr['number']}",
+                      "-f",
+                      "state=closed",
+                  )
+                  closed.append(pr["number"])
+                  print(f"closed #{pr['number']} in {lane}; keeping #{keep['number']} ({policy})")
+
+          # Re-query to make the invariant itself the CI assertion.
+          raw = gh(
+              "api",
+              "--paginate",
+              "--slurp",
+              f"repos/{repo}/pulls?state=open&base=master&per_page=100",
+          )
+          pages = json.loads(raw)
+          remaining = [
+              pr
+              for page in pages
+              for pr in page
+              if pr.get("head", {}).get("repo", {}).get("full_name") == repo
+          ]
+
+          violations = []
+          for lane in lanes:
+              nums = [pr["number"] for pr in remaining if pr["head"]["ref"].startswith(lane)]
+              if len(nums) > 1:
+                  violations.append((lane, nums))
+
+          if violations:
+              for lane, nums in violations:
+                  print(f"::error::{lane} still has multiple open PRs: {nums}")
+              raise SystemExit(1)
+
+          if current_pr in closed:
+              print(f"::error::PR #{current_pr} was closed by Auto-RAGE serialization policy {policy}")
+              raise SystemExit(1)
+
+          print(f"Auto-RAGE PR serialization satisfied with policy={policy}")
+          PY
