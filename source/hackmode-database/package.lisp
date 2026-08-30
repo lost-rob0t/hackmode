@@ -67,5 +67,30 @@
    #:long-term-kb-source-edge
    #:persist-long-term-kb-promotion
    #:fetch-long-term-kb-promotion
+   #:global-kb-validation-error
+   #:global-kb-export
+   #:global-kb-export-record-id
+   #:global-kb-export-source-promotion-id
+   #:global-kb-export-source-operation-id
+   #:global-kb-export-source-assertion-id
+   #:global-kb-export-source-run-id
+   #:global-kb-export-source-expert-id
+   #:global-kb-export-source-expert-version
+   #:global-kb-export-source-evidence-ids
+   #:global-kb-export-promotion-evidence-ids
+   #:global-kb-export-key
+   #:global-kb-export-value
+   #:global-kb-export-exported-by
+   #:global-kb-export-exporter-version
+   #:global-kb-export-evidence-ids
+   #:global-kb-export-provenance
+   #:make-global-kb-export
+   #:global-kb-graph-name
+   #:global-kb-root-id
+   #:global-kb-export->tek9-node
+   #:global-kb-membership-edge
+   #:global-kb-source-edge
+   #:persist-global-kb-export
+   #:fetch-global-kb-export
    #:put-doc
    #:put-docs))
