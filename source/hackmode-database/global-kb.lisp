@@ -126,6 +126,65 @@ export does not persist it; persistence remains an explicit canonical Tek9 write
                        :provenance
                        (global-kb-export-provenance export))))
 
+(defun tek9-node->global-kb-export (node)
+  "Reconstruct and validate one typed global export from NODE."
+  (let ((props (tek9:node-props node)))
+    (unless (eq :global-kb-export (getf props :kind))
+      (error 'global-kb-validation-error
+             :field :kind :value (getf props :kind)
+             :reason "expected global KB export node"))
+    (let ((record-id (%global-require-string :record-id (tek9:node-id node)))
+          (source-promotion-id
+            (%global-require-string
+             :source-promotion-id (getf props :source-promotion-id)))
+          (source-operation-id
+            (%global-require-string
+             :source-operation-id (getf props :source-operation-id)))
+          (source-assertion-id
+            (%global-require-string
+             :source-assertion-id (getf props :source-assertion-id)))
+          (source-run-id
+            (%global-require-string :source-run-id (getf props :source-run-id)))
+          (source-expert-id
+            (%global-require-string
+             :source-expert-id (getf props :source-expert-id)))
+          (source-expert-version
+            (%global-require-string
+             :source-expert-version (getf props :source-expert-version)))
+          (source-evidence-ids
+            (%global-require-evidence
+             :source-evidence-ids (getf props :source-evidence-ids)))
+          (promotion-evidence-ids
+            (%global-require-evidence
+             :promotion-evidence-ids (getf props :promotion-evidence-ids)))
+          (exported-by
+            (%global-require-string :exported-by (getf props :exported-by)))
+          (exporter-version
+            (%global-require-string
+             :exporter-version (getf props :exporter-version)))
+          (evidence-ids
+            (%global-require-evidence :evidence-ids (getf props :evidence-ids)))
+          (provenance (getf props :provenance)))
+      (unless provenance
+        (error 'global-kb-validation-error
+               :field :provenance :value provenance :reason "provenance is required"))
+      (%make-global-kb-export
+       :record-id record-id
+       :source-promotion-id source-promotion-id
+       :source-operation-id source-operation-id
+       :source-assertion-id source-assertion-id
+       :source-run-id source-run-id
+       :source-expert-id source-expert-id
+       :source-expert-version source-expert-version
+       :source-evidence-ids (copy-list source-evidence-ids)
+       :promotion-evidence-ids (copy-list promotion-evidence-ids)
+       :key (getf props :key)
+       :value (getf props :value)
+       :exported-by exported-by
+       :exporter-version exporter-version
+       :evidence-ids (copy-list evidence-ids)
+       :provenance provenance))))
+
 (defun global-kb-root-node ()
   (make-instance 'tek9:node
                  :id (global-kb-root-id)
