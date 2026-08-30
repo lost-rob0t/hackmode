@@ -8,27 +8,17 @@ Hackmode is a Common Lisp, actor-oriented investigation and reconnaissance envir
 
 This repository is now the canonical Hackmode monorepo. Hackmode-owned runtime code, shell integration, Emacs integration, operation templates, and maintained helper tooling belong here. StarIntel Server, Quasar, Quasar UI, Tek9, and user dotfiles remain separate repositories and integrate through protocols/APIs rather than being vendored into this tree.
 
-* Auto-RAGE baseline
-The known-good rollback point immediately before Hackmode Auto-RAGE development began is commit =dca7592da8a684696556a89cefe782ee19dddfcc=.
+* Development automation boundary
+Agent Zero-specific development-worker implementation, configuration, scheduling, lane ownership, task-selection policy, and coordination belongs under =agent-zero/**=.
 
-The historical first migration commit =c64ae3f244c200a0e6fceaa28a9ebff1a8dfbdb4= is *not* a clean rollback point: it incorrectly introduced RAGE worker policy into the Common Lisp product runtime. Do not restore that runtime design.
-
-If autonomous worker changes become tangled, branch/worktree from the known-good pre-Auto-RAGE commit and compare/reconcile forward. Do not rewrite =master= to recover.
-
-RAGE/Auto-RAGE is Agent Zero development orchestration only. All RAGE-specific implementation, worker identity, lane ownership, scheduling, task-selection policy, and coordination belongs under =agent-zero/**=. Hackmode product code must remain independent of the worker framework.
-
-The initial concurrent development workers are intentionally split so they do not own the same implementation area:
-- =hackmode-rage-database= :: database, execution graph, KB persistence and promotion/export plumbing.
-- =hackmode-rage-hackpert= :: Hackpert expert engine, passive/active orchestration, plans/playbooks, provider-action loop and LISH expert controls.
-
-Their Agent Zero profiles live under =agent-zero/usr/agents/=. Both are Hackmode workers. StarIntel is outside their product-development ownership and may be touched only for explicitly authorized BBP/cyber work or security finding/evidence projection.
+Hackmode product code, product documentation, tests, APIs, symbols, filenames, comments, and architecture must use Hackmode-native domain concepts only. Development-worker framework terminology must not leak into the product-facing tree.
 
 * Monorepo layout
 - =source/= :: Common Lisp runtime, operation model, local storage, recon capabilities, and shell integration.
 - =emacs/= :: Hackmode Emacs package. Migration from =lost-rob0t/emacs-hackmode= is tracked by issue #4.
 - =templates/= :: Operation templates migrated from =lost-rob0t/hackmode-templates=.
 - =tools/= :: Maintained helpers and explicitly temporary legacy script compatibility. Curated migration from =lost-rob0t/hackmode-scripts= is tracked separately; generated binaries/FASLs are not accepted.
-- =agent-zero/= :: Hackmode-owned Auto-RAGE Agent Zero profiles, worker policy/configuration, and installation notes.
+- =agent-zero/= :: Agent Zero development-worker profiles, coordination policy/configuration, rollback notes, and installation instructions.
 - =docs/architecture/= :: Hackmode product architecture and repository-boundary decisions. Agent-worker orchestration does not belong here.
 
 See =docs/architecture/monorepo.org= before adding a new Hackmode repository.
@@ -97,7 +87,7 @@ The shell work is inspired by LISH and should operate on typed Hackmode objects,
 * Migration status
 - Common Lisp runtime: already here.
 - Tek9-backed operation/local database: already here; being hardened rather than replaced casually.
-- Auto-RAGE development profiles: Agent Zero only, under =agent-zero/=, with separate database and Hackpert ownership.
+- Agent Zero development profiles: under =agent-zero/=, with separate database and Hackpert ownership.
 - Emacs package: migration in progress under issue #4.
 - Operation templates: migrated into =templates/= by issue #4.
 - Script collection: source-only curation tracked by issue #5; do not import compiled/generated artifacts.
