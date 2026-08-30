@@ -9,4 +9,5 @@
   :components ((:file "package")
                (:file "execution-graph")
                (:file "operational-kb")
+               (:file "long-term-kb")
                (:file "db")))
