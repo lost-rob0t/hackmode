@@ -7,4 +7,5 @@
   :in-order-to ((test-op (test-op "hackmode-provider-recon-tests")))
   :depends-on (#:hackmode #:jsown #:dexador)
   :components ((:file "package")
-               (:file "recon")))
+               (:file "recon")
+               (:file "http-runner")))
