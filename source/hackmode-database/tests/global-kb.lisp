@@ -72,4 +72,74 @@
            :provenance '(:reason "invalid"))
           (error "global export unexpectedly accepted without evidence"))
       (global-kb-validation-error () t)))
+  (let* ((path (merge-pathnames
+                (format nil "hackmode-global-read-~D/" (random 1000000000))
+                (uiop:temporary-directory)))
+         (database (tek9:new-database "hackmode-global-read-test" :path path)))
+    (unwind-protect
+         (progn
+           (tek9:open-database database)
+           (flet ((promotion (operation assertion promotion-id)
+                    (make-long-term-kb-promotion
+                     :promotion-id promotion-id
+                     :source-assertion
+                     (make-operational-kb-assertion
+                      :assertion-id assertion
+                      :operation-id operation
+                      :run-id "run-1"
+                      :expert-id "recon"
+                      :expert-version "1"
+                      :key (list :operation operation)
+                      :value '(:validated t)
+                      :evidence-ids (list (format nil "result-~A" operation))
+                      :provenance '(:source "fixture"))
+                     :promoted-by "operator"
+                     :promoter-version "1"
+                     :evidence-ids (list (format nil "review-~A" operation))
+                     :provenance '(:reason "reusable"))))
+             (let* ((promotion-a (promotion "op-a" "a-a" "p-a"))
+                    (promotion-b (promotion "op-b" "a-b" "p-b"))
+                    (export-b
+                      (make-global-kb-export
+                       :export-id "e-b"
+                       :source-promotion promotion-b
+                       :exported-by "operator"
+                       :exporter-version "1"
+                       :evidence-ids '("approval-b")
+                       :provenance '(:reason "shared")))
+                    (export-a
+                      (make-global-kb-export
+                       :export-id "e-a"
+                       :source-promotion promotion-a
+                       :exported-by "operator"
+                       :exporter-version "1"
+                       :evidence-ids '("approval-a")
+                       :provenance '(:reason "shared"))))
+               (persist-global-kb-export database export-b)
+               (persist-global-kb-export database export-a)
+               (let ((all (fetch-global-kb-exports database))
+                     (op-a (fetch-global-kb-exports
+                            database :source-operation-id "op-a")))
+                 (ensure (= 2 (length all))
+                         "global KB enumeration lost exports")
+                 (ensure (every (lambda (item) (typep item 'global-kb-export)) all)
+                         "global KB enumeration leaked raw Tek9 nodes")
+                 (ensure (equal (sort (mapcar #'global-kb-export-record-id
+                                             (copy-list all))
+                                      #'string<)
+                                (mapcar #'global-kb-export-record-id all))
+                         "global KB enumeration is not deterministic")
+                 (ensure (= 1 (length op-a))
+                         "global KB operation filter returned wrong count")
+                 (ensure (string= "op-a"
+                                  (global-kb-export-source-operation-id
+                                   (first op-a)))
+                         "global KB operation filter leaked another operation")
+                 (ensure (equal '("approval-a")
+                                (global-kb-export-evidence-ids (first op-a)))
+                         "global KB read lost export evidence provenance")))))
+      (when (tek9:db-is-open-p database)
+        (tek9:close-database database))
+      (when (probe-file path)
+        (uiop:delete-directory-tree path :validate t))))
   t)
