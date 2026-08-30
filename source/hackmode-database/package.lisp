@@ -44,5 +44,28 @@
    #:operational-kb-retraction-edge
    #:persist-operational-kb-entry
    #:fetch-operational-kb-entry
+   #:long-term-kb-validation-error
+   #:long-term-kb-promotion
+   #:long-term-kb-promotion-record-id
+   #:long-term-kb-promotion-source-operation-id
+   #:long-term-kb-promotion-source-assertion-id
+   #:long-term-kb-promotion-source-run-id
+   #:long-term-kb-promotion-source-expert-id
+   #:long-term-kb-promotion-source-expert-version
+   #:long-term-kb-promotion-source-evidence-ids
+   #:long-term-kb-promotion-key
+   #:long-term-kb-promotion-value
+   #:long-term-kb-promotion-promoted-by
+   #:long-term-kb-promotion-promoter-version
+   #:long-term-kb-promotion-evidence-ids
+   #:long-term-kb-promotion-provenance
+   #:make-long-term-kb-promotion
+   #:long-term-kb-graph-name
+   #:long-term-kb-root-id
+   #:long-term-kb-promotion->tek9-node
+   #:long-term-kb-membership-edge
+   #:long-term-kb-source-edge
+   #:persist-long-term-kb-promotion
+   #:fetch-long-term-kb-promotion
    #:put-doc
    #:put-docs))
