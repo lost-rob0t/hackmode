@@ -5,6 +5,8 @@
 :- dynamic provider/4.
 :- dynamic query_target/1.
 :- dynamic query_asset/1.
+:- dynamic execution_record/9.
+:- dynamic operational_kb_entry/11.
 
 classify_target(Input, url) :-
     re_match('(?i)^https?://[^[:space:]]+$', Input), !.
@@ -42,6 +44,13 @@ recommend(AssetId, Capability, ProviderName, Priority) :-
     provider(Capability, ProviderName, InputKind, Priority),
     compatible_kind(InputKind, Kind).
 
+recon_capability("subdomain-enumerate").
+recon_capability("http-probe").
+
+recon_candidate(AssetId, Capability, ProviderName, Priority) :-
+    recon_capability(Capability),
+    recommend(AssetId, Capability, ProviderName, Priority).
+
 emit_classification :-
     query_target(Input),
     classify_target(Input, Type),
@@ -56,3 +65,11 @@ emit_recommendations :-
     forall(member(Priority-Capability-ProviderName, Sorted),
            format('~d\t~a\t~a~n',
                   [Priority, Capability, ProviderName])).
+
+emit_recon_next_action :-
+    query_asset(AssetId),
+    setof(Priority-Capability-ProviderName,
+          recon_candidate(AssetId, Capability, ProviderName, Priority),
+          [Priority-Capability-ProviderName | _]), !,
+    format('~d\t~a\t~a~n', [Priority, Capability, ProviderName]).
+emit_recon_next_action.
