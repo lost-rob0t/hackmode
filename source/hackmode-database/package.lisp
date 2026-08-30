@@ -28,6 +28,7 @@
    #:make-tool-result-record
    #:make-http-exchange-record
    #:make-capture-checkpoint-record
+   #:make-capture-quarantine-record
    #:validate-tool-result-link
    #:execution-graph-name
    #:execution-record->tek9-node
@@ -37,6 +38,7 @@
    #:persist-tool-execution
    #:fetch-operation-execution-records
    #:fetch-latest-capture-checkpoint
+   #:fetch-capture-quarantine-records
    #:operational-kb-validation-error
    #:operational-kb-entry
    #:operational-kb-entry-kind

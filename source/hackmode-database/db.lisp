@@ -45,7 +45,8 @@
   (when run-id
     (%require-string :run-id run-id))
   (when (and kind
-             (not (member kind '(:tool-call :tool-result :http-exchange :capture-checkpoint)
+             (not (member kind '(:tool-call :tool-result :http-exchange
+                                  :capture-checkpoint :capture-quarantine)
                           :test #'eq)))
     (error 'execution-graph-validation-error
            :field :kind :value kind :reason "unsupported execution record filter"))
@@ -84,6 +85,24 @@
             (setf latest record
                   latest-offset offset)))))
     latest))
+
+(defun fetch-capture-quarantine-records
+    (database operation-id capture-session-id source-id)
+  "Return quarantined capture evidence for one source in durable offset order."
+  (%require-string :operation-id operation-id)
+  (%require-string :capture-session-id capture-session-id)
+  (%require-string :source-id source-id)
+  (sort
+   (remove-if-not
+    (lambda (record)
+      (string= source-id (execution-record-call-id record)))
+    (fetch-operation-execution-records
+     database operation-id
+     :run-id capture-session-id
+     :kind :capture-quarantine))
+   #'<
+   :key (lambda (record)
+          (getf (execution-record-payload record) :offset))))
 
 (defun persist-operational-kb-entry (database entry)
   "Persist one replay-safe operational KB assertion or retraction through Tek9."

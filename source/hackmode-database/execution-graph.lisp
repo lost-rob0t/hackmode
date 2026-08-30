@@ -99,6 +99,18 @@
   (%require-string :framing-version (getf payload :framing-version))
   payload)
 
+(defun %validate-capture-quarantine-payload (payload)
+  (unless (listp payload)
+    (error 'execution-graph-validation-error
+           :field :payload :value payload
+           :reason "expected capture quarantine property list"))
+  (%require-non-negative-integer :offset (getf payload :offset))
+  (%require-non-negative-integer :length (getf payload :length))
+  (%require-string :reason (getf payload :reason))
+  (%require-string :raw-evidence-ref (getf payload :raw-evidence-ref))
+  (%require-string :framing-version (getf payload :framing-version))
+  payload)
+
 (defun %key-part (value)
   (let ((string (princ-to-string value)))
     (format nil "~D:~A" (length string) string)))
@@ -197,6 +209,30 @@
      :payload payload
      :provenance provenance)))
 
+(defun make-capture-quarantine-record
+    (&key operation-id capture-session-id source-id offset length reason
+          raw-evidence-ref framing-version provenance)
+  "Construct immutable evidence for one malformed or truncated capture frame."
+  (%require-string :operation-id operation-id)
+  (%require-string :capture-session-id capture-session-id)
+  (%require-string :source-id source-id)
+  (%require-provenance provenance)
+  (let ((payload (list :offset offset
+                       :length length
+                       :reason reason
+                       :raw-evidence-ref raw-evidence-ref
+                       :framing-version framing-version)))
+    (%validate-capture-quarantine-payload payload)
+    (%make-execution-record
+     :kind :capture-quarantine
+     :operation-id operation-id
+     :run-id capture-session-id
+     :call-id source-id
+     :record-id (%record-id "capture-quarantine"
+                            operation-id capture-session-id source-id offset)
+     :payload payload
+     :provenance provenance)))
+
 (defun validate-tool-result-link (call result)
   (unless (eq :tool-call (execution-record-kind call))
     (error 'execution-graph-validation-error
@@ -239,7 +275,8 @@
          (status (getf props :status))
          (payload (getf props :payload))
          (provenance (getf props :provenance)))
-    (unless (member kind '(:tool-call :tool-result :http-exchange :capture-checkpoint)
+    (unless (member kind '(:tool-call :tool-result :http-exchange
+                           :capture-checkpoint :capture-quarantine)
                     :test #'eq)
       (error 'execution-graph-validation-error
              :field :kind :value kind :reason "unsupported stored execution record kind"))
@@ -258,6 +295,8 @@
       (%validate-http-exchange-payload payload))
     (when (eq kind :capture-checkpoint)
       (%validate-capture-checkpoint-payload payload))
+    (when (eq kind :capture-quarantine)
+      (%validate-capture-quarantine-payload payload))
     (%make-execution-record
      :kind kind
      :operation-id operation-id
