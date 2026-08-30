@@ -14,19 +14,42 @@
                (*print-pretty* nil))
            (prin1 value stream))))))
 
+(defun expert-write-http-exchange-fact (stream record)
+  "Project one canonical HTTP exchange into bounded passive reasoning data."
+  (let ((payload (hack-db:execution-record-payload record)))
+    (write-expert-fact
+     stream
+     "http_exchange"
+     (hack-db:execution-record-record-id record)
+     (hack-db:execution-record-operation-id record)
+     (hack-db:execution-record-run-id record)
+     (hack-db:execution-record-call-id record)
+     (getf payload :method)
+     (getf payload :scheme)
+     (getf payload :host)
+     (getf payload :port)
+     (getf payload :path)
+     (getf payload :response-status)
+     (expert-data-string (getf payload :request-body-digest))
+     (expert-data-string (getf payload :response-body-digest))
+     (getf payload :observed-at)
+     (getf payload :duration-ms))))
+
 (defun expert-write-execution-record-fact (stream record)
-  (write-expert-fact
-   stream
-   "execution_record"
-   (hack-db:execution-record-record-id record)
-   (expert-data-string (hack-db:execution-record-kind record))
-   (hack-db:execution-record-operation-id record)
-   (hack-db:execution-record-run-id record)
-   (hack-db:execution-record-call-id record)
-   (expert-data-string (hack-db:execution-record-capability-id record))
-   (expert-data-string (hack-db:execution-record-status record))
-   (expert-data-string (hack-db:execution-record-payload record))
-   (expert-data-string (hack-db:execution-record-provenance record))))
+  (if (eq :http-exchange (hack-db:execution-record-kind record))
+      (expert-write-http-exchange-fact stream record)
+      (write-expert-fact
+       stream
+       "execution_record"
+       (hack-db:execution-record-record-id record)
+       (expert-data-string (hack-db:execution-record-kind record))
+       (hack-db:execution-record-operation-id record)
+       (hack-db:execution-record-run-id record)
+       (hack-db:execution-record-call-id record)
+       (expert-data-string (hack-db:execution-record-capability-id record))
+       (expert-data-string (hack-db:execution-record-status record))
+       (expert-data-string (hack-db:execution-record-payload record))
+       (expert-data-string (hack-db:execution-record-provenance record)))))
 
 (defun expert-write-operational-kb-entry-fact (stream entry)
   (write-expert-fact
