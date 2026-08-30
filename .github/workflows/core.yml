@@ -26,7 +26,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: lost-rob0t/tek9
-          ref: 6ff2e40a6f7e3a5eadafef94c2779c74566b7fd7
+          ref: a9f5b595f5d965163d2b7c518c72a2efd9be13fe
           path: deps/tek9-ci
           fetch-depth: 1
 
