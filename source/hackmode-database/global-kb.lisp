@@ -190,6 +190,23 @@ export does not persist it; persistence remains an explicit canonical Tek9 write
                  :id (global-kb-root-id)
                  :props (list :kind :global-kb-root)))
 
+(defun global-kb-source-reference-node (export)
+  "Return an immutable graph-local foreign-key anchor for EXPORT's promotion."
+  (make-instance 'tek9:node
+                 :id (global-kb-export-source-promotion-id export)
+                 :props
+                 (list :kind :long-term-kb-reference
+                       :source-operation-id
+                       (global-kb-export-source-operation-id export)
+                       :source-assertion-id
+                       (global-kb-export-source-assertion-id export)
+                       :source-run-id
+                       (global-kb-export-source-run-id export)
+                       :source-expert-id
+                       (global-kb-export-source-expert-id export)
+                       :source-expert-version
+                       (global-kb-export-source-expert-version export))))
+
 (defun global-kb-membership-edge (export)
   (make-instance 'tek9:edge
                  :id (%record-id "global-kb-membership"
