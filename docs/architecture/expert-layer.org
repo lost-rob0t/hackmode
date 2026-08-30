@@ -1,0 +1,88 @@
+#+title: Hackmode Prolog Expert Layer
+
+* Status
+Issue: [[https://github.com/lost-rob0t/hackmode/issues/24][#24]]
+
+This subsystem adapts the useful reasoning ideas from the old =hackpert= prototype into the canonical Hackmode runtime.
+
+The old repository is design input, not runtime authority:
+[[https://github.com/lost-rob0t/hackpert][lost-rob0t/hackpert]]
+
+* Authority boundary
+Hackmode Common Lisp remains authoritative for:
+- operation selection and metadata;
+- typed assets and Tek9 persistence;
+- capability/provider registration;
+- provider actor execution and job lifecycle;
+- StarIntel projection and durable outbox synchronization.
+
+Prolog is advisory. It may classify, constrain, rank, and recommend based on a generated snapshot. It does not own a second operation/target database and does not execute recon tools directly.
+
+The flow is:
+
+#+begin_example
+Hackmode operation + assets + providers
+                |
+                v
+      deterministic fact snapshot
+                |
+                v
+          SWI-Prolog rules
+                |
+                v
+      typed Common Lisp result
+                |
+                v
+ explicit caller decision / provider dispatch
+#+end_example
+
+* Snapshot protocol
+The first slice projects only derived facts:
+
+#+begin_src prolog
+operation("example-op").
+asset("document-id", "domain", "example.com|A").
+provider("dns-resolve", "massdns", "domain", 20).
+#+end_src
+
+Query inputs are also facts:
+
+#+begin_src prolog
+query_target("example.com").
+query_asset("document-id").
+#+end_src
+
+Caller-controlled strings are escaped as Prolog string literals. Public Common Lisp APIs execute fixed goals; caller text is never concatenated into a goal.
+
+Snapshots are temporary and disposable. They are not persisted as canonical Hackmode state.
+
+* Public API
+- =expert-available-p= :: check whether the configured SWI-Prolog executable is usable.
+- =expert-snapshot= :: inspect the deterministic derived fact projection.
+- =expert-classify-target= :: classify a target as URL, domain, IPv4, IPv6, or unknown.
+- =expert-recommend-capabilities= :: rank registered providers compatible with a canonical asset type.
+
+Recommendations return =expert-recommendation= structures and never invoke provider handlers.
+
+* Failure model
+SWI-Prolog is optional. Normal Hackmode startup and operation use do not require it.
+
+When a caller explicitly requests expert reasoning and Prolog is unavailable, =expert-unavailable= is signaled. A failed Prolog query signals =expert-query-failed=. Neither path mutates operation state.
+
+* Hackpert migration mapping
+| Hackpert | Hackmode |
+|-
+| environment-backed current operation | canonical Common Lisp =current-operation= projection |
+| mutable =target/3= database | canonical typed asset projection |
+| =suggest_tool/*= | provider/capability recommendation |
+| =run_tool/*= | not ported; use Hackmode provider dispatch |
+| expert REPL | not ported; LISH/Emacs/other clients call Hackmode APIs |
+| state files under operation directories | not ported; snapshots are temporary |
+| scope facts | deferred until Hackmode has canonical operation-scope state |
+
+* Next slices
+- project canonical scan scope once that protocol exists;
+- add phase/workflow reasoning over provider metadata;
+- reason over normalized service/software evidence for exploit/CVE suggestions;
+- expose expert queries through the typed Hackmode shell and Emacs client;
+- allow curated user expert rules through Hackmode configuration without granting them canonical-state authority.
