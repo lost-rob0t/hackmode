@@ -18,6 +18,9 @@
     (uiop:delete-directory-tree path :validate t :if-does-not-exist :ignore)))
 
 (defun run-load-registration-test ()
+  (assert (fboundp 'hackmode-provider-recon:run-http-probe))
+  (hackmode:clear-capability-providers)
+  (hackmode-provider-recon:register-recon-providers)
   (assert (hackmode:find-capability-provider :subdomain-enumerate :subfinder))
   (assert (hackmode:find-capability-provider :subdomain-enumerate :crtsh))
   (assert (hackmode:find-capability-provider :http-probe :curl)))
