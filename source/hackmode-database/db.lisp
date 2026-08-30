@@ -150,6 +150,20 @@
   (tek9:fetch-node database record-id
                    :database-name (long-term-kb-graph-name)))
 
+(defun fetch-long-term-kb-promotions (database &key source-operation-id)
+  "Return typed long-term KB promotions in deterministic record-ID order."
+  (when source-operation-id
+    (%long-term-require-string :source-operation-id source-operation-id))
+  (let ((promotions nil))
+    (dolist (node (tek9:fetch-graph-nodes database (long-term-kb-graph-name)))
+      (when (eq :long-term-kb-promotion (getf (tek9:node-props node) :kind))
+        (let ((promotion (tek9-node->long-term-kb-promotion node)))
+          (when (or (null source-operation-id)
+                    (string= source-operation-id
+                             (long-term-kb-promotion-source-operation-id promotion)))
+            (push promotion promotions)))))
+    (sort promotions #'string< :key #'long-term-kb-promotion-record-id)))
+
 (defun persist-global-kb-export (database export)
   "Persist one explicit immutable export through canonical Tek9 graph APIs."
   (let ((graph-name (global-kb-graph-name)))
@@ -170,3 +184,17 @@
   "Fetch one explicit global KB export by stable record identity."
   (tek9:fetch-node database record-id
                    :database-name (global-kb-graph-name)))
+
+(defun fetch-global-kb-exports (database &key source-operation-id)
+  "Return typed global KB exports in deterministic record-ID order."
+  (when source-operation-id
+    (%global-require-string :source-operation-id source-operation-id))
+  (let ((exports nil))
+    (dolist (node (tek9:fetch-graph-nodes database (global-kb-graph-name)))
+      (when (eq :global-kb-export (getf (tek9:node-props node) :kind))
+        (let ((export (tek9-node->global-kb-export node)))
+          (when (or (null source-operation-id)
+                    (string= source-operation-id
+                             (global-kb-export-source-operation-id export)))
+            (push export exports)))))
+    (sort exports #'string< :key #'global-kb-export-record-id)))
