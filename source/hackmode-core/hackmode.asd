@@ -30,6 +30,7 @@
                (:file "outbox-actor")
                (:file "providers")
                (:file "provider-actor")
+               (:file "expert")
                (:file "functions")
                (:file "exploits")
                (:file "hackmode")))

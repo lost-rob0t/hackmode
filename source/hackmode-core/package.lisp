@@ -194,6 +194,21 @@
    :drain-outbox-async
    ;; Provider actor
    :start-provider-supervisor
-   :dispatch-capability))
+   :dispatch-capability
+   ;; Optional Prolog expert layer
+   :*expert-program*
+   :expert-unavailable
+   :expert-unavailable-program
+   :expert-query-failed
+   :expert-query-failed-status
+   :expert-query-failed-stderr
+   :expert-recommendation
+   :expert-recommendation-capability
+   :expert-recommendation-provider
+   :expert-recommendation-priority
+   :expert-available-p
+   :expert-snapshot
+   :expert-classify-target
+   :expert-recommend-capabilities))
 
 (in-package :hackmode)

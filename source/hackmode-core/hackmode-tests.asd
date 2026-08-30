@@ -1,8 +1,10 @@
 (asdf:defsystem :hackmode-tests
-  :description "Regression tests for Hackmode core state and asset lifecycle"
+  :description "Regression tests for Hackmode core state, asset lifecycle, and expert reasoning"
   :depends-on (#:hackmode)
   :serial t
-  :components ((:file "tests/core-state"))
+  :components ((:file "tests/core-state")
+               (:file "tests/expert"))
   :perform (test-op (op system)
              (declare (ignore op system))
-             (uiop:symbol-call :hackmode-tests :run-tests)))
+             (uiop:symbol-call :hackmode-tests :run-tests)
+             (uiop:symbol-call :hackmode-tests :run-expert-tests)))

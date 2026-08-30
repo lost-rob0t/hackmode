@@ -1,0 +1,235 @@
+#+title: Hackmode Prolog Expert Layer
+
+* Status
+Issue: [[https://github.com/lost-rob0t/hackmode/issues/24][#24]]
+
+This subsystem adapts the useful reasoning ideas from the old =hackpert= prototype into the canonical Hackmode runtime.
+
+The old repository is design input, not runtime authority:
+[[https://github.com/lost-rob0t/hackpert][lost-rob0t/hackpert]]
+
+* Core model
+Hackpert is an expert plane over Hackmode, not a second shell or database.
+
+Its important input is not just a target. The expert plane consumes canonical operation state plus typed tool-call observations: what capability was requested, its typed inputs, provider/tool identity, status, outputs, findings, and failure evidence.
+
+Its important output is a graph.
+
+#+begin_example
+canonical Hackmode state + typed tool call/result
+                    |
+                    v
+          deterministic expert snapshot
+                    |
+                    v
+              SWI-Prolog rules
+                    |
+                    v
+             typed graph delta
+       nodes + edges + evidence + advice
+                    |
+                    v
+          Common Lisp acceptance layer
+                    |
+          +---------+----------+
+          |                    |
+          v                    v
+  operation/Tek9 state     provider dispatch
+#+end_example
+
+The expert system itself never mutates the database. Common Lisp owns validation, policy, persistence, promotion, dispatch, and all other effects.
+
+* Authority boundary
+Hackmode Common Lisp remains authoritative for:
+- operation selection and metadata;
+- typed assets and Tek9 persistence;
+- expert graph persistence;
+- knowledge-base lifecycle and promotion;
+- capability/provider registration;
+- provider actor execution and job lifecycle;
+- StarIntel projection and durable outbox synchronization.
+
+Prolog may classify, constrain, rank, correlate, plan, and recommend based on generated snapshots. It may return typed graph deltas and promotion candidates. It does not own a second operation/target database and it does not execute recon or attack tools directly.
+
+No Prolog rule gets a direct Tek9 mutation primitive. No rule may shell out to a capability. Effects always return to the Common Lisp boundary.
+
+* Graph contract
+The durable reasoning product is a graph rather than a bag of mutable Prolog facts.
+
+Initial node families should cover at least:
+- operation;
+- asset/target;
+- tool/capability/provider;
+- tool call;
+- observation/result;
+- finding;
+- attack/recon step;
+- playbook/plan step;
+- KB entry/source;
+- success/failure evidence.
+
+Initial edge families should cover at least:
+- tool-call -> input asset;
+- tool-call -> capability/provider;
+- tool-call -> result;
+- result -> discovered asset/finding;
+- step -> prerequisite;
+- step -> next candidate;
+- observation -> supports/refutes hypothesis;
+- attempt -> succeeded/failed-on target condition;
+- KB entry -> derived-from evidence;
+- plan/playbook -> contains step.
+
+Graph records must preserve provenance. A result derived from a tool call must retain enough identity to trace it back to the exact operation, capability/provider, input, execution/job, raw output reference, and expert/rule version.
+
+The Common Lisp wrapper validates graph deltas before persistence. Invalid, over-broad, or malformed expert output is rejected without corrupting canonical state.
+
+* Knowledge bases
+Hackmode uses multiple KB scopes instead of one mutable global Prolog state file.
+
+** Operational KB
+Operation-local working knowledge.
+
+Use it for:
+- current hypotheses and attack/recon paths;
+- failed paths and negative evidence;
+- per-target observations;
+- temporary word/fuzz candidates;
+- active plan/playbook state;
+- recent tool-call graph context.
+
+This KB may change quickly and is scoped to the current operation.
+
+** Long-term KB
+Reusable knowledge learned from completed or repeated work.
+
+Use it for:
+- validated working attack/recon patterns;
+- useful payload/fuzz/wordlist knowledge;
+- stable technique constraints;
+- reusable plan/playbook fragments;
+- repeated failure conditions worth remembering;
+- provider/tool behavior learned from evidence.
+
+Promotion from operational to long-term is a Common Lisp effect and must retain the source graph/evidence and promotion reason. Prolog may propose a promotion; it cannot perform it.
+
+** Global KB / looting
+Long-term entries may optionally be exported into a global reusable KB. This is the explicit "looting" step.
+
+Global export is never implicit. It requires an explicit Common Lisp API/policy decision so one operation cannot silently poison every future operation.
+
+The global KB is therefore an export/import surface, not hidden process-global Prolog mutation.
+
+* KB ingestion
+Wordlists, fuzz lists, payload corpora, and similar sources may be imported as expert KB material.
+
+Imports must be data, not executable Prolog source. Preserve:
+- source identity/path/reference;
+- content digest/version;
+- import timestamp;
+- source type;
+- tags/technique family;
+- operation/global scope;
+- provenance/license metadata when relevant.
+
+Imported material may become nodes/entries referenced by rules and plans. Caller-controlled strings are serialized as data and never concatenated into callable Prolog goals.
+
+* Learning from execution
+The expert layer should learn from the execution graph without granting it database authority.
+
+Examples:
+- a working attack/recon path can become a long-term-KB promotion candidate;
+- a failed path stays useful as negative evidence so orchestration does not blindly retry it;
+- repeated failures under the same target/software/context can become a reusable constraint candidate;
+- successful tool sequences can become playbook fragments;
+- new payloads/words discovered during an operation can be promoted or looted explicitly.
+
+"Learns" therefore means: expert reasoning proposes graph/KB changes, Common Lisp validates and persists them.
+
+* Expert families
+The intended Hackpert direction includes specialized experts sharing the same graph + KB substrate rather than separate mini-databases:
+- recon expert;
+- web fuzzing expert;
+- SQL injection expert;
+- out-of-band testing expert;
+- XSS expert;
+- blind-XSS expert.
+
+Each expert should consume typed canonical evidence and return graph deltas, ranked next steps, constraints, or plan changes. Actual execution remains behind Hackmode provider actors and explicit operation scope/authorization.
+
+* Attack plans and playbooks
+Plans and playbooks are first-class graph structures.
+
+A playbook describes reusable technique structure: prerequisites, candidate capabilities, expected evidence, failure branches, success branches, and stop conditions. An attack plan is the operation-specific instantiated graph for current targets and evidence.
+
+The orchestration expert may update the proposed plan graph as evidence arrives. It must retain failed branches rather than erase them, because failed attack paths are useful knowledge.
+
+* Snapshot protocol
+The first merged slice projects canonical state as derived facts:
+
+#+begin_src prolog
+operation("example-op").
+asset("document-id", "domain", "example.com|A").
+provider("dns-resolve", "massdns", "domain", 20).
+#+end_src
+
+Query inputs are also facts:
+
+#+begin_src prolog
+query_target("example.com").
+query_asset("document-id").
+#+end_src
+
+The next graph/KB slice should add versioned facts for tool calls/results, graph nodes/edges, operational KB entries, long-term KB entries, and explicit global-export candidates.
+
+Caller-controlled strings are escaped as Prolog string literals. Public Common Lisp APIs execute fixed goals; caller text is never concatenated into a goal.
+
+Snapshots are temporary and disposable. They are projections of canonical state, not canonical state themselves.
+
+* Public API in this first slice
+- =expert-available-p= :: check whether the configured SWI-Prolog executable is usable.
+- =expert-snapshot= :: inspect the deterministic derived fact projection.
+- =expert-classify-target= :: classify a target as URL, domain, IPv4, IPv6, or unknown.
+- =expert-recommend-capabilities= :: rank registered providers compatible with a canonical asset type.
+
+Recommendations return =expert-recommendation= structures and never invoke provider handlers.
+
+The graph/KB mutation API belongs on the Common Lisp side and is intentionally not faked into this first slice before its typed persistence contract exists.
+
+* Failure model
+SWI-Prolog is optional. Normal Hackmode startup and operation use do not require it.
+
+When a caller explicitly requests expert reasoning and Prolog is unavailable, =expert-unavailable= is signaled. A failed Prolog query signals =expert-query-failed=. Neither path mutates operation state.
+
+Malformed expert graph output must fail closed at the persistence boundary: preserve the raw expert result for diagnostics when appropriate, reject the graph delta, and keep the operation runtime healthy.
+
+* Hackpert migration mapping
+| Hackpert | Hackmode |
+|-
+| environment-backed current operation | canonical Common Lisp =current-operation= projection |
+| mutable =target/3= database | canonical typed asset projection |
+| =suggest_tool/*= | provider/capability recommendation |
+| =run_tool/*= | not ported; use Hackmode provider dispatch |
+| tool-call/output history | typed execution graph projected into Prolog |
+| expert REPL | not ported; LISH/Emacs/other clients call Hackmode APIs |
+| mutable expert state file | operational/long-term/global KBs owned by Common Lisp/Tek9 |
+| scope facts | pure reasoning over canonical operation scope once that protocol exists |
+| learned working paths | graph-backed long-term promotion candidates |
+| failed attack paths | retained graph evidence and orchestration constraints |
+| word/fuzz lists | provenance-carrying KB imports |
+
+* Prolog-RLM
+Prolog-RLM integration is a possible later control-plane layer once its runtime/API is stable enough for Hackmode.
+
+It must reuse this graph/KB/effect boundary. Prolog-RLM does not get to bypass Hackmode provider authority or canonical persistence merely because it can recursively reason.
+
+* Next slices
+1. Define and persist the typed execution graph for tool calls/results through Common Lisp and Tek9.
+2. Define operational and long-term KB storage plus explicit global-KB export/looting.
+3. Project graph + scoped KB state into fixed-goal Prolog queries and accept typed graph deltas back.
+4. Add attack-plan/playbook graph primitives with success/failure branches.
+5. Add the recon expert over the shared substrate.
+6. Add specialized web fuzzing, SQLi, OOB, XSS, and blind-XSS experts incrementally with deterministic fixtures and explicit operation scope.
+7. Import wordlists/fuzz lists as provenance-carrying KB data and add explicit promotion workflows for validated useful entries.
+8. Expose expert graph/plan/KB inspection through the typed Hackmode shell and Emacs client.
+9. Evaluate Prolog-RLM integration only after the direct Prolog expert boundary is stable and tested.
