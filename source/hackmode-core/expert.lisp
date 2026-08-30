@@ -7,7 +7,7 @@
   "Closed authority-mode vocabulary for the Hackpert expert engine.")
 
 (defparameter +expert-effect-kinds+
-  '(:reasoning :provider-dispatch :canonical-mutation)
+  '(:reasoning :active-control :provider-dispatch :canonical-mutation)
   "First-slice effect classes admitted by the Hackpert authority gate.")
 
 (define-condition expert-unavailable (error)
@@ -65,8 +65,8 @@ provider-dispatch or canonical-mutation authority."
 
 This is a pure gate. It does not execute providers or mutate state. Unknown
 effect classes fail closed. PASSIVE may reason only; ACTIVE may additionally
-request provider dispatch and canonical mutation through later typed action
-validation and Hackmode's canonical effect boundaries."
+request active-run control, provider dispatch, and canonical mutation through
+typed action validation and Hackmode's canonical effect boundaries."
   (check-type engine expert-engine)
   (and (member effect +expert-effect-kinds+)
        (or (eq effect :reasoning)

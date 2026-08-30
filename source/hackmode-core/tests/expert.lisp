@@ -20,6 +20,15 @@
                   "denied expert effect")
     condition))
 
+(defun assert-invalid-expert-action (thunk)
+  (let ((condition nil))
+    (handler-case
+        (funcall thunk)
+      (hackmode:invalid-expert-action (raised)
+        (setf condition raised)))
+    (assert condition () "Expected HACKMODE:INVALID-EXPERT-ACTION.")
+    condition))
+
 (defun run-expert-engine-mode-test ()
   (let ((passive (hackmode:make-expert-engine))
         (active (hackmode:make-expert-engine :mode :active)))
@@ -32,10 +41,14 @@
                   passive :provider-dispatch)))
     (assert (not (hackmode:expert-engine-effect-authorized-p
                   passive :canonical-mutation)))
+    (assert (not (hackmode:expert-engine-effect-authorized-p
+                  passive :active-control)))
     (assert (hackmode:expert-engine-effect-authorized-p
              active :provider-dispatch))
     (assert (hackmode:expert-engine-effect-authorized-p
              active :canonical-mutation))
+    (assert (hackmode:expert-engine-effect-authorized-p
+             active :active-control))
     (assert-expert-effect-denied
      (lambda ()
        (hackmode:require-expert-engine-effect passive :provider-dispatch))
@@ -57,6 +70,105 @@
           (hackmode:make-expert-engine :mode :llm)
         (error () (setf raised t)))
       (assert raised () "Unsupported authority modes must fail closed."))))
+
+(defun run-expert-active-action-test ()
+  (let* ((passive (hackmode:make-expert-engine))
+         (active (hackmode:make-expert-engine :mode :active))
+         (payload
+           (hackmode:make-expert-dispatch-payload
+            :capability "dns-resolve"
+            :provider "fixture"
+            :input "example.com"))
+         (action
+           (hackmode:make-expert-active-action
+            :id "action-1"
+            :kind :dispatch
+            :operation "op-a"
+            :run-id "run-1"
+            :expert-id "recon"
+            :expert-version "1"
+            :evidence-ids '("call-1")
+            :payload payload)))
+    (assert-equal :provider-dispatch
+                  (hackmode:expert-active-action-effect-kind action)
+                  "dispatch actions map to provider authority")
+    (assert-equal action
+                  (hackmode:validate-expert-active-action
+                   active action
+                   :operation "op-a"
+                   :run-id "run-1")
+                  "active action validates in its operation/run")
+    (assert-expert-effect-denied
+     (lambda ()
+       (hackmode:validate-expert-active-action
+        passive action
+        :operation "op-a"
+        :run-id "run-1"))
+     :provider-dispatch)
+    (assert-invalid-expert-action
+     (lambda ()
+       (hackmode:validate-expert-active-action
+        active action
+        :operation "op-b"
+        :run-id "run-1")))
+    (assert-invalid-expert-action
+     (lambda ()
+       (hackmode:make-expert-active-action
+        :id "action-2"
+        :kind :graph-delta
+        :operation "op-a"
+        :run-id "run-1"
+        :expert-id "recon"
+        :expert-version "1"
+        :payload payload)))
+    (dolist (kind '(:graph-delta :discover :operational-kb-delta :plan-transition))
+      (assert-equal :canonical-mutation
+                    (hackmode:expert-active-action-effect-kind
+                     (hackmode:make-expert-active-action
+                      :id (format nil "action-~a" kind)
+                      :kind kind
+                      :operation "op-a"
+                      :run-id "run-1"
+                      :expert-id "recon"
+                      :expert-version "1"
+                      :payload
+                      (ecase kind
+                        (:graph-delta
+                         (hackmode:make-expert-graph-delta-payload
+                          :nodes '("node-1")))
+                        (:discover
+                         (hackmode:make-expert-discover-payload :asset "asset-1"))
+                        (:operational-kb-delta
+                         (hackmode:make-expert-kb-delta-payload
+                          :assertions '((hypothesis "h1"))))
+                        (:plan-transition
+                         (hackmode:make-expert-plan-transition-payload
+                          :plan-id "plan-1"
+                          :step-id "step-1"
+                          :transition :advance)))))
+                    "state-changing active actions map to canonical mutation"))
+    (let ((control
+            (hackmode:make-expert-active-action
+             :id "action-control"
+             :kind :control
+             :operation "op-a"
+             :run-id "run-1"
+             :expert-id "recon"
+             :expert-version "1"
+             :payload
+             (hackmode:make-expert-control-payload
+              :directive :yield
+              :reason "need evidence"))))
+      (assert-equal :active-control
+                    (hackmode:expert-active-action-effect-kind control)
+                    "control actions require active-run authority")
+      (assert-expert-effect-denied
+       (lambda ()
+         (hackmode:validate-expert-active-action
+          passive control
+          :operation "op-a"
+          :run-id "run-1"))
+       :active-control))))
 
 (defun run-expert-snapshot-test ()
   (let* ((operation (make-instance 'hackmode:operation
@@ -181,6 +293,7 @@
 
 (defun run-expert-tests ()
   (run-expert-engine-mode-test)
+  (run-expert-active-action-test)
   (run-expert-snapshot-test)
   (run-expert-unavailable-test)
   (run-live-expert-test)
