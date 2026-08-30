@@ -79,4 +79,50 @@
       (assert-equal :budget-exhausted
                     (first (hackmode:expert-plan-inspection-stop-conditions status))
                     "plan inspection returns defensive stop-condition copies")))
+  (let* ((action
+           (hackmode:make-expert-active-action
+            :id "dispatch-1"
+            :kind :dispatch
+            :operation "op-1"
+            :run-id "run-1"
+            :expert-id "recon"
+            :expert-version "3"
+            :evidence-ids '("evidence-2" "evidence-1")
+            :payload
+            (hackmode:make-expert-dispatch-payload
+             :capability "http-probe"
+             :provider "curl"
+             :input "https://secret.example/token=do-not-expose")))
+         (status (hackmode:expert-action-inspection action)))
+    (assert-equal "dispatch-1" (hackmode:expert-action-inspection-id status)
+                  "action inspection retains action identity")
+    (assert-equal :dispatch (hackmode:expert-action-inspection-kind status)
+                  "action inspection exposes typed action kind")
+    (assert-equal :provider-dispatch
+                  (hackmode:expert-action-inspection-effect-kind status)
+                  "action inspection exposes required effect class")
+    (assert-equal "op-1" (hackmode:expert-action-inspection-operation status)
+                  "action inspection retains operation scope")
+    (assert-equal "run-1" (hackmode:expert-action-inspection-run-id status)
+                  "action inspection retains run scope")
+    (assert-equal "recon" (hackmode:expert-action-inspection-expert-id status)
+                  "action inspection retains expert provenance")
+    (assert-equal "3" (hackmode:expert-action-inspection-expert-version status)
+                  "action inspection retains expert version")
+    (assert-equal '("evidence-1" "evidence-2")
+                  (hackmode:expert-action-inspection-evidence-ids status)
+                  "action inspection normalizes evidence identity")
+    (assert-equal '(:capability "http-probe" :provider "curl")
+                  (hackmode:expert-action-inspection-summary status)
+                  "dispatch inspection exposes bounded metadata only")
+    (assert-equal nil
+                  (search "do-not-expose"
+                          (prin1-to-string
+                           (hackmode:expert-action-inspection-summary status)))
+                  "dispatch inspection never exposes provider input")
+    (let ((evidence (hackmode:expert-action-inspection-evidence-ids status)))
+      (setf (car evidence) "tampered")
+      (assert-equal "evidence-1"
+                    (first (hackmode:expert-action-inspection-evidence-ids status))
+                    "action inspection returns defensive evidence copies")))
   t)
