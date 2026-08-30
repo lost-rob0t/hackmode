@@ -77,10 +77,12 @@
    #:long-term-kb-graph-name
    #:long-term-kb-root-id
    #:long-term-kb-promotion->tek9-node
+   #:tek9-node->long-term-kb-promotion
    #:long-term-kb-membership-edge
    #:long-term-kb-source-edge
    #:persist-long-term-kb-promotion
    #:fetch-long-term-kb-promotion
+   #:fetch-long-term-kb-promotions
    #:global-kb-validation-error
    #:global-kb-export
    #:global-kb-export-record-id
@@ -102,9 +104,11 @@
    #:global-kb-graph-name
    #:global-kb-root-id
    #:global-kb-export->tek9-node
+   #:tek9-node->global-kb-export
    #:global-kb-membership-edge
    #:global-kb-source-edge
    #:persist-global-kb-export
    #:fetch-global-kb-export
+   #:fetch-global-kb-exports
    #:put-doc
    #:put-docs))
