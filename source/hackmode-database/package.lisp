@@ -58,6 +58,7 @@
    #:persist-operational-kb-entry
    #:fetch-operational-kb-entry
    #:fetch-operational-kb-entries
+   #:make-execution-outcome-kb-candidate
    #:+operational-kb-seed-import-limit+
    #:+operational-kb-seed-kinds+
    #:make-operational-kb-seed-assertions
