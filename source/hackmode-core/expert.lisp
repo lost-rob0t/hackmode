@@ -96,6 +96,19 @@ isolated from startup and canonical state initialization."
       (doc-id asset)
       ""))
 
+(defun expert-provider< (left right)
+  (let ((left-priority (capability-provider-priority left))
+        (right-priority (capability-provider-priority right)))
+    (or (< left-priority right-priority)
+        (and (= left-priority right-priority)
+             (string<
+              (format nil "~a/~a"
+                      (capability-provider-capability left)
+                      (capability-provider-name left))
+              (format nil "~a/~a"
+                      (capability-provider-capability right)
+                      (capability-provider-name right)))))))
+
 (defun expert-snapshot (&key
                           (operation (current-operation))
                           (assets (expert-current-assets))
@@ -120,19 +133,7 @@ goal."
                          (asset-kind asset)
                          (expert-asset-value asset)))
     (dolist (provider
-             (sort (copy-list providers)
-                   (lambda (left right)
-                     (let ((lp (capability-provider-priority left))
-                           (rp (capability-provider-priority right)))
-                       (or (< lp rp)
-                           (and (= lp rp)
-                                (string<
-                                 (format nil "~a/~a"
-                                         (capability-provider-capability left)
-                                         (capability-provider-name left))
-                                 (format nil "~a/~a"
-                                         (capability-provider-capability right)
-                                         (capability-provider-name right))))))))))
+             (sort (copy-list providers) #'expert-provider<))
       (write-expert-fact stream
                          "provider"
                          (capability-provider-capability provider)
