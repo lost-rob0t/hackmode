@@ -36,6 +36,52 @@
            :field :provenance :value value :reason "provenance is required"))
   value)
 
+(defun %require-http-port (value)
+  (unless (and (integerp value) (<= 1 value 65535))
+    (error 'execution-graph-validation-error
+           :field :port :value value :reason "expected TCP port in range 1..65535"))
+  value)
+
+(defun %require-http-status (value)
+  (unless (and (integerp value) (<= 100 value 599))
+    (error 'execution-graph-validation-error
+           :field :response-status :value value
+           :reason "expected HTTP response status in range 100..599"))
+  value)
+
+(defun %require-duration-ms (value)
+  (unless (and (integerp value) (not (minusp value)))
+    (error 'execution-graph-validation-error
+           :field :duration-ms :value value
+           :reason "expected non-negative integer milliseconds"))
+  value)
+
+(defun %require-optional-string (field value)
+  (when value
+    (%require-string field value))
+  value)
+
+(defun %validate-http-exchange-payload (payload)
+  (unless (listp payload)
+    (error 'execution-graph-validation-error
+           :field :payload :value payload :reason "expected HTTP exchange property list"))
+  (%require-string :method (getf payload :method))
+  (let ((scheme (getf payload :scheme)))
+    (%require-string :scheme scheme)
+    (unless (member scheme '("http" "https") :test #'string-equal)
+      (error 'execution-graph-validation-error
+             :field :scheme :value scheme :reason "expected http or https scheme")))
+  (%require-string :host (getf payload :host))
+  (%require-http-port (getf payload :port))
+  (%require-string :path (getf payload :path))
+  (%require-http-status (getf payload :response-status))
+  (%require-optional-string :request-body-digest (getf payload :request-body-digest))
+  (%require-optional-string :response-body-digest (getf payload :response-body-digest))
+  (%require-string :raw-evidence-ref (getf payload :raw-evidence-ref))
+  (%require-string :observed-at (getf payload :observed-at))
+  (%require-duration-ms (getf payload :duration-ms))
+  payload)
+
 (defun %key-part (value)
   (let ((string (princ-to-string value)))
     (format nil "~D:~A" (length string) string)))
@@ -81,6 +127,37 @@
    :payload output
    :provenance provenance))
 
+(defun make-http-exchange-record
+    (&key operation-id capture-session-id exchange-id method scheme host port path
+          response-status request-body-digest response-body-digest raw-evidence-ref
+          observed-at duration-ms provenance)
+  "Construct one immutable HTTP exchange evidence record for the operation graph."
+  (%require-string :operation-id operation-id)
+  (%require-string :capture-session-id capture-session-id)
+  (%require-string :exchange-id exchange-id)
+  (%require-provenance provenance)
+  (let ((payload (list :method method
+                       :scheme scheme
+                       :host host
+                       :port port
+                       :path path
+                       :response-status response-status
+                       :request-body-digest request-body-digest
+                       :response-body-digest response-body-digest
+                       :raw-evidence-ref raw-evidence-ref
+                       :observed-at observed-at
+                       :duration-ms duration-ms)))
+    (%validate-http-exchange-payload payload)
+    (%make-execution-record
+     :kind :http-exchange
+     :operation-id operation-id
+     :run-id capture-session-id
+     :call-id exchange-id
+     :record-id (%record-id "http-exchange"
+                            operation-id capture-session-id exchange-id)
+     :payload payload
+     :provenance provenance)))
+
 (defun validate-tool-result-link (call result)
   (unless (eq :tool-call (execution-record-kind call))
     (error 'execution-graph-validation-error
@@ -121,8 +198,9 @@
          (call-id (getf props :call-id))
          (capability-id (getf props :capability-id))
          (status (getf props :status))
+         (payload (getf props :payload))
          (provenance (getf props :provenance)))
-    (unless (member kind '(:tool-call :tool-result) :test #'eq)
+    (unless (member kind '(:tool-call :tool-result :http-exchange) :test #'eq)
       (error 'execution-graph-validation-error
              :field :kind :value kind :reason "unsupported stored execution record kind"))
     (%require-string :operation-id operation-id)
@@ -136,6 +214,8 @@
                (not (member status '(:succeeded :failed :cancelled :timed-out) :test #'eq)))
       (error 'execution-graph-validation-error
              :field :status :value status :reason "unsupported stored tool result status"))
+    (when (eq kind :http-exchange)
+      (%validate-http-exchange-payload payload))
     (%make-execution-record
      :kind kind
      :operation-id operation-id
@@ -144,7 +224,7 @@
      :record-id (tek9:node-id node)
      :capability-id capability-id
      :status status
-     :payload (getf props :payload)
+     :payload payload
      :provenance provenance)))
 
 (defun tool-result-link-edge (call result)
