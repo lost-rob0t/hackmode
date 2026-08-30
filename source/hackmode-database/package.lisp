@@ -22,5 +22,27 @@
    #:tool-result-link-edge
    #:persist-execution-record
    #:persist-tool-execution
+   #:operational-kb-validation-error
+   #:operational-kb-entry
+   #:operational-kb-entry-kind
+   #:operational-kb-entry-operation-id
+   #:operational-kb-entry-run-id
+   #:operational-kb-entry-expert-id
+   #:operational-kb-entry-expert-version
+   #:operational-kb-entry-record-id
+   #:operational-kb-entry-key
+   #:operational-kb-entry-value
+   #:operational-kb-entry-target-assertion-id
+   #:operational-kb-entry-evidence-ids
+   #:operational-kb-entry-provenance
+   #:make-operational-kb-assertion
+   #:make-operational-kb-retraction
+   #:operational-kb-graph-name
+   #:operational-kb-root-id
+   #:operational-kb-entry->tek9-node
+   #:operational-kb-membership-edge
+   #:operational-kb-retraction-edge
+   #:persist-operational-kb-entry
+   #:fetch-operational-kb-entry
    #:put-doc
    #:put-docs))
