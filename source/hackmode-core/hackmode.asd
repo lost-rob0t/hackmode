@@ -31,7 +31,8 @@
                (:file "providers")
                (:file "provider-actor")
                (:file "expert")
-               (:module "expert"
+               (:module "expert-actions"
+                :pathname "expert/"
                 :serial t
                 :components ((:file "actions")))
                (:file "functions")
