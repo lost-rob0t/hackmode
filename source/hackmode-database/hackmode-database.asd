@@ -1,12 +1,11 @@
 (asdf:defsystem :hackmode-database
-  :description "Database for hackmode"
+  :description "Hackmode-owned Tek9 execution graph and KB persistence boundary"
   :author "nsaspy"
   :license "MIT"
   :version "0.1.0"
   :serial t
-
-  :depends-on (#:tek9 #:cl-conspack)
+  :in-order-to ((test-op (test-op "hackmode-database-tests")))
+  :depends-on (#:tek9)
   :components ((:file "package")
-               (:file "objects")
-               (:file "encoding")
+               (:file "execution-graph")
                (:file "db")))

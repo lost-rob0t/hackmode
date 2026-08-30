@@ -100,11 +100,15 @@ jobs:
             --eval '(asdf:load-asd (truename "deps/sento-ci/sento.asd"))' \
             --eval '(asdf:load-asd (truename "source/hackmode-core/hackmode.asd"))' \
             --eval '(asdf:load-asd (truename "source/hackmode-core/hackmode-tests.asd"))' \
+            --eval '(asdf:load-asd (truename "source/hackmode-database/hackmode-database.asd"))' \
+            --eval '(asdf:load-asd (truename "source/hackmode-database/hackmode-database-tests.asd"))' \
             --eval '(asdf:load-asd (truename "source/hackmode-providers/dns/hackmode-provider-dns.asd"))' \
             --eval '(asdf:load-asd (truename "source/hackmode-providers/dns/hackmode-provider-dns-tests.asd"))' \
             --eval '(ql:quickload :hackmode-tests)' \
+            --eval '(ql:quickload :hackmode-database-tests)' \
             --eval '(ql:quickload :hackmode-provider-dns-tests)' \
             --eval '(asdf:test-system :hackmode)' \
+            --eval '(asdf:test-system :hackmode-database)' \
             --eval '(asdf:test-system :hackmode-provider-dns)' \
             2>&1 | tee "$RUNNER_TEMP/hackmode-core.log"
 
