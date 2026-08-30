@@ -118,6 +118,57 @@ export. Multiple operations may independently promote corroborating knowledge."
                        :provenance
                        (long-term-kb-promotion-provenance promotion))))
 
+(defun tek9-node->long-term-kb-promotion (node)
+  "Reconstruct and validate one typed long-term promotion from NODE."
+  (let ((props (tek9:node-props node)))
+    (unless (eq :long-term-kb-promotion (getf props :kind))
+      (error 'long-term-kb-validation-error
+             :field :kind :value (getf props :kind)
+             :reason "expected long-term KB promotion node"))
+    (let ((record-id (%long-term-require-string :record-id (tek9:node-id node)))
+          (source-operation-id
+            (%long-term-require-string
+             :source-operation-id (getf props :source-operation-id)))
+          (source-assertion-id
+            (%long-term-require-string
+             :source-assertion-id (getf props :source-assertion-id)))
+          (source-run-id
+            (%long-term-require-string :source-run-id (getf props :source-run-id)))
+          (source-expert-id
+            (%long-term-require-string
+             :source-expert-id (getf props :source-expert-id)))
+          (source-expert-version
+            (%long-term-require-string
+             :source-expert-version (getf props :source-expert-version)))
+          (source-evidence-ids
+            (%long-term-require-evidence
+             :source-evidence-ids (getf props :source-evidence-ids)))
+          (promoted-by
+            (%long-term-require-string :promoted-by (getf props :promoted-by)))
+          (promoter-version
+            (%long-term-require-string
+             :promoter-version (getf props :promoter-version)))
+          (evidence-ids
+            (%long-term-require-evidence :evidence-ids (getf props :evidence-ids)))
+          (provenance (getf props :provenance)))
+      (unless provenance
+        (error 'long-term-kb-validation-error
+               :field :provenance :value provenance :reason "provenance is required"))
+      (%make-long-term-kb-promotion
+       :record-id record-id
+       :source-operation-id source-operation-id
+       :source-assertion-id source-assertion-id
+       :source-run-id source-run-id
+       :source-expert-id source-expert-id
+       :source-expert-version source-expert-version
+       :source-evidence-ids (copy-list source-evidence-ids)
+       :key (getf props :key)
+       :value (getf props :value)
+       :promoted-by promoted-by
+       :promoter-version promoter-version
+       :evidence-ids (copy-list evidence-ids)
+       :provenance provenance))))
+
 (defun long-term-kb-root-node ()
   (make-instance 'tek9:node
                  :id (long-term-kb-root-id)
