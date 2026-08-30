@@ -8,4 +8,5 @@
   :depends-on (#:tek9)
   :components ((:file "package")
                (:file "execution-graph")
+               (:file "operational-kb")
                (:file "db")))
