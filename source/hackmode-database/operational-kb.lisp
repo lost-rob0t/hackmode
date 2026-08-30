@@ -125,6 +125,45 @@
                               :provenance
                               (operational-kb-entry-provenance entry))))
 
+(defun tek9-node->operational-kb-entry (node)
+  "Reconstruct one typed operational-KB entry from a canonical Tek9 node."
+  (let* ((props (tek9:node-props node))
+         (kind (getf props :kind))
+         (operation-id (getf props :operation-id))
+         (run-id (getf props :run-id))
+         (expert-id (getf props :expert-id))
+         (expert-version (getf props :expert-version))
+         (target-assertion-id (getf props :target-assertion-id))
+         (evidence-ids (getf props :evidence-ids))
+         (provenance (getf props :provenance)))
+    (unless (member kind '(:assert :retract) :test #'eq)
+      (error 'operational-kb-validation-error
+             :field :kind :value kind :reason "unsupported stored operational KB kind"))
+    (%kb-require-string :operation-id operation-id)
+    (%kb-require-string :run-id run-id)
+    (%kb-require-string :expert-id expert-id)
+    (%kb-require-string :expert-version expert-version)
+    (%kb-require-string :record-id (tek9:node-id node))
+    (%kb-require-evidence evidence-ids)
+    (%kb-require-provenance provenance)
+    (when (and (eq kind :assert) (null (getf props :key)))
+      (error 'operational-kb-validation-error
+             :field :key :value nil :reason "stored assertion key is required"))
+    (when (eq kind :retract)
+      (%kb-require-string :target-assertion-id target-assertion-id))
+    (%make-operational-kb-entry
+     :kind kind
+     :operation-id operation-id
+     :run-id run-id
+     :expert-id expert-id
+     :expert-version expert-version
+     :record-id (tek9:node-id node)
+     :key (getf props :key)
+     :value (getf props :value)
+     :target-assertion-id target-assertion-id
+     :evidence-ids (copy-list evidence-ids)
+     :provenance provenance)))
+
 (defun operational-kb-root-node (operation-id)
   (make-instance 'tek9:node
                  :id (operational-kb-root-id operation-id)
