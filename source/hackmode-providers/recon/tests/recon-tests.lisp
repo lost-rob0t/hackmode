@@ -53,6 +53,12 @@
                   "HTTP remote IP")
     (assert (= 1 (getf result :redirects)))))
 
+(defun run-http-write-out-format-test ()
+  (let ((value (hackmode-provider-recon::http-probe-write-out-format)))
+    (assert (= 4 (count #\Tab value)))
+    (assert (search "%{http_code}" value))
+    (assert (search "%{url_effective}" value))))
+
 (defun run-provider-test ()
   (let* ((root (fresh-test-path))
          (db (tek9:new-database "operation" :path root))
@@ -141,6 +147,7 @@
   (run-subfinder-parser-test)
   (run-crtsh-parser-test)
   (run-http-parser-test)
+  (run-http-write-out-format-test)
   (run-provider-test)
   (format t "Hackmode recon provider tests passed.~%")
   t)
