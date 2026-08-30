@@ -36,4 +36,4 @@
                   (> call-pos result-pos))
               ()
               "Execution facts must sort by stable record ID."))
-    t)
+    t))
