@@ -91,6 +91,75 @@
           (assert-equal :symbolic
                         (hackmode:expert-loop-state-strategy stopped-state)
                         "stopping does not mutate reasoning strategy"))))
+    (let* ((goal
+             (hackmode:make-expert-objective-clause
+              :kind :goal :predicate "root" :arguments '(:uid 0)))
+           (objective
+             (hackmode:make-expert-objective
+              :id "objective-1"
+              :version "1"
+              :clauses (list goal)
+              :limits (list (hackmode:make-expert-objective-limit
+                             :name "provider-actions" :maximum 1))
+              :granted-capabilities '("http-probe")))
+           (fresh-budget
+             (hackmode:make-expert-budget-state
+              objective :operation "op-a" :run-id "run-1"))
+           (exhausted-budget
+             (hackmode:expert-budget-consume
+              fresh-budget "provider-actions" :amount 1)))
+      (multiple-value-bind (decision next-state)
+          (hackmode:expert-loop-next-budgeted-decision
+           state plan policy fresh-budget
+           :progress-p t :failure-p nil)
+        (assert-equal :continue
+                      (hackmode:expert-loop-decision-kind decision)
+                      "available budget allows normal loop progress")
+        (assert-equal :progress
+                      (hackmode:expert-loop-state-last-reason next-state)
+                      "budgeted decision preserves ordinary progress"))
+      (multiple-value-bind (decision stopped-state)
+          (hackmode:expert-loop-next-budgeted-decision
+           state plan policy exhausted-budget
+           :progress-p t :failure-p nil)
+        (assert-equal :stop
+                      (hackmode:expert-loop-decision-kind decision)
+                      "exhausted objective budget stops declared plan")
+        (assert-equal :budget-exhausted
+                      (hackmode:expert-loop-decision-reason decision)
+                      "budget stop reason is derived from typed budget state")
+        (assert-equal :budget-exhausted
+                      (hackmode:expert-loop-state-last-reason stopped-state)
+                      "budget stop reason is retained in loop state"))
+      (let ((wrong-scope
+              (hackmode:make-expert-budget-state
+               objective :operation "other-op" :run-id "run-1")))
+        (handler-case
+            (progn
+              (hackmode:expert-loop-next-budgeted-decision
+               state plan policy wrong-scope :progress-p t)
+              (error "cross-operation budget state unexpectedly admitted"))
+          (hackmode:invalid-expert-loop () t)))
+      (let* ((other-goal
+               (hackmode:make-expert-objective-clause
+                :kind :goal :predicate "foothold" :arguments '(:required t)))
+             (other-objective
+               (hackmode:make-expert-objective
+                :id "other-objective"
+                :version "1"
+                :clauses (list other-goal)
+                :limits (list (hackmode:make-expert-objective-limit
+                               :name "provider-actions" :maximum 1))
+                :granted-capabilities '("http-probe")))
+             (wrong-objective
+               (hackmode:make-expert-budget-state
+                other-objective :operation "op-a" :run-id "run-1")))
+        (handler-case
+            (progn
+              (hackmode:expert-loop-next-budgeted-decision
+               state plan policy wrong-objective :progress-p t)
+              (error "cross-objective budget state unexpectedly admitted"))
+          (hackmode:invalid-expert-loop () t))))
     (let ((active (hackmode:make-expert-engine :mode :active))
           (passive (hackmode:make-expert-engine :mode :passive)))
       (assert-equal :active
