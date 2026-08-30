@@ -17,6 +17,11 @@
   (ignore-errors
     (uiop:delete-directory-tree path :validate t :if-does-not-exist :ignore)))
 
+(defun run-load-registration-test ()
+  (assert (hackmode:find-capability-provider :subdomain-enumerate :subfinder))
+  (assert (hackmode:find-capability-provider :subdomain-enumerate :crtsh))
+  (assert (hackmode:find-capability-provider :http-probe :curl)))
+
 (defun run-subfinder-parser-test ()
   (let ((assets
           (hackmode-provider-recon:parse-subfinder-output
@@ -144,6 +149,7 @@
       (remove-test-path root))))
 
 (defun run-tests ()
+  (run-load-registration-test)
   (run-subfinder-parser-test)
   (run-crtsh-parser-test)
   (run-http-parser-test)
