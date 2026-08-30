@@ -41,10 +41,14 @@
                   passive :provider-dispatch)))
     (assert (not (hackmode:expert-engine-effect-authorized-p
                   passive :canonical-mutation)))
+    (assert (not (hackmode:expert-engine-effect-authorized-p
+                  passive :active-control)))
     (assert (hackmode:expert-engine-effect-authorized-p
              active :provider-dispatch))
     (assert (hackmode:expert-engine-effect-authorized-p
              active :canonical-mutation))
+    (assert (hackmode:expert-engine-effect-authorized-p
+             active :active-control))
     (assert-expert-effect-denied
      (lambda ()
        (hackmode:require-expert-engine-effect passive :provider-dispatch))
@@ -130,7 +134,8 @@
                       :payload
                       (ecase kind
                         (:graph-delta
-                         (hackmode:make-expert-graph-delta-payload))
+                         (hackmode:make-expert-graph-delta-payload
+                          :nodes '("node-1")))
                         (:discover
                          (hackmode:make-expert-discover-payload :asset "asset-1"))
                         (:operational-kb-delta
@@ -154,16 +159,16 @@
              (hackmode:make-expert-control-payload
               :directive :yield
               :reason "need evidence"))))
-      (assert-equal :reasoning
+      (assert-equal :active-control
                     (hackmode:expert-active-action-effect-kind control)
-                    "control actions do not claim mutation authority")
+                    "control actions require active-run authority")
       (assert-expert-effect-denied
        (lambda ()
          (hackmode:validate-expert-active-action
           passive control
           :operation "op-a"
           :run-id "run-1"))
-       :canonical-mutation))))
+       :active-control))))
 
 (defun run-expert-snapshot-test ()
   (let* ((operation (make-instance 'hackmode:operation
