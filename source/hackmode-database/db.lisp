@@ -45,7 +45,8 @@
   (when run-id
     (%require-string :run-id run-id))
   (when (and kind
-             (not (member kind '(:tool-call :tool-result :http-exchange) :test #'eq)))
+             (not (member kind '(:tool-call :tool-result :http-exchange :capture-checkpoint)
+                          :test #'eq)))
     (error 'execution-graph-validation-error
            :field :kind :value kind :reason "unsupported execution record filter"))
   (let ((records
@@ -63,6 +64,26 @@
                               (eq kind (execution-record-kind record))))
                   collect record)))
     (sort records #'string< :key #'execution-record-record-id)))
+
+(defun fetch-latest-capture-checkpoint
+    (database operation-id capture-session-id source-id)
+  "Return the greatest durable checkpoint for one capture source, or NIL."
+  (%require-string :operation-id operation-id)
+  (%require-string :capture-session-id capture-session-id)
+  (%require-string :source-id source-id)
+  (let ((latest nil)
+        (latest-offset nil))
+    (dolist (record
+             (fetch-operation-execution-records
+              database operation-id
+              :run-id capture-session-id
+              :kind :capture-checkpoint))
+      (when (string= source-id (execution-record-call-id record))
+        (let ((offset (getf (execution-record-payload record) :offset)))
+          (when (or (null latest-offset) (> offset latest-offset))
+            (setf latest record
+                  latest-offset offset)))))
+    latest))
 
 (defun persist-operational-kb-entry (database entry)
   "Persist one replay-safe operational KB assertion or retraction through Tek9."
