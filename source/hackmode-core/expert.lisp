@@ -3,6 +3,13 @@
 (defparameter *expert-program* "swipl"
   "SWI-Prolog executable used by the optional Hackmode expert layer.")
 
+(defparameter +expert-engine-modes+ '(:passive :active)
+  "Closed authority-mode vocabulary for the Hackpert expert engine.")
+
+(defparameter +expert-effect-kinds+
+  '(:reasoning :provider-dispatch :canonical-mutation)
+  "First-slice effect classes admitted by the Hackpert authority gate.")
+
 (define-condition expert-unavailable (error)
   ((program :initarg :program :reader expert-unavailable-program))
   (:report (lambda (condition stream)
@@ -19,6 +26,60 @@
                        (and stderr
                             (plusp (length stderr))
                             stderr))))))
+
+(define-condition invalid-expert-engine-mode (error)
+  ((mode :initarg :mode :reader invalid-expert-engine-mode-value))
+  (:report (lambda (condition stream)
+             (format stream "Unsupported Hackpert engine mode ~s; expected one of ~s."
+                     (invalid-expert-engine-mode-value condition)
+                     +expert-engine-modes+))))
+
+(define-condition expert-effect-denied (error)
+  ((engine :initarg :engine :reader expert-effect-denied-engine)
+   (effect :initarg :effect :reader expert-effect-denied-effect))
+  (:report (lambda (condition stream)
+             (format stream "Hackpert ~s mode denies effect ~s."
+                     (expert-engine-mode (expert-effect-denied-engine condition))
+                     (expert-effect-denied-effect condition)))))
+
+(defstruct (expert-engine
+             (:constructor %make-expert-engine (mode)))
+  "Hackpert reasoning engine with explicit execution authority.
+
+MODE controls effect authority only. Reasoning strategy (direct, symbolic,
+expert rules, or later RLM escalation) is an orthogonal concern and must not
+silently widen this authority."
+  (mode :passive :type keyword))
+
+(defun make-expert-engine (&key (mode :passive))
+  "Create a Hackpert engine in explicit PASSIVE or ACTIVE authority mode.
+
+PASSIVE is the default so constructing an engine never accidentally grants
+provider-dispatch or canonical-mutation authority."
+  (unless (member mode +expert-engine-modes+)
+    (error 'invalid-expert-engine-mode :mode mode))
+  (%make-expert-engine mode))
+
+(defun expert-engine-effect-authorized-p (engine effect)
+  "Return true when ENGINE may request EFFECT under its authority mode.
+
+This is a pure gate. It does not execute providers or mutate state. Unknown
+effect classes fail closed. PASSIVE may reason only; ACTIVE may additionally
+request provider dispatch and canonical mutation through later typed action
+validation and Hackmode's canonical effect boundaries."
+  (check-type engine expert-engine)
+  (and (member effect +expert-effect-kinds+)
+       (or (eq effect :reasoning)
+           (eq (expert-engine-mode engine) :active))))
+
+(defun require-expert-engine-effect (engine effect)
+  "Return EFFECT when authorized, otherwise signal EXPERT-EFFECT-DENIED.
+
+Call this at effect admission boundaries before any provider dispatch or
+canonical mutation. It is deliberately not an executor itself."
+  (unless (expert-engine-effect-authorized-p engine effect)
+    (error 'expert-effect-denied :engine engine :effect effect))
+  effect)
 
 (defstruct expert-recommendation
   capability
@@ -233,3 +294,16 @@ advisory only; this function never executes a provider or writes operation state
           for trimmed = (string-trim '(#\Space #\Tab #\Return) line)
           unless (zerop (length trimmed))
             collect (parse-expert-recommendation trimmed))))
+
+(export '(+expert-engine-modes+
+          +expert-effect-kinds+
+          expert-engine
+          make-expert-engine
+          expert-engine-mode
+          invalid-expert-engine-mode
+          invalid-expert-engine-mode-value
+          expert-effect-denied
+          expert-effect-denied-engine
+          expert-effect-denied-effect
+          expert-engine-effect-authorized-p
+          require-expert-engine-effect))
