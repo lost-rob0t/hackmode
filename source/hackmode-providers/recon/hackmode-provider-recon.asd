@@ -8,4 +8,5 @@
   :depends-on (#:hackmode #:jsown #:dexador)
   :components ((:file "package")
                (:file "recon")
-               (:file "http-runner")))
+               (:file "http-runner")
+               (:file "registration")))
