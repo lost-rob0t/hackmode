@@ -44,7 +44,8 @@
   (%require-string :operation-id operation-id)
   (when run-id
     (%require-string :run-id run-id))
-  (when (and kind (not (member kind '(:tool-call :tool-result) :test #'eq)))
+  (when (and kind
+             (not (member kind '(:tool-call :tool-result :http-exchange) :test #'eq)))
     (error 'execution-graph-validation-error
            :field :kind :value kind :reason "unsupported execution record filter"))
   (let ((records
