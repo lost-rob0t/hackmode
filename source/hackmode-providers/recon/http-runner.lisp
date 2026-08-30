@@ -30,6 +30,3 @@
              exit-code
              (trim-text stderr)))
     (or stdout "")))
-
-(eval-when (:load-toplevel :execute)
-  (register-http-probe-provider :runner #'run-http-probe))
