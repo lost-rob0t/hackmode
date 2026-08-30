@@ -9,6 +9,7 @@
   :components ((:file "package")
                (:file "execution-graph")
                (:file "operational-kb")
+               (:file "execution-outcome-kb")
                (:file "kb-seed-import")
                (:file "long-term-kb")
                (:file "global-kb")
