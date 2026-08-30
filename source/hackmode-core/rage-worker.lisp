@@ -138,3 +138,30 @@ must call before execution."
   (check-type worker rage-worker)
   (let ((decision (authorize-rage-work-item work-item)))
     (values (rage-scope-decision-allowed-p decision) decision)))
+
+(export '(+rage-worker-modes+
+          +rage-cyber-task-kinds+
+          rage-work-item
+          make-rage-work-item
+          rage-work-item-kind
+          rage-work-item-scope
+          rage-work-item-description
+          rage-work-item-operation-authorized-p
+          rage-work-item-source
+          rage-work-item-target
+          rage-scope-decision
+          rage-scope-decision-allowed-p
+          rage-scope-decision-reason
+          rage-scope-decision-work-item
+          rage-worker
+          make-rage-worker
+          rage-worker-id
+          rage-worker-run-id
+          rage-worker-operation
+          rage-worker-mode
+          rage-worker-objective
+          rage-worker-state
+          rage-cyber-task-kind-p
+          starintel-rage-scope-p
+          authorize-rage-work-item
+          rage-worker-can-accept-p))
