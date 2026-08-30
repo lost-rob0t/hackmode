@@ -11,6 +11,7 @@
                :nhooks
                #:bordeaux-threads
                #:tek9
+               #:hackmode-database
                #:starintel
                #:jsown
                #:cl-ppcre
@@ -35,7 +36,8 @@
                 :pathname "expert/"
                 :serial t
                 :components ((:file "actions")
-                             (:file "orchestration")))
+                             (:file "orchestration")
+                             (:file "state-snapshot")))
                (:file "functions")
                (:file "exploits")
                (:file "hackmode")))
