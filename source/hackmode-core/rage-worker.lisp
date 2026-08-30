@@ -30,7 +30,7 @@
 
 (defstruct (rage-work-item
              (:constructor make-rage-work-item
-                 (&key kind
+                 (&key (kind :recon)
                        (scope :external)
                        (description "")
                        operation-authorized-p
@@ -66,7 +66,7 @@ StarIntel product engineering."
   objective
   (state :idle :type keyword))
 
-(defun non-empty-string-p (value)
+(defun %rage-non-empty-string-p (value)
   (and (stringp value) (plusp (length value))))
 
 (defun make-rage-worker (&key id run-id operation (mode :passive) objective)
@@ -76,9 +76,9 @@ The first worker substrate deliberately accepts only Hackpert's PASSIVE and
 ACTIVE modes.  Future RLM/LLM escalation is an extension inside the worker loop,
 not a third authority-bearing worker mode unless that contract is explicitly
 added later."
-  (unless (non-empty-string-p id)
+  (unless (%rage-non-empty-string-p id)
     (error "RAGE worker ID must be a non-empty string."))
-  (unless (non-empty-string-p run-id)
+  (unless (%rage-non-empty-string-p run-id)
     (error "RAGE worker run ID must be a non-empty string."))
   (unless (member mode +rage-worker-modes+)
     (error "Unsupported RAGE worker mode ~s; expected one of ~s."
