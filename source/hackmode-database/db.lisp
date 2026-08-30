@@ -39,6 +39,30 @@
        :database-name graph-name)))
   (values call result))
 
+(defun fetch-operation-execution-records (database operation-id &key run-id kind)
+  "Return typed execution records for one operation, optionally filtered by RUN-ID or KIND."
+  (%require-string :operation-id operation-id)
+  (when run-id
+    (%require-string :run-id run-id))
+  (when (and kind (not (member kind '(:tool-call :tool-result) :test #'eq)))
+    (error 'execution-graph-validation-error
+           :field :kind :value kind :reason "unsupported execution record filter"))
+  (let ((records
+          (loop for node in (tek9:fetch-graph-nodes
+                             database (execution-graph-name operation-id))
+                for record = (tek9-node->execution-record node)
+                unless (string= operation-id (execution-record-operation-id record))
+                  do (error 'execution-graph-validation-error
+                            :field :operation-id
+                            :value (execution-record-operation-id record)
+                            :reason "stored record does not match graph operation scope")
+                when (and (or (null run-id)
+                              (string= run-id (execution-record-run-id record)))
+                          (or (null kind)
+                              (eq kind (execution-record-kind record))))
+                  collect record)))
+    (sort records #'string< :key #'execution-record-record-id)))
+
 (defun persist-operational-kb-entry (database entry)
   "Persist one replay-safe operational KB assertion or retraction through Tek9."
   (let ((graph-name (operational-kb-graph-name
@@ -78,6 +102,34 @@
   "Fetch one operational KB graph node by stable RECORD-ID."
   (tek9:fetch-node database record-id
                    :database-name (operational-kb-graph-name operation-id)))
+
+(defun fetch-operational-kb-entries (database operation-id &key run-id kind)
+  "Return typed operational-KB entries for one operation, including retractions."
+  (%kb-require-string :operation-id operation-id)
+  (when run-id
+    (%kb-require-string :run-id run-id))
+  (when (and kind (not (member kind '(:assert :retract) :test #'eq)))
+    (error 'operational-kb-validation-error
+           :field :kind :value kind :reason "unsupported operational KB filter"))
+  (let ((entries
+          (loop for node in (tek9:fetch-graph-nodes
+                             database (operational-kb-graph-name operation-id))
+                for stored-kind = (getf (tek9:node-props node) :kind)
+                when (member stored-kind '(:assert :retract) :test #'eq)
+                  for entry = (tek9-node->operational-kb-entry node)
+                  and do (unless (string= operation-id
+                                          (operational-kb-entry-operation-id entry))
+                           (error 'operational-kb-validation-error
+                                  :field :operation-id
+                                  :value (operational-kb-entry-operation-id entry)
+                                  :reason "stored entry does not match graph operation scope"))
+                  and when (and (or (null run-id)
+                                    (string= run-id
+                                             (operational-kb-entry-run-id entry)))
+                                (or (null kind)
+                                    (eq kind (operational-kb-entry-kind entry))))
+                    collect entry)))
+    (sort entries #'string< :key #'operational-kb-entry-record-id)))
 
 (defun persist-long-term-kb-promotion (database promotion)
   "Persist one immutable evidence-backed promotion through canonical Tek9 graph APIs."
