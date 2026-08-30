@@ -71,6 +71,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             sbcl \
+            swi-prolog-nox \
             liblmdb-dev \
             libffi-dev \
             libssl-dev \
