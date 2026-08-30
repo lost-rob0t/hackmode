@@ -26,6 +26,7 @@
    #:execution-record-provenance
    #:make-tool-call-record
    #:make-tool-result-record
+   #:make-http-exchange-record
    #:validate-tool-result-link
    #:execution-graph-name
    #:execution-record->tek9-node
