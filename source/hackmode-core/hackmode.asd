@@ -34,7 +34,8 @@
                (:module "expert-actions"
                 :pathname "expert/"
                 :serial t
-                :components ((:file "actions")))
+                :components ((:file "actions")
+                             (:file "orchestration")))
                (:file "functions")
                (:file "exploits")
                (:file "hackmode")))
