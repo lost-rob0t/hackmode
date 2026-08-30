@@ -1,4 +1,4 @@
-name: rage-pr-serialization
+name: agent-pr-serialization
 
 on:
   pull_request_target:
@@ -16,21 +16,21 @@ permissions:
   issues: write
 
 concurrency:
-  group: rage-pr-serialization
+  group: agent-pr-serialization
   cancel-in-progress: false
 
 env:
-  # close-old: newest PR wins and older PRs in that worker lane are closed.
-  # refuse-new: oldest PR keeps the lane and newer PRs are closed/rejected.
-  RAGE_PR_POLICY: ${{ vars.RAGE_PR_POLICY || 'close-old' }}
+  # close-old: newest configured agent PR wins.
+  # refuse-new: oldest configured agent PR keeps the lane.
+  AGENT_PR_POLICY: ${{ vars.AGENT_PR_POLICY || 'close-old' }}
 
 jobs:
   serialize:
-    name: one-open-pr-per-rage-lane
+    name: one-open-pr-per-agent-lane
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Enforce serialized Auto-RAGE pull requests
+      - name: Enforce configured Agent Zero PR lanes
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -41,14 +41,12 @@ jobs:
           import json
           import os
           import subprocess
-          import sys
 
           repo = os.environ["GITHUB_REPOSITORY"]
-          policy = os.environ.get("RAGE_PR_POLICY", "close-old").strip()
-          lanes = ("rage-hackpert/", "rage-database/")
+          policy = os.environ.get("AGENT_PR_POLICY", "close-old").strip()
 
           if policy not in {"close-old", "refuse-new"}:
-              print(f"::error::Unsupported RAGE_PR_POLICY={policy!r}; use close-old or refuse-new")
+              print(f"::error::Unsupported AGENT_PR_POLICY={policy!r}; use close-old or refuse-new")
               raise SystemExit(2)
 
           with open(os.environ["GITHUB_EVENT_PATH"], "r", encoding="utf-8") as fh:
@@ -66,6 +64,21 @@ jobs:
               )
               return proc.stdout
 
+          lane_text = gh(
+              "api",
+              "-H",
+              "Accept: application/vnd.github.raw+json",
+              f"repos/{repo}/contents/agent-zero/pr-lanes.txt",
+          )
+          lanes = tuple(
+              line.strip()
+              for line in lane_text.splitlines()
+              if line.strip() and not line.lstrip().startswith("#")
+          )
+          if not lanes:
+              print("::error::agent-zero/pr-lanes.txt contains no branch-prefix lanes")
+              raise SystemExit(2)
+
           raw = gh(
               "api",
               "--paginate",
@@ -75,8 +88,8 @@ jobs:
           pages = json.loads(raw)
           pulls = [pr for page in pages for pr in page]
 
-          # Only serialize Hackmode-owned Auto-RAGE branches. Human branches and
-          # same-prefix branches from forks are deliberately left alone.
+          # Only same-repository agent branches are eligible. Fork PRs and
+          # unrelated human branches are deliberately untouched.
           pulls = [
               pr
               for pr in pulls
@@ -99,15 +112,15 @@ jobs:
 
                   if policy == "close-old":
                       body = (
-                          f"Auto-RAGE PR serialization closed this PR because "
+                          f"Agent PR serialization closed this PR because "
                           f"#{keep['number']} is the newer open `{lane}` lane PR. "
-                          "One open PR per worker lane is allowed."
+                          "One open PR per configured agent lane is allowed."
                       )
                   else:
                       body = (
-                          f"Auto-RAGE PR serialization rejected this PR because "
+                          f"Agent PR serialization rejected this PR because "
                           f"#{keep['number']} already owns the open `{lane}` lane. "
-                          "Finish/close that PR before opening another."
+                          "Finish or close that PR before opening another."
                       )
 
                   gh(
@@ -129,7 +142,6 @@ jobs:
                   closed.append(pr["number"])
                   print(f"closed #{pr['number']} in {lane}; keeping #{keep['number']} ({policy})")
 
-          # Re-query to make the invariant itself the CI assertion.
           raw = gh(
               "api",
               "--paginate",
@@ -156,8 +168,8 @@ jobs:
               raise SystemExit(1)
 
           if current_pr in closed:
-              print(f"::error::PR #{current_pr} was closed by Auto-RAGE serialization policy {policy}")
+              print(f"::error::PR #{current_pr} was closed by agent PR policy {policy}")
               raise SystemExit(1)
 
-          print(f"Auto-RAGE PR serialization satisfied with policy={policy}")
+          print(f"Agent PR serialization satisfied with policy={policy}")
           PY
