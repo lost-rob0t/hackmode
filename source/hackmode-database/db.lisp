@@ -111,24 +111,22 @@
   (when (and kind (not (member kind '(:assert :retract) :test #'eq)))
     (error 'operational-kb-validation-error
            :field :kind :value kind :reason "unsupported operational KB filter"))
-  (let ((entries
-          (loop for node in (tek9:fetch-graph-nodes
-                             database (operational-kb-graph-name operation-id))
-                for stored-kind = (getf (tek9:node-props node) :kind)
-                when (member stored-kind '(:assert :retract) :test #'eq)
-                  for entry = (tek9-node->operational-kb-entry node)
-                  and do (unless (string= operation-id
-                                          (operational-kb-entry-operation-id entry))
-                           (error 'operational-kb-validation-error
-                                  :field :operation-id
-                                  :value (operational-kb-entry-operation-id entry)
-                                  :reason "stored entry does not match graph operation scope"))
-                  and when (and (or (null run-id)
-                                    (string= run-id
-                                             (operational-kb-entry-run-id entry)))
-                                (or (null kind)
-                                    (eq kind (operational-kb-entry-kind entry))))
-                    collect entry)))
+  (let ((entries nil))
+    (dolist (node (tek9:fetch-graph-nodes
+                   database (operational-kb-graph-name operation-id)))
+      (when (member (getf (tek9:node-props node) :kind)
+                    '(:assert :retract) :test #'eq)
+        (let ((entry (tek9-node->operational-kb-entry node)))
+          (unless (string= operation-id (operational-kb-entry-operation-id entry))
+            (error 'operational-kb-validation-error
+                   :field :operation-id
+                   :value (operational-kb-entry-operation-id entry)
+                   :reason "stored entry does not match graph operation scope"))
+          (when (and (or (null run-id)
+                         (string= run-id (operational-kb-entry-run-id entry)))
+                     (or (null kind)
+                         (eq kind (operational-kb-entry-kind entry))))
+            (push entry entries)))))
     (sort entries #'string< :key #'operational-kb-entry-record-id)))
 
 (defun persist-long-term-kb-promotion (database promotion)
