@@ -174,6 +174,21 @@ export. Multiple operations may independently promote corroborating knowledge."
                  :id (long-term-kb-root-id)
                  :props (list :kind :long-term-kb-root)))
 
+(defun long-term-kb-source-reference-node (promotion)
+  "Return an immutable graph-local foreign-key anchor for PROMOTION's source."
+  (make-instance 'tek9:node
+                 :id (long-term-kb-promotion-source-assertion-id promotion)
+                 :props
+                 (list :kind :operational-kb-reference
+                       :source-operation-id
+                       (long-term-kb-promotion-source-operation-id promotion)
+                       :source-run-id
+                       (long-term-kb-promotion-source-run-id promotion)
+                       :source-expert-id
+                       (long-term-kb-promotion-source-expert-id promotion)
+                       :source-expert-version
+                       (long-term-kb-promotion-source-expert-version promotion))))
+
 (defun long-term-kb-membership-edge (promotion)
   (make-instance 'tek9:edge
                  :id (%record-id "long-term-kb-membership"
