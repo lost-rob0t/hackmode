@@ -31,6 +31,7 @@
                (:file "providers")
                (:file "provider-actor")
                (:file "expert")
+               (:file "rage-worker")
                (:file "functions")
                (:file "exploits")
                (:file "hackmode")))
