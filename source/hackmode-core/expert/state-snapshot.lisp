@@ -81,4 +81,44 @@ not enumerate storage, persist data, dispatch providers, or widen authority."
             :query-asset query-asset)
    (expert-state-facts execution-records operational-kb-entries)))
 
-(export '(expert-state-facts))
+(defun expert-operation-snapshot (&key
+                                    (database *db*)
+                                    (operation (current-operation))
+                                    run-id
+                                    (assets nil assets-supplied-p)
+                                    (providers (list-capability-providers))
+                                    query-target
+                                    query-asset)
+  "Rebuild an expert snapshot from canonical persisted operation state.
+
+The database package remains the storage authority. This function consumes its
+typed operation-scoped read APIs, then delegates to EXPERT-SNAPSHOT for the
+pure Prolog projection. RUN-ID optionally limits execution and operational-KB
+history to one expert run. Repeated calls intentionally re-read canonical state
+so a later reasoning iteration observes newly persisted evidence."
+  (unless database
+    (error "EXPERT-OPERATION-SNAPSHOT requires an operation database."))
+  (unless operation
+    (error "EXPERT-OPERATION-SNAPSHOT requires an operation."))
+  (let* ((operation-id (operation-name operation))
+         (execution-records
+           (hack-db:fetch-operation-execution-records
+            database operation-id :run-id run-id))
+         (operational-kb-entries
+           (hack-db:fetch-operational-kb-entries
+            database operation-id :run-id run-id))
+         (effective-assets
+           (if assets-supplied-p
+               assets
+               (query-assets :database database))))
+    (expert-snapshot
+     :operation operation
+     :assets effective-assets
+     :providers providers
+     :query-target query-target
+     :query-asset query-asset
+     :execution-records execution-records
+     :operational-kb-entries operational-kb-entries)))
+
+(export '(expert-state-facts
+          expert-operation-snapshot))
