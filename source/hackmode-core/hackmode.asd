@@ -37,7 +37,8 @@
                 :serial t
                 :components ((:file "actions")
                              (:file "orchestration")
-                             (:file "state-snapshot")))
+                             (:file "state-snapshot")
+                             (:file "plan")))
                (:file "functions")
                (:file "exploits")
                (:file "hackmode")))
