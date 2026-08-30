@@ -31,6 +31,9 @@
                (:file "providers")
                (:file "provider-actor")
                (:file "expert")
+               (:module "expert"
+                :serial t
+                :components ((:file "actions")))
                (:file "functions")
                (:file "exploits")
                (:file "hackmode")))
