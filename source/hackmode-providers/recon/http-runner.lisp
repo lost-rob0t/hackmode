@@ -30,3 +30,8 @@
              exit-code
              (trim-text stderr)))
     (or stdout "")))
+
+(eval-when (:load-toplevel :execute)
+  ;; RECON.LISP registers the provider before this corrected runner is loaded.
+  ;; Replace that registry entry so the provider captures this function object.
+  (register-http-probe-provider :runner #'run-http-probe))
