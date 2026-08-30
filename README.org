@@ -8,11 +8,23 @@ Hackmode is a Common Lisp, actor-oriented investigation and reconnaissance envir
 
 This repository is now the canonical Hackmode monorepo. Hackmode-owned runtime code, shell integration, Emacs integration, operation templates, and maintained helper tooling belong here. StarIntel Server, Quasar, Quasar UI, Tek9, and user dotfiles remain separate repositories and integrate through protocols/APIs rather than being vendored into this tree.
 
+* Auto-RAGE baseline
+The known-good starting point for Hackmode Auto-RAGE development is commit =c64ae3f244c200a0e6fceaa28a9ebff1a8dfbdb4= (merged PR #36).
+
+If autonomous worker changes become tangled or the worker program needs to be reconstructed from a known version, use that commit as the reference point where the Hackmode-owned Auto-RAGE worker migration began. Do not rewrite =master= to recover; branch/worktree from the baseline and compare/reconcile forward.
+
+The initial concurrent development workers are intentionally split so they do not own the same implementation area:
+- =hackmode-rage-database= :: database, execution graph, KB persistence and promotion/export plumbing.
+- =hackmode-rage-hackpert= :: Hackpert expert engine, passive/active orchestration, plans/playbooks, provider-action loop and LISH expert controls.
+
+Their Agent Zero profiles live under =agent-zero/usr/agents/=. Both are Hackmode workers. StarIntel is outside their product-development ownership and may be touched only for explicitly authorized BBP/cyber work or security finding/evidence projection.
+
 * Monorepo layout
 - =source/= :: Common Lisp runtime, operation model, local storage, recon capabilities, and shell integration.
 - =emacs/= :: Hackmode Emacs package. Migration from =lost-rob0t/emacs-hackmode= is tracked by issue #4.
 - =templates/= :: Operation templates migrated from =lost-rob0t/hackmode-templates=.
 - =tools/= :: Maintained helpers and explicitly temporary legacy script compatibility. Curated migration from =lost-rob0t/hackmode-scripts= is tracked separately; generated binaries/FASLs are not accepted.
+- =agent-zero/= :: Hackmode-owned Auto-RAGE Agent Zero profiles and installation notes.
 - =docs/architecture/= :: Architecture and repository-boundary decisions.
 
 See =docs/architecture/monorepo.org= before adding a new Hackmode repository.
@@ -81,6 +93,8 @@ The shell work is inspired by LISH and should operate on typed Hackmode objects,
 * Migration status
 - Common Lisp runtime: already here.
 - Tek9-backed operation/local database: already here; being hardened rather than replaced casually.
+- Hackmode RAGE worker scope: migrated; StarIntel is cyber/BBP-only for these workers under issue #30.
+- Auto-RAGE development profiles: migrated into =agent-zero/= with separate database and Hackpert ownership.
 - Emacs package: migration in progress under issue #4.
 - Operation templates: migrated into =templates/= by issue #4.
 - Script collection: source-only curation tracked by issue #5; do not import compiled/generated artifacts.
