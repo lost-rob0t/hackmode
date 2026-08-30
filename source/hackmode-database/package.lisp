@@ -3,6 +3,16 @@
   (:use :cl)
   (:export
    #:*db*
+   #:persistence-replay-conflict
+   #:persistence-replay-conflict-record-kind
+   #:persistence-replay-conflict-record-id
+   #:persistence-replay-conflict-database-name
+   #:persistence-replay-conflict-existing
+   #:persistence-replay-conflict-incoming
+   #:persist-graph-node-replay-safe
+   #:persist-graph-edge-replay-safe
+   #:persist-graph-nodes-replay-safe
+   #:persist-graph-edges-replay-safe
    #:execution-graph-validation-error
    #:execution-record
    #:execution-record-kind

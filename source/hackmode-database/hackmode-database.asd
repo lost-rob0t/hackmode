@@ -11,4 +11,5 @@
                (:file "operational-kb")
                (:file "long-term-kb")
                (:file "global-kb")
+               (:file "replay")
                (:file "db")))
