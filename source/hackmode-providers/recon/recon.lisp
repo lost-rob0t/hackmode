@@ -178,11 +178,8 @@
    :priority priority))
 
 (defun register-recon-providers ()
-  "Register the baseline concrete recon providers."
+  "Register the baseline concrete recon providers after every runner is loaded."
   (register-subfinder-provider)
   (register-crtsh-provider)
   (register-http-probe-provider)
   t)
-
-(eval-when (:load-toplevel :execute)
-  (register-recon-providers))
