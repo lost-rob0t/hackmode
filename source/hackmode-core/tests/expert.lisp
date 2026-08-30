@@ -8,6 +8,56 @@
         (setf raised t)))
     (assert raised () "Expected HACKMODE:EXPERT-UNAVAILABLE.")))
 
+(defun assert-expert-effect-denied (thunk expected-effect)
+  (let ((condition nil))
+    (handler-case
+        (funcall thunk)
+      (hackmode:expert-effect-denied (raised)
+        (setf condition raised)))
+    (assert condition () "Expected HACKMODE:EXPERT-EFFECT-DENIED.")
+    (assert-equal expected-effect
+                  (hackmode:expert-effect-denied-effect condition)
+                  "denied expert effect")
+    condition))
+
+(defun run-expert-engine-mode-test ()
+  (let ((passive (hackmode:make-expert-engine))
+        (active (hackmode:make-expert-engine :mode :active)))
+    (assert-equal :passive (hackmode:expert-engine-mode passive)
+                  "Hackpert defaults to passive authority")
+    (assert-equal :active (hackmode:expert-engine-mode active)
+                  "active Hackpert authority is explicit")
+    (assert (hackmode:expert-engine-effect-authorized-p passive :reasoning))
+    (assert (not (hackmode:expert-engine-effect-authorized-p
+                  passive :provider-dispatch)))
+    (assert (not (hackmode:expert-engine-effect-authorized-p
+                  passive :canonical-mutation)))
+    (assert (hackmode:expert-engine-effect-authorized-p
+             active :provider-dispatch))
+    (assert (hackmode:expert-engine-effect-authorized-p
+             active :canonical-mutation))
+    (assert-expert-effect-denied
+     (lambda ()
+       (hackmode:require-expert-engine-effect passive :provider-dispatch))
+     :provider-dispatch)
+    (assert-expert-effect-denied
+     (lambda ()
+       (hackmode:require-expert-engine-effect passive :canonical-mutation))
+     :canonical-mutation)
+    (assert-equal :provider-dispatch
+                  (hackmode:require-expert-engine-effect
+                   active :provider-dispatch)
+                  "active authority admits provider dispatch")
+    (assert-equal :canonical-mutation
+                  (hackmode:require-expert-engine-effect
+                   active :canonical-mutation)
+                  "active authority admits canonical mutation")
+    (let ((raised nil))
+      (handler-case
+          (hackmode:make-expert-engine :mode :llm)
+        (error () (setf raised t)))
+      (assert raised () "Unsupported authority modes must fail closed."))))
+
 (defun run-expert-snapshot-test ()
   (let* ((operation (make-instance 'hackmode:operation
                                    :name "expert-op"
@@ -130,6 +180,7 @@
   t)
 
 (defun run-expert-tests ()
+  (run-expert-engine-mode-test)
   (run-expert-snapshot-test)
   (run-expert-unavailable-test)
   (run-live-expert-test)
