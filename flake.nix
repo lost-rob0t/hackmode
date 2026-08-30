@@ -16,6 +16,7 @@
             pkg-config
             sbcl
             sbclPackages.mcclim
+            swiProlog
             glib
             openssl
             # Hacking tools used
