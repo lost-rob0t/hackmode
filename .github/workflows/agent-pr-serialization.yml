@@ -1,0 +1,175 @@
+name: agent-pr-serialization
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - ready_for_review
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: agent-pr-serialization
+  cancel-in-progress: false
+
+env:
+  # close-old: newest configured agent PR wins.
+  # refuse-new: oldest configured agent PR keeps the lane.
+  AGENT_PR_POLICY: ${{ vars.AGENT_PR_POLICY || 'close-old' }}
+
+jobs:
+  serialize:
+    name: one-open-pr-per-agent-lane
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Enforce configured Agent Zero PR lanes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          python3 <<'PY'
+          import json
+          import os
+          import subprocess
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          policy = os.environ.get("AGENT_PR_POLICY", "close-old").strip()
+
+          if policy not in {"close-old", "refuse-new"}:
+              print(f"::error::Unsupported AGENT_PR_POLICY={policy!r}; use close-old or refuse-new")
+              raise SystemExit(2)
+
+          with open(os.environ["GITHUB_EVENT_PATH"], "r", encoding="utf-8") as fh:
+              event = json.load(fh)
+
+          current_pr = event.get("number") if event.get("pull_request") else None
+
+          def gh(*args):
+              proc = subprocess.run(
+                  ["gh", *args],
+                  check=True,
+                  text=True,
+                  stdout=subprocess.PIPE,
+                  stderr=subprocess.PIPE,
+              )
+              return proc.stdout
+
+          lane_text = gh(
+              "api",
+              "-H",
+              "Accept: application/vnd.github.raw+json",
+              f"repos/{repo}/contents/agent-zero/pr-lanes.txt",
+          )
+          lanes = tuple(
+              line.strip()
+              for line in lane_text.splitlines()
+              if line.strip() and not line.lstrip().startswith("#")
+          )
+          if not lanes:
+              print("::error::agent-zero/pr-lanes.txt contains no branch-prefix lanes")
+              raise SystemExit(2)
+
+          raw = gh(
+              "api",
+              "--paginate",
+              "--slurp",
+              f"repos/{repo}/pulls?state=open&base=master&per_page=100",
+          )
+          pages = json.loads(raw)
+          pulls = [pr for page in pages for pr in page]
+
+          # Only same-repository agent branches are eligible. Fork PRs and
+          # unrelated human branches are deliberately untouched.
+          pulls = [
+              pr
+              for pr in pulls
+              if pr.get("head", {}).get("repo", {}).get("full_name") == repo
+          ]
+
+          closed = []
+
+          for lane in lanes:
+              lane_pulls = [pr for pr in pulls if pr["head"]["ref"].startswith(lane)]
+              if len(lane_pulls) <= 1:
+                  continue
+
+              lane_pulls.sort(key=lambda pr: (pr["created_at"], pr["number"]))
+              keep = lane_pulls[-1] if policy == "close-old" else lane_pulls[0]
+
+              for pr in lane_pulls:
+                  if pr["number"] == keep["number"]:
+                      continue
+
+                  if policy == "close-old":
+                      body = (
+                          f"Agent PR serialization closed this PR because "
+                          f"#{keep['number']} is the newer open `{lane}` lane PR. "
+                          "One open PR per configured agent lane is allowed."
+                      )
+                  else:
+                      body = (
+                          f"Agent PR serialization rejected this PR because "
+                          f"#{keep['number']} already owns the open `{lane}` lane. "
+                          "Finish or close that PR before opening another."
+                      )
+
+                  gh(
+                      "api",
+                      "-X",
+                      "POST",
+                      f"repos/{repo}/issues/{pr['number']}/comments",
+                      "-f",
+                      f"body={body}",
+                  )
+                  gh(
+                      "api",
+                      "-X",
+                      "PATCH",
+                      f"repos/{repo}/pulls/{pr['number']}",
+                      "-f",
+                      "state=closed",
+                  )
+                  closed.append(pr["number"])
+                  print(f"closed #{pr['number']} in {lane}; keeping #{keep['number']} ({policy})")
+
+          raw = gh(
+              "api",
+              "--paginate",
+              "--slurp",
+              f"repos/{repo}/pulls?state=open&base=master&per_page=100",
+          )
+          pages = json.loads(raw)
+          remaining = [
+              pr
+              for page in pages
+              for pr in page
+              if pr.get("head", {}).get("repo", {}).get("full_name") == repo
+          ]
+
+          violations = []
+          for lane in lanes:
+              nums = [pr["number"] for pr in remaining if pr["head"]["ref"].startswith(lane)]
+              if len(nums) > 1:
+                  violations.append((lane, nums))
+
+          if violations:
+              for lane, nums in violations:
+                  print(f"::error::{lane} still has multiple open PRs: {nums}")
+              raise SystemExit(1)
+
+          if current_pr in closed:
+              print(f"::error::PR #{current_pr} was closed by agent PR policy {policy}")
+              raise SystemExit(1)
+
+          print(f"Agent PR serialization satisfied with policy={policy}")
+          PY
