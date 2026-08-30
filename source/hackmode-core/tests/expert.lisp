@@ -42,7 +42,7 @@
              (assert (search "provider(\"dns-resolve\",\"fixture\",\"domain\",20)."
                              snapshot))
              (assert (search "\\\"" snapshot) ()
-                     "Embedded quotes must be escaped in Prolog data facts.")))
+                     "Embedded quotes must be escaped in Prolog data facts."))
            (assert-equal before-id (hackmode:doc-id asset)
                          "expert snapshot does not mutate asset identity"))
       (hackmode:clear-capability-providers))))
