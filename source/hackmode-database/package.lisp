@@ -29,9 +29,11 @@
    #:validate-tool-result-link
    #:execution-graph-name
    #:execution-record->tek9-node
+   #:tek9-node->execution-record
    #:tool-result-link-edge
    #:persist-execution-record
    #:persist-tool-execution
+   #:fetch-operation-execution-records
    #:operational-kb-validation-error
    #:operational-kb-entry
    #:operational-kb-entry-kind
@@ -50,10 +52,12 @@
    #:operational-kb-graph-name
    #:operational-kb-root-id
    #:operational-kb-entry->tek9-node
+   #:tek9-node->operational-kb-entry
    #:operational-kb-membership-edge
    #:operational-kb-retraction-edge
    #:persist-operational-kb-entry
    #:fetch-operational-kb-entry
+   #:fetch-operational-kb-entries
    #:long-term-kb-validation-error
    #:long-term-kb-promotion
    #:long-term-kb-promotion-record-id

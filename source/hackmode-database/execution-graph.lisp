@@ -112,6 +112,41 @@
                               :payload (execution-record-payload record)
                               :provenance (execution-record-provenance record))))
 
+(defun tek9-node->execution-record (node)
+  "Reconstruct one typed execution record from a canonical Tek9 graph node."
+  (let* ((props (tek9:node-props node))
+         (kind (getf props :kind))
+         (operation-id (getf props :operation-id))
+         (run-id (getf props :run-id))
+         (call-id (getf props :call-id))
+         (capability-id (getf props :capability-id))
+         (status (getf props :status))
+         (provenance (getf props :provenance)))
+    (unless (member kind '(:tool-call :tool-result) :test #'eq)
+      (error 'execution-graph-validation-error
+             :field :kind :value kind :reason "unsupported stored execution record kind"))
+    (%require-string :operation-id operation-id)
+    (%require-string :run-id run-id)
+    (%require-string :call-id call-id)
+    (%require-string :record-id (tek9:node-id node))
+    (%require-provenance provenance)
+    (when (eq kind :tool-call)
+      (%require-string :capability-id capability-id))
+    (when (and (eq kind :tool-result)
+               (not (member status '(:succeeded :failed :cancelled :timed-out) :test #'eq)))
+      (error 'execution-graph-validation-error
+             :field :status :value status :reason "unsupported stored tool result status"))
+    (%make-execution-record
+     :kind kind
+     :operation-id operation-id
+     :run-id run-id
+     :call-id call-id
+     :record-id (tek9:node-id node)
+     :capability-id capability-id
+     :status status
+     :payload (getf props :payload)
+     :provenance provenance)))
+
 (defun tool-result-link-edge (call result)
   (validate-tool-result-link call result)
   (make-instance 'tek9:edge
