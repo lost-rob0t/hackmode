@@ -15,7 +15,7 @@
                 :call-id "call-1"
                 :capability-id "dns.resolve"
                 :input '(:domain "example.com")
-                :provenance '(:worker "database-test")))
+                :provenance '(:source "database-test")))
          (result (make-tool-result-record
                   :operation-id "op-1"
                   :run-id "run-1"
@@ -62,7 +62,7 @@
            :call-id "call-2"
            :capability-id "dns.resolve"
            :input nil
-           :provenance '(:worker "database-test"))
+           :provenance '(:source "database-test"))
           (error "empty operation identity unexpectedly accepted"))
       (execution-graph-validation-error () t))))
 
@@ -77,7 +77,7 @@
             :key '(:hypothesis "wildcard-dns")
             :value '(:confidence 80)
             :evidence-ids '("call-1" "result-1")
-            :provenance '(:worker "database-test")))
+            :provenance '(:source "database-test")))
          (same
            (make-operational-kb-assertion
             :assertion-id "a-1"
@@ -88,7 +88,7 @@
             :key '(:hypothesis "wildcard-dns")
             :value '(:confidence 80)
             :evidence-ids '("call-1" "result-1")
-            :provenance '(:worker "database-test")))
+            :provenance '(:source "database-test")))
          (retraction
            (make-operational-kb-retraction
             :retraction-id "r-1"
@@ -98,7 +98,7 @@
             :expert-version "1"
             :target-assertion-id (operational-kb-entry-record-id assertion)
             :evidence-ids '("result-2")
-            :provenance '(:worker "database-test"))))
+            :provenance '(:source "database-test"))))
     (ensure (eq :assert (operational-kb-entry-kind assertion))
             "operational KB assertion has wrong kind")
     (ensure (equal (operational-kb-entry-record-id assertion)
@@ -131,11 +131,81 @@
            :expert-version "1"
            :target-assertion-id (operational-kb-entry-record-id assertion)
            :evidence-ids '("result-x")
-           :provenance '(:worker "database-test"))
+           :provenance '(:source "database-test"))
           (error "cross-operation retraction unexpectedly accepted"))
       (operational-kb-validation-error () t))))
+
+(defun run-operation-snapshot-read-tests ()
+  (let* ((path (merge-pathnames
+                (format nil "hackmode-snapshot-~D/" (random 1000000000))
+                (uiop:temporary-directory)))
+         (database (tek9:new-database "hackmode-snapshot-test" :path path)))
+    (unwind-protect
+         (progn
+           (tek9:open-database database)
+           (let* ((call-a (make-tool-call-record
+                           :operation-id "op-a" :run-id "run-1" :call-id "call-a"
+                           :capability-id "dns.resolve" :input '(:domain "a.example")
+                           :provenance '(:source "fixture")))
+                  (result-a (make-tool-result-record
+                             :operation-id "op-a" :run-id "run-1" :call-id "call-a"
+                             :result-id "result-a" :status :succeeded
+                             :output '(:addresses ("192.0.2.10"))
+                             :provenance '(:source "fixture")))
+                  (call-b (make-tool-call-record
+                           :operation-id "op-a" :run-id "run-2" :call-id "call-b"
+                           :capability-id "http.probe" :input '(:url "https://a.example")
+                           :provenance '(:source "fixture")))
+                  (foreign (make-tool-call-record
+                            :operation-id "op-b" :run-id "run-1" :call-id "call-x"
+                            :capability-id "dns.resolve" :input '(:domain "b.example")
+                            :provenance '(:source "fixture")))
+                  (assertion (make-operational-kb-assertion
+                              :assertion-id "hyp-1" :operation-id "op-a"
+                              :run-id "run-1" :expert-id "recon" :expert-version "1"
+                              :key '(:hypothesis "wildcard-dns") :value '(:confidence 80)
+                              :evidence-ids (list (execution-record-record-id result-a))
+                              :provenance '(:source "fixture")))
+                  (retraction (make-operational-kb-retraction
+                               :retraction-id "hyp-1-retracted" :operation-id "op-a"
+                               :run-id "run-2" :expert-id "recon" :expert-version "1"
+                               :target-assertion-id (operational-kb-entry-record-id assertion)
+                               :evidence-ids (list (execution-record-record-id call-b))
+                               :provenance '(:source "fixture"))))
+             (persist-tool-execution database call-a result-a)
+             (persist-execution-record database call-b)
+             (persist-execution-record database foreign)
+             (persist-operational-kb-entry database assertion)
+             (persist-operational-kb-entry database retraction)
+             (let ((records (fetch-operation-execution-records database "op-a"))
+                   (run-1 (fetch-operation-execution-records database "op-a" :run-id "run-1"))
+                   (kb (fetch-operational-kb-entries database "op-a")))
+               (ensure (= 3 (length records))
+                       "operation execution snapshot did not return all typed records")
+               (ensure (every (lambda (record)
+                                (string= "op-a" (execution-record-operation-id record)))
+                              records)
+                       "operation execution snapshot leaked another operation")
+               (ensure (= 2 (length run-1))
+                       "run filter did not return call/result pair")
+               (ensure (= 2 (length kb))
+                       "operational KB snapshot did not include assertion and retraction")
+               (ensure (every (lambda (entry)
+                                (string= "op-a" (operational-kb-entry-operation-id entry)))
+                              kb)
+                       "operational KB snapshot leaked another operation")
+               (ensure (find :assert kb :key #'operational-kb-entry-kind)
+                       "operational KB snapshot lost assertion")
+               (ensure (find :retract kb :key #'operational-kb-entry-kind)
+                       "operational KB snapshot lost retraction"))))
+      (when (tek9:db-is-open-p database)
+        (tek9:close-database database))
+      (when (probe-file path)
+        (uiop:delete-directory-tree path :validate t))))
+  t)
 
 (defun run-tests ()
   (run-execution-graph-tests)
   (run-operational-kb-tests)
+  (run-operation-snapshot-read-tests)
   t)
