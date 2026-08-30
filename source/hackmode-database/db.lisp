@@ -16,53 +16,62 @@
 
 (defun persist-execution-record (database record)
   "Persist one typed execution RECORD into its operation-scoped Tek9 graph."
-  (tek9:put-node database
-                 (execution-record->tek9-node record)
-                 :database-name (execution-graph-name
-                                 (execution-record-operation-id record)))
+  (persist-graph-node-replay-safe
+   database
+   (execution-record->tek9-node record)
+   :database-name (execution-graph-name
+                   (execution-record-operation-id record)))
   record)
 
 (defun persist-tool-execution (database call result)
   "Persist CALL, RESULT, and their typed relation through Tek9's graph API."
   (validate-tool-result-link call result)
   (let ((graph-name (execution-graph-name (execution-record-operation-id call))))
-    (tek9:put-nodes database
-                    (list (execution-record->tek9-node call)
-                          (execution-record->tek9-node result))
-                    :database-name graph-name)
-    (tek9:put-edge database
-                   (tool-result-link-edge call result)
-                   :database-name graph-name))
+    (tek9:with-write-transaction (database)
+      (persist-graph-nodes-replay-safe
+       database
+       (list (execution-record->tek9-node call)
+             (execution-record->tek9-node result))
+       :database-name graph-name)
+      (persist-graph-edge-replay-safe
+       database
+       (tool-result-link-edge call result)
+       :database-name graph-name)))
   (values call result))
 
 (defun persist-operational-kb-entry (database entry)
   "Persist one replay-safe operational KB assertion or retraction through Tek9."
   (let ((graph-name (operational-kb-graph-name
                      (operational-kb-entry-operation-id entry))))
-    (ecase (operational-kb-entry-kind entry)
-      (:assert
-       (tek9:put-nodes database
-                       (list (operational-kb-root-node
-                              (operational-kb-entry-operation-id entry))
-                             (operational-kb-entry->tek9-node entry))
-                       :database-name graph-name)
-       (tek9:put-edge database
-                      (operational-kb-membership-edge entry)
-                      :database-name graph-name))
-      (:retract
-       (unless (tek9:fetch-node database
-                                (operational-kb-entry-target-assertion-id entry)
-                                :database-name graph-name)
-         (error 'operational-kb-validation-error
-                :field :target-assertion-id
-                :value (operational-kb-entry-target-assertion-id entry)
-                :reason "target assertion does not exist"))
-       (tek9:put-node database
-                      (operational-kb-entry->tek9-node entry)
-                      :database-name graph-name)
-       (tek9:put-edge database
-                      (operational-kb-retraction-edge entry)
-                      :database-name graph-name)))
+    (tek9:with-write-transaction (database)
+      (ecase (operational-kb-entry-kind entry)
+        (:assert
+         (persist-graph-nodes-replay-safe
+          database
+          (list (operational-kb-root-node
+                 (operational-kb-entry-operation-id entry))
+                (operational-kb-entry->tek9-node entry))
+          :database-name graph-name)
+         (persist-graph-edge-replay-safe
+          database
+          (operational-kb-membership-edge entry)
+          :database-name graph-name))
+        (:retract
+         (unless (tek9:fetch-node database
+                                  (operational-kb-entry-target-assertion-id entry)
+                                  :database-name graph-name)
+           (error 'operational-kb-validation-error
+                  :field :target-assertion-id
+                  :value (operational-kb-entry-target-assertion-id entry)
+                  :reason "target assertion does not exist"))
+         (persist-graph-node-replay-safe
+          database
+          (operational-kb-entry->tek9-node entry)
+          :database-name graph-name)
+         (persist-graph-edge-replay-safe
+          database
+          (operational-kb-retraction-edge entry)
+          :database-name graph-name))))
     entry))
 
 (defun fetch-operational-kb-entry (database operation-id record-id)
@@ -73,16 +82,17 @@
 (defun persist-long-term-kb-promotion (database promotion)
   "Persist one immutable evidence-backed promotion through canonical Tek9 graph APIs."
   (let ((graph-name (long-term-kb-graph-name)))
-    (tek9:put-nodes database
-                    (list (long-term-kb-root-node)
-                          (long-term-kb-promotion->tek9-node promotion))
-                    :database-name graph-name)
-    (tek9:put-edge database
-                   (long-term-kb-membership-edge promotion)
-                   :database-name graph-name)
-    (tek9:put-edge database
-                   (long-term-kb-source-edge promotion)
-                   :database-name graph-name))
+    (tek9:with-write-transaction (database)
+      (persist-graph-nodes-replay-safe
+       database
+       (list (long-term-kb-root-node)
+             (long-term-kb-promotion->tek9-node promotion))
+       :database-name graph-name)
+      (persist-graph-edges-replay-safe
+       database
+       (list (long-term-kb-membership-edge promotion)
+             (long-term-kb-source-edge promotion))
+       :database-name graph-name)))
   promotion)
 
 (defun fetch-long-term-kb-promotion (database record-id)
@@ -93,16 +103,17 @@
 (defun persist-global-kb-export (database export)
   "Persist one explicit immutable export through canonical Tek9 graph APIs."
   (let ((graph-name (global-kb-graph-name)))
-    (tek9:put-nodes database
-                    (list (global-kb-root-node)
-                          (global-kb-export->tek9-node export))
-                    :database-name graph-name)
-    (tek9:put-edge database
-                   (global-kb-membership-edge export)
-                   :database-name graph-name)
-    (tek9:put-edge database
-                   (global-kb-source-edge export)
-                   :database-name graph-name))
+    (tek9:with-write-transaction (database)
+      (persist-graph-nodes-replay-safe
+       database
+       (list (global-kb-root-node)
+             (global-kb-export->tek9-node export))
+       :database-name graph-name)
+      (persist-graph-edges-replay-safe
+       database
+       (list (global-kb-membership-edge export)
+             (global-kb-source-edge export))
+       :database-name graph-name)))
   export)
 
 (defun fetch-global-kb-export (database record-id)
