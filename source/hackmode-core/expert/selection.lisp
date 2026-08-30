@@ -105,7 +105,7 @@ canonical state."
                  (member capability available :test #'string=))
                required))
 
-(defun expert-extension-candidate-reason
+(defun expert-extension-admission-reason
     (extension objective &key authority strategy available-capabilities)
   "Return the first deterministic reason EXTENSION is accepted or rejected."
   (check-type extension expert-extension)
@@ -153,7 +153,7 @@ an explicit admission/rejection reason. No provider or mutation effect occurs."
                :id (expert-extension-id extension)
                :version (expert-extension-version extension)
                :reason
-               (expert-extension-candidate-reason
+               (expert-extension-admission-reason
                 extension objective
                 :authority authority
                 :strategy strategy
@@ -199,6 +199,7 @@ an explicit admission/rejection reason. No provider or mutation effect occurs."
           expert-extension-candidate-id
           expert-extension-candidate-version
           expert-extension-candidate-reason
+          expert-extension-admission-reason
           expert-extension-selection
           expert-extension-selection-objective-id
           expert-extension-selection-objective-version
