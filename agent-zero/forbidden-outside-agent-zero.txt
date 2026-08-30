@@ -1,0 +1,3 @@
+# Case-insensitive standalone tokens forbidden in tracked paths/content outside agent-zero/**.
+# The boundary workflow treats letters, digits, and underscore as token characters.
+rage
