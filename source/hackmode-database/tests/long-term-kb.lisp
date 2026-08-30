@@ -80,4 +80,73 @@
            :provenance '(:reason "invalid"))
           (error "retraction unexpectedly promoted into long-term KB"))
       (long-term-kb-validation-error () t)))
+  (let* ((path (merge-pathnames
+                (format nil "hackmode-long-term-read-~D/" (random 1000000000))
+                (uiop:temporary-directory)))
+         (database (tek9:new-database "hackmode-long-term-read-test" :path path)))
+    (unwind-protect
+         (progn
+           (tek9:open-database database)
+           (flet ((source (operation assertion run expert key value evidence)
+                    (make-operational-kb-assertion
+                     :assertion-id assertion
+                     :operation-id operation
+                     :run-id run
+                     :expert-id expert
+                     :expert-version "1"
+                     :key key
+                     :value value
+                     :evidence-ids evidence
+                     :provenance '(:source "fixture"))))
+             (let* ((source-a (source "op-a" "a-1" "run-1" "recon"
+                                      '(:service "http") '(:port 80) '("result-a")))
+                    (source-b (source "op-b" "a-2" "run-2" "web"
+                                      '(:service "https") '(:port 443) '("result-b")))
+                    (promotion-b
+                      (make-long-term-kb-promotion
+                       :promotion-id "p-b"
+                       :source-assertion source-b
+                       :promoted-by "operator"
+                       :promoter-version "1"
+                       :evidence-ids '("review-b")
+                       :provenance '(:reason "reusable")))
+                    (promotion-a
+                      (make-long-term-kb-promotion
+                       :promotion-id "p-a"
+                       :source-assertion source-a
+                       :promoted-by "operator"
+                       :promoter-version "1"
+                       :evidence-ids '("review-a")
+                       :provenance '(:reason "reusable"))))
+               ;; Persist reverse lexical order so the read contract proves sorting.
+               (persist-long-term-kb-promotion database promotion-b)
+               (persist-long-term-kb-promotion database promotion-a)
+               (let ((all (fetch-long-term-kb-promotions database))
+                     (op-a (fetch-long-term-kb-promotions
+                            database :source-operation-id "op-a")))
+                 (ensure (= 2 (length all))
+                         "long-term KB enumeration lost promotions")
+                 (ensure (every (lambda (item)
+                                  (typep item 'long-term-kb-promotion))
+                                all)
+                         "long-term KB enumeration leaked raw Tek9 nodes")
+                 (ensure (equal (sort (mapcar #'long-term-kb-promotion-record-id
+                                             (copy-list all))
+                                      #'string<)
+                                (mapcar #'long-term-kb-promotion-record-id all))
+                         "long-term KB enumeration is not deterministic")
+                 (ensure (= 1 (length op-a))
+                         "long-term KB operation filter returned wrong count")
+                 (ensure (string= "op-a"
+                                  (long-term-kb-promotion-source-operation-id
+                                   (first op-a)))
+                         "long-term KB operation filter leaked another operation")
+                 (ensure (equal '("result-a")
+                                (long-term-kb-promotion-source-evidence-ids
+                                 (first op-a)))
+                         "long-term KB read lost source evidence provenance")))))
+      (when (tek9:db-is-open-p database)
+        (tek9:close-database database))
+      (when (probe-file path)
+        (uiop:delete-directory-tree path :validate t))))
   t)
