@@ -89,3 +89,23 @@
   "Fetch one long-term KB promotion by its stable record identity."
   (tek9:fetch-node database record-id
                    :database-name (long-term-kb-graph-name)))
+
+(defun persist-global-kb-export (database export)
+  "Persist one explicit immutable export through canonical Tek9 graph APIs."
+  (let ((graph-name (global-kb-graph-name)))
+    (tek9:put-nodes database
+                    (list (global-kb-root-node)
+                          (global-kb-export->tek9-node export))
+                    :database-name graph-name)
+    (tek9:put-edge database
+                   (global-kb-membership-edge export)
+                   :database-name graph-name)
+    (tek9:put-edge database
+                   (global-kb-source-edge export)
+                   :database-name graph-name))
+  export)
+
+(defun fetch-global-kb-export (database record-id)
+  "Fetch one explicit global KB export by stable record identity."
+  (tek9:fetch-node database record-id
+                   :database-name (global-kb-graph-name)))
