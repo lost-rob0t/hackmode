@@ -1,6 +1,6 @@
 (in-package :hackmode-tests)
 
-(defun run-expert-state-snapshot-tests ()
+(defun run-expert-state-projection-test ()
   (let* ((call (hack-db:make-tool-call-record
                 :operation-id "op-1" :run-id "run-1" :call-id "call-1"
                 :capability-id "http-probe" :input '(:url "https://example.test")
@@ -37,3 +37,87 @@
               ()
               "Execution facts must sort by stable record ID."))
     t))
+
+(defun run-expert-persisted-snapshot-refresh-test ()
+  (let* ((path (merge-pathnames
+                (format nil "hackmode-expert-refresh-~D/" (random 1000000000))
+                (uiop:temporary-directory)))
+         (database (tek9:new-database "hackmode-expert-refresh" :path path))
+         (operation (make-instance 'hackmode:operation
+                                   :name "op-refresh"
+                                   :dir "/tmp/op-refresh/")))
+    (unwind-protect
+         (progn
+           (tek9:open-database database)
+           (let* ((call (hack-db:make-tool-call-record
+                         :operation-id "op-refresh"
+                         :run-id "run-1"
+                         :call-id "call-1"
+                         :capability-id "http-probe"
+                         :input '(:url "https://example.test")
+                         :provenance '(:source "fixture")))
+                  (result (hack-db:make-tool-result-record
+                           :operation-id "op-refresh"
+                           :run-id "run-1"
+                           :call-id "call-1"
+                           :result-id "result-1"
+                           :status :succeeded
+                           :output '(:status 200)
+                           :provenance '(:source "fixture")))
+                  (assertion (hack-db:make-operational-kb-assertion
+                              :assertion-id "status-1"
+                              :operation-id "op-refresh"
+                              :run-id "run-1"
+                              :expert-id "recon"
+                              :expert-version "1"
+                              :key "http.status"
+                              :value 200
+                              :evidence-ids
+                              (list (hack-db:execution-record-record-id result))
+                              :provenance '(:source "fixture"))))
+             (hack-db:persist-tool-execution database call result)
+             (hack-db:persist-operational-kb-entry database assertion)
+             (let ((snapshot
+                     (hackmode:expert-operation-snapshot
+                      :database database
+                      :operation operation
+                      :run-id "run-1"
+                      :assets nil
+                      :providers nil)))
+               (assert (search (hack-db:execution-record-record-id call) snapshot))
+               (assert (search (hack-db:execution-record-record-id result) snapshot))
+               (assert (search (hack-db:operational-kb-entry-record-id assertion)
+                               snapshot)))
+             (let ((next-assertion
+                     (hack-db:make-operational-kb-assertion
+                      :assertion-id "next-step"
+                      :operation-id "op-refresh"
+                      :run-id "run-1"
+                      :expert-id "recon"
+                      :expert-version "1"
+                      :key "recon.next"
+                      :value "subdomain-enumerate"
+                      :evidence-ids (list (hack-db:execution-record-record-id result))
+                      :provenance '(:source "fixture"))))
+               (hack-db:persist-operational-kb-entry database next-assertion)
+               (let ((refreshed
+                       (hackmode:expert-operation-snapshot
+                        :database database
+                        :operation operation
+                        :run-id "run-1"
+                        :assets nil
+                        :providers nil)))
+                 (assert (search (hack-db:operational-kb-entry-record-id next-assertion)
+                                 refreshed)
+                         ()
+                         "Fresh expert iteration must observe newly persisted KB evidence.")))))
+      (when (tek9:db-is-open-p database)
+        (tek9:close-database database))
+      (when (probe-file path)
+        (uiop:delete-directory-tree path :validate t))))
+  t)
+
+(defun run-expert-state-snapshot-tests ()
+  (run-expert-state-projection-test)
+  (run-expert-persisted-snapshot-refresh-test)
+  t)
