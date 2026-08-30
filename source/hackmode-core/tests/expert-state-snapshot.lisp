@@ -38,6 +38,56 @@
               "Execution facts must sort by stable record ID."))
     t))
 
+(defun run-expert-http-exchange-projection-test ()
+  (let* ((exchange
+           (hack-db:make-http-exchange-record
+            :operation-id "op-http"
+            :capture-session-id "capture-1"
+            :exchange-id "exchange-1"
+            :method "GET"
+            :scheme "https"
+            :host "example.test"
+            :port 443
+            :path "/login?next=%2F"
+            :response-status 302
+            :request-body-digest "sha256:req"
+            :response-body-digest "sha256:res"
+            :raw-evidence-ref "/private/captures/session.har#42"
+            :observed-at "2026-08-30T19:00:00Z"
+            :duration-ms 37
+            :provenance '(:source :capture-fixture)))
+         (snapshot
+           (hackmode:expert-snapshot
+            :operation nil :assets nil :providers nil
+            :execution-records (list exchange)
+            :operational-kb-entries nil)))
+    (assert (search "http_exchange(" snapshot)
+            ()
+            "HTTP evidence must have a typed passive snapshot fact.")
+    (dolist (expected '("\"op-http\""
+                        "\"capture-1\""
+                        "\"exchange-1\""
+                        "\"GET\""
+                        "\"https\""
+                        "\"example.test\""
+                        "443"
+                        "\"/login?next=%2F\""
+                        "302"
+                        "\"sha256:req\""
+                        "\"sha256:res\""
+                        "\"2026-08-30T19:00:00Z\""
+                        "37"))
+      (assert (search expected snapshot)
+              ()
+              "Typed HTTP exchange fact is missing ~S." expected))
+    (assert (not (search "/private/captures/session.har#42" snapshot))
+            ()
+            "Raw evidence references must not be copied into Prolog snapshots.")
+    (assert (not (search "execution_record(" snapshot))
+            ()
+            "HTTP exchanges must use their bounded typed projection instead of the generic payload fact.")
+    t))
+
 (defun run-expert-persisted-snapshot-refresh-test ()
   (let* ((path (merge-pathnames
                 (format nil "hackmode-expert-refresh-~D/" (random 1000000000))
@@ -119,5 +169,6 @@
 
 (defun run-expert-state-snapshot-tests ()
   (run-expert-state-projection-test)
+  (run-expert-http-exchange-projection-test)
   (run-expert-persisted-snapshot-refresh-test)
   t)
