@@ -136,6 +136,7 @@
       (persist-graph-nodes-replay-safe
        database
        (list (long-term-kb-root-node)
+             (long-term-kb-source-reference-node promotion)
              (long-term-kb-promotion->tek9-node promotion))
        :database-name graph-name)
       (persist-graph-edges-replay-safe
@@ -171,6 +172,7 @@
       (persist-graph-nodes-replay-safe
        database
        (list (global-kb-root-node)
+             (global-kb-source-reference-node export)
              (global-kb-export->tek9-node export))
        :database-name graph-name)
       (persist-graph-edges-replay-safe
