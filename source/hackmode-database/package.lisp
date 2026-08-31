@@ -41,6 +41,37 @@
    #:fetch-latest-capture-checkpoint
    #:fetch-capture-quarantine-records
    #:fetch-capture-source-rotations
+   #:visual-evidence-record
+   #:visual-evidence-record-operation-id
+   #:visual-evidence-record-run-id
+   #:visual-evidence-record-job-id
+   #:visual-evidence-record-record-id
+   #:visual-evidence-record-asset-id
+   #:visual-evidence-record-requested-url
+   #:visual-evidence-record-final-url
+   #:visual-evidence-record-screenshot-evidence-ref
+   #:visual-evidence-record-screenshot-digest
+   #:visual-evidence-record-captured-at
+   #:visual-evidence-record-title
+   #:visual-evidence-record-http-status
+   #:visual-evidence-record-viewport
+   #:visual-evidence-record-client-profile-id
+   #:visual-evidence-record-browser-id
+   #:visual-evidence-record-browser-version
+   #:visual-evidence-record-duration-ms
+   #:visual-evidence-record-body-digest
+   #:visual-evidence-record-technology-hints
+   #:visual-evidence-record-capture-session-id
+   #:visual-evidence-record-exchange-id
+   #:visual-evidence-record-failure-classification
+   #:visual-evidence-record-provenance
+   #:make-visual-evidence-record
+   #:visual-evidence-graph-name
+   #:visual-evidence-record->tek9-node
+   #:tek9-node->visual-evidence-record
+   #:persist-visual-evidence-record
+   #:fetch-visual-evidence-record
+   #:fetch-visual-evidence-records
    #:operational-kb-validation-error
    #:operational-kb-entry
    #:operational-kb-entry-kind

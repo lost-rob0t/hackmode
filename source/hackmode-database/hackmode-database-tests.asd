@@ -15,7 +15,8 @@
                (:file "tests/capture-checkpoint")
                (:file "tests/capture-quarantine")
                (:file "tests/capture-source-rotation")
-               (:file "tests/operational-kb-retraction-target"))
+               (:file "tests/operational-kb-retraction-target")
+               (:file "tests/visual-evidence"))
   :perform (test-op (op system)
              (declare (ignore op system))
              (uiop:symbol-call :hackmode-database-tests :run-tests)
@@ -40,4 +41,6 @@
              (uiop:symbol-call :hackmode-database-tests
                                :run-capture-source-rotation-tests)
              (uiop:symbol-call :hackmode-database-tests
-                               :run-operational-kb-retraction-target-tests)))
+                               :run-operational-kb-retraction-target-tests)
+             (uiop:symbol-call :hackmode-database-tests
+                               :run-visual-evidence-tests)))
