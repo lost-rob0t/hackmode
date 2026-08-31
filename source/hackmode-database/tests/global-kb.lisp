@@ -79,26 +79,35 @@
     (unwind-protect
          (progn
            (tek9:open-database database)
-           (flet ((promotion (operation assertion promotion-id)
-                    (make-long-term-kb-promotion
-                     :promotion-id promotion-id
-                     :source-assertion
-                     (make-operational-kb-assertion
-                      :assertion-id assertion
-                      :operation-id operation
-                      :run-id "run-1"
-                      :expert-id "recon"
-                      :expert-version "1"
-                      :key (list :operation operation)
-                      :value '(:validated t)
-                      :evidence-ids (list (format nil "result-~A" operation))
-                      :provenance '(:source "fixture"))
-                     :promoted-by "operator"
-                     :promoter-version "1"
-                     :evidence-ids (list (format nil "review-~A" operation))
-                     :provenance '(:reason "reusable"))))
-             (let* ((promotion-a (promotion "op-a" "a-a" "p-a"))
-                    (promotion-b (promotion "op-b" "a-b" "p-b"))
+           (flet ((source (operation assertion)
+                    (make-operational-kb-assertion
+                     :assertion-id assertion
+                     :operation-id operation
+                     :run-id "run-1"
+                     :expert-id "recon"
+                     :expert-version "1"
+                     :key (list :operation operation)
+                     :value '(:validated t)
+                     :evidence-ids (list (format nil "result-~A" operation))
+                     :provenance '(:source "fixture"))))
+             (let* ((source-a (source "op-a" "a-a"))
+                    (source-b (source "op-b" "a-b"))
+                    (promotion-a
+                      (make-long-term-kb-promotion
+                       :promotion-id "p-a"
+                       :source-assertion source-a
+                       :promoted-by "operator"
+                       :promoter-version "1"
+                       :evidence-ids '("review-op-a")
+                       :provenance '(:reason "reusable")))
+                    (promotion-b
+                      (make-long-term-kb-promotion
+                       :promotion-id "p-b"
+                       :source-assertion source-b
+                       :promoted-by "operator"
+                       :promoter-version "1"
+                       :evidence-ids '("review-op-b")
+                       :provenance '(:reason "reusable")))
                     (export-b
                       (make-global-kb-export
                        :export-id "e-b"
@@ -115,6 +124,10 @@
                        :exporter-version "1"
                        :evidence-ids '("approval-a")
                        :provenance '(:reason "shared"))))
+               (persist-operational-kb-entry database source-a)
+               (persist-operational-kb-entry database source-b)
+               (persist-long-term-kb-promotion database promotion-b)
+               (persist-long-term-kb-promotion database promotion-a)
                (persist-global-kb-export database export-b)
                (persist-global-kb-export database export-a)
                (let ((all (fetch-global-kb-exports database))
