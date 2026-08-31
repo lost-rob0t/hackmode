@@ -31,6 +31,7 @@
                (:file "outbox-actor")
                (:file "providers")
                (:file "provider-actor")
+               (:file "capture-provider")
                (:file "expert")
                (:module "expert-actions"
                 :pathname "expert/"
