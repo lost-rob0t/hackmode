@@ -18,16 +18,18 @@
             :clauses (list precondition goal)
             :limits nil
             :granted-capabilities '("http-probe")))
-         (registry (hackmode:make-expert-extension-registry))
          (extension
            (hackmode:make-expert-extension
             :id "recon"
             :version "2"
             :objective-predicates '("foothold" "final_identity")
             :required-capabilities '("http-probe")
-            :minimum-authority :passive
-            :strategies '(:symbolic))))
-    (hackmode:register-expert-extension registry extension)
+            :authority :passive
+            :strategies '(:symbolic)))
+         (registry
+           (hackmode:register-expert-extension
+            (hackmode:make-expert-extension-registry)
+            extension)))
     (multiple-value-bind (evaluation selection)
         (hackmode:expert-select-extension
          registry objective
