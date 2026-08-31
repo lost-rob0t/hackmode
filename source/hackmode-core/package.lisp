@@ -195,6 +195,29 @@
    ;; Provider actor
    :start-provider-supervisor
    :dispatch-capability
+   ;; Capture provider lifecycle
+   :capture-process-spec
+   :capture-process-spec-operation-id
+   :capture-process-spec-capture-session-id
+   :capture-process-spec-endpoint
+   :capture-process-spec-spool-id
+   :capture-process-spec-program
+   :capture-process-spec-arguments
+   :capture-service
+   :capture-service-operation-id
+   :capture-service-capture-session-id
+   :capture-service-endpoint
+   :capture-service-spool-id
+   :capture-service-version
+   :capture-service-state
+   :capture-service-process-id
+   :capture-service-restart-count
+   :capture-service-max-restarts
+   :capture-service-failure-class
+   :capture-service-last-error
+   :start-capture-service
+   :note-capture-process-exit
+   :stop-capture-service
    ;; Optional Prolog expert layer
    :*expert-program*
    :expert-unavailable
