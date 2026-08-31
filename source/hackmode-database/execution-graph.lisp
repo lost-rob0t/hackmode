@@ -111,6 +111,24 @@
   (%require-string :framing-version (getf payload :framing-version))
   payload)
 
+(defun %validate-capture-source-rotation-payload (payload)
+  (unless (listp payload)
+    (error 'execution-graph-validation-error
+           :field :payload :value payload
+           :reason "expected capture source rotation property list"))
+  (let ((previous-source-id
+          (%require-string :previous-source-id (getf payload :previous-source-id)))
+        (next-source-id
+          (%require-string :next-source-id (getf payload :next-source-id))))
+    (when (string= previous-source-id next-source-id)
+      (error 'execution-graph-validation-error
+             :field :next-source-id :value next-source-id
+             :reason "capture rotation successor must differ from predecessor")))
+  (%require-non-negative-integer
+   :previous-final-offset (getf payload :previous-final-offset))
+  (%require-string :framing-version (getf payload :framing-version))
+  payload)
+
 (defun %key-part (value)
   (let ((string (princ-to-string value)))
     (format nil "~D:~A" (length string) string)))
@@ -233,6 +251,29 @@
      :payload payload
      :provenance provenance)))
 
+(defun make-capture-source-rotation-record
+    (&key operation-id capture-session-id previous-source-id next-source-id
+          previous-final-offset framing-version provenance)
+  "Construct immutable lineage for one capture source rotation."
+  (%require-string :operation-id operation-id)
+  (%require-string :capture-session-id capture-session-id)
+  (%require-provenance provenance)
+  (let ((payload (list :previous-source-id previous-source-id
+                       :next-source-id next-source-id
+                       :previous-final-offset previous-final-offset
+                       :framing-version framing-version)))
+    (%validate-capture-source-rotation-payload payload)
+    (%make-execution-record
+     :kind :capture-source-rotation
+     :operation-id operation-id
+     :run-id capture-session-id
+     :call-id next-source-id
+     :record-id (%record-id "capture-source-rotation"
+                            operation-id capture-session-id
+                            previous-source-id next-source-id)
+     :payload payload
+     :provenance provenance)))
+
 (defun validate-tool-result-link (call result)
   (unless (eq :tool-call (execution-record-kind call))
     (error 'execution-graph-validation-error
@@ -276,7 +317,8 @@
          (payload (getf props :payload))
          (provenance (getf props :provenance)))
     (unless (member kind '(:tool-call :tool-result :http-exchange
-                           :capture-checkpoint :capture-quarantine)
+                           :capture-checkpoint :capture-quarantine
+                           :capture-source-rotation)
                     :test #'eq)
       (error 'execution-graph-validation-error
              :field :kind :value kind :reason "unsupported stored execution record kind"))
@@ -297,6 +339,8 @@
       (%validate-capture-checkpoint-payload payload))
     (when (eq kind :capture-quarantine)
       (%validate-capture-quarantine-payload payload))
+    (when (eq kind :capture-source-rotation)
+      (%validate-capture-source-rotation-payload payload))
     (%make-execution-record
      :kind kind
      :operation-id operation-id

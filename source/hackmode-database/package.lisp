@@ -29,6 +29,7 @@
    #:make-http-exchange-record
    #:make-capture-checkpoint-record
    #:make-capture-quarantine-record
+   #:make-capture-source-rotation-record
    #:validate-tool-result-link
    #:execution-graph-name
    #:execution-record->tek9-node
@@ -39,6 +40,7 @@
    #:fetch-operation-execution-records
    #:fetch-latest-capture-checkpoint
    #:fetch-capture-quarantine-records
+   #:fetch-capture-source-rotations
    #:operational-kb-validation-error
    #:operational-kb-entry
    #:operational-kb-entry-kind
