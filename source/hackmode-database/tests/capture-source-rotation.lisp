@@ -81,6 +81,15 @@
                     :previous-final-offset 8192
                     :framing-version "ipx/1"
                     :provenance '(:parser "fixture")))
+                 (fork
+                   (make-capture-source-rotation-record
+                    :operation-id "op-rotation"
+                    :capture-session-id "capture-1"
+                    :previous-source-id "capture.log"
+                    :next-source-id "capture.log.alt"
+                    :previous-final-offset 4096
+                    :framing-version "ipx/1"
+                    :provenance '(:parser "fixture")))
                  (foreign
                    (make-capture-source-rotation-record
                     :operation-id "op-other"
@@ -93,6 +102,11 @@
              (persist-execution-record database rotation-b)
              (persist-execution-record database rotation-a)
              (persist-execution-record database rotation-a)
+             (handler-case
+                 (progn
+                   (persist-execution-record database fork)
+                   (error "divergent capture source rotation fork unexpectedly persisted"))
+               (persistence-replay-conflict () t))
              (persist-execution-record database foreign)
              (let ((rotations
                      (fetch-capture-source-rotations
