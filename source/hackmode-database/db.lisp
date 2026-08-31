@@ -300,9 +300,13 @@
   promotion)
 
 (defun fetch-long-term-kb-promotion (database record-id)
-  "Fetch one long-term KB promotion by its stable record identity."
-  (tek9:fetch-node database record-id
-                   :database-name (long-term-kb-graph-name)))
+  "Return one typed long-term KB promotion by stable RECORD-ID, or NIL."
+  (%long-term-require-string :record-id record-id)
+  (let ((node (tek9:fetch-node
+               database record-id
+               :database-name (long-term-kb-graph-name))))
+    (when node
+      (tek9-node->long-term-kb-promotion node))))
 
 (defun fetch-long-term-kb-promotions (database &key source-operation-id)
   "Return typed long-term KB promotions in deterministic record-ID order."
