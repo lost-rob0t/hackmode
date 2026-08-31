@@ -147,6 +147,26 @@
    :key (lambda (record)
           (getf (execution-record-payload record) :previous-final-offset))))
 
+(defun %validate-operational-kb-retraction-target (database entry graph-name)
+  "Require ENTRY to retract a canonical assertion in the same operation graph."
+  (let* ((target-id (operational-kb-entry-target-assertion-id entry))
+         (node (tek9:fetch-node database target-id :database-name graph-name)))
+    (unless node
+      (error 'operational-kb-validation-error
+             :field :target-assertion-id
+             :value target-id
+             :reason "target assertion does not exist"))
+    (let ((target (tek9-node->operational-kb-entry node)))
+      (unless (and (eq :assert (operational-kb-entry-kind target))
+                   (string= target-id
+                            (operational-kb-entry-record-id target))
+                   (string= (operational-kb-entry-operation-id entry)
+                            (operational-kb-entry-operation-id target)))
+        (error 'operational-kb-validation-error
+               :field :target-assertion-id
+               :value target-id
+               :reason "target is not the canonical operation assertion")))))
+
 (defun persist-operational-kb-entry (database entry)
   "Persist one replay-safe operational KB assertion or retraction through Tek9."
   (let ((graph-name (operational-kb-graph-name
@@ -165,13 +185,7 @@
           (operational-kb-membership-edge entry)
           :database-name graph-name))
         (:retract
-         (unless (tek9:fetch-node database
-                                  (operational-kb-entry-target-assertion-id entry)
-                                  :database-name graph-name)
-           (error 'operational-kb-validation-error
-                  :field :target-assertion-id
-                  :value (operational-kb-entry-target-assertion-id entry)
-                  :reason "target assertion does not exist"))
+         (%validate-operational-kb-retraction-target database entry graph-name)
          (persist-graph-node-replay-safe
           database
           (operational-kb-entry->tek9-node entry)
