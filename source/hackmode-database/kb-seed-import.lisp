@@ -73,11 +73,22 @@ collapse and input ordering cannot change logical record identity."
 
 (defun persist-operational-kb-seed-values
     (database &rest arguments &key &allow-other-keys)
-  "Construct and persist one bounded seed-list import into operational KB.
+  "Atomically persist one bounded seed-list import into operational KB.
 
-Persistence reuses the canonical replay-safe operational-KB write boundary.
-The returned list contains the typed assertions in deterministic order."
-  (let ((assertions (apply #'make-operational-kb-seed-assertions arguments)))
-    (dolist (assertion assertions)
-      (persist-operational-kb-entry database assertion))
+All assertions share one canonical Tek9 write transaction. A replay conflict
+therefore aborts the whole import instead of leaving a partially imported list."
+  (let* ((assertions (apply #'make-operational-kb-seed-assertions arguments))
+         (operation-id (operational-kb-entry-operation-id (first assertions)))
+         (graph-name (operational-kb-graph-name operation-id)))
+    (tek9:with-write-transaction (database)
+      (persist-graph-node-replay-safe
+       database (operational-kb-root-node operation-id)
+       :database-name graph-name)
+      (dolist (assertion assertions)
+        (persist-graph-node-replay-safe
+         database (operational-kb-entry->tek9-node assertion)
+         :database-name graph-name)
+        (persist-graph-edge-replay-safe
+         database (operational-kb-membership-edge assertion)
+         :database-name graph-name)))
     assertions))
