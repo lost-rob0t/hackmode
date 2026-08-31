@@ -19,6 +19,7 @@
                 :capture-session-id "capture-135"
                 :endpoint "http://127.0.0.1:18080"
                 :spool-id "spool-135"
+                :spool-path "/tmp/op-135.ipx.jsonl"
                 :max-restarts 1
                 :runner #'runner
                 :stopper #'stopper))
@@ -76,10 +77,19 @@
           (assert-equal "capture-135"
                         (hackmode:capture-process-spec-capture-session-id spec)
                         "process spec capture session")
+          (assert-equal "/tmp/op-135.ipx.jsonl"
+                        (hackmode:capture-process-spec-spool-path spec)
+                        "process spec spool path")
           (assert-equal '("--listen-host" "127.0.0.1"
-                          "--listen-port" "18080")
+                          "--listen-port" "18080"
+                          "-s" "tools/ipx/mitmproxy-addon.py"
+                          "--set" "hackmode_operation_id=op-135"
+                          "--set" "hackmode_capture_session_id=capture-135"
+                          "--set" "hackmode_spool_id=spool-135"
+                          "--set" "hackmode_spool_path=/tmp/op-135.ipx.jsonl"
+                          "--set" "hackmode_ipx_version=1")
                         (hackmode:capture-process-spec-arguments spec)
-                        "mitmdump listen arguments"))))
+                        "mitmdump IPX addon arguments"))))
 
     (let ((exhaust-launches 0))
       (flet ((runner (spec)
