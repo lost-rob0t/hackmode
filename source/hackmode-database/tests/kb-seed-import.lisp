@@ -79,4 +79,55 @@
            :provenance '(:source "fixture"))
           (error "empty seed value was accepted"))
       (operational-kb-validation-error () t)))
+  (let* ((path (merge-pathnames
+                (format nil "hackmode-seed-atomic-~D/" (random 1000000000))
+                (uiop:temporary-directory)))
+         (database (tek9:new-database "hackmode-seed-atomic-test" :path path)))
+    (unwind-protect
+         (progn
+           (tek9:open-database database)
+           (let* ((arguments
+                    (list :import-id "atomic-import"
+                          :operation-id "op-atomic"
+                          :run-id "run-atomic"
+                          :imported-by "seed-import"
+                          :importer-version "1"
+                          :seed-kind :wordlist
+                          :namespace "paths"
+                          :values '("admin" "login")
+                          :evidence-ids '("artifact-atomic")
+                          :provenance '(:source "fixture")))
+                  (assertions (apply #'make-operational-kb-seed-assertions arguments))
+                  (admin (find "admin" assertions
+                               :key #'operational-kb-entry-value :test #'string=))
+                  (login (find "login" assertions
+                               :key #'operational-kb-entry-value :test #'string=))
+                  (conflict
+                    (make-operational-kb-assertion
+                     :assertion-id
+                     (subseq (operational-kb-entry-record-id login)
+                             (length (hackmode-database::%record-id
+                                      "operational-kb-assertion" "op-atomic")))
+                     :operation-id "op-atomic"
+                     :run-id "run-atomic"
+                     :expert-id "different-importer"
+                     :expert-version "1"
+                     :key '(:seed :wordlist "paths")
+                     :value "login"
+                     :evidence-ids '("artifact-conflict")
+                     :provenance '(:source "conflict"))))
+             (persist-operational-kb-entry database conflict)
+             (handler-case
+                 (progn
+                   (apply #'persist-operational-kb-seed-values database arguments)
+                   (error "conflicting seed import unexpectedly succeeded"))
+               (persistence-replay-conflict () t))
+             (ensure (null (fetch-operational-kb-entry
+                            database "op-atomic"
+                            (operational-kb-entry-record-id admin)))
+                     "failed seed import left a partial canonical assertion")))
+      (when (tek9:db-is-open-p database)
+        (tek9:close-database database))
+      (when (probe-file path)
+        (uiop:delete-directory-tree path :validate t))))
   t)
