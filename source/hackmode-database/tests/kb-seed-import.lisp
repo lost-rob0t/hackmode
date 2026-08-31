@@ -105,9 +105,8 @@
                   (conflict
                     (make-operational-kb-assertion
                      :assertion-id
-                     (subseq (operational-kb-entry-record-id login)
-                             (length (hackmode-database::%record-id
-                                      "operational-kb-assertion" "op-atomic")))
+                     (hackmode-database::%record-id
+                      "operational-kb-seed" "atomic-import" "WORDLIST" "paths" "login")
                      :operation-id "op-atomic"
                      :run-id "run-atomic"
                      :expert-id "different-importer"
