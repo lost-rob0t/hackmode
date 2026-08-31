@@ -170,8 +170,27 @@
                :reason "stored visual evidence identity does not match typed identity"))
       record)))
 
-(defun persist-visual-evidence-record (database record)
-  "Persist RECORD replay-safely through the canonical Tek9 graph boundary."
+(defun persist-visual-evidence-record
+    (database record &key expected-operation-id expected-run-id)
+  "Persist RECORD replay-safely through the canonical Tek9 graph boundary.
+When EXPECTED-OPERATION-ID or EXPECTED-RUN-ID is supplied, reject records from
+another scope before any canonical write occurs."
+  (when expected-operation-id
+    (%require-string :expected-operation-id expected-operation-id)
+    (unless (string= expected-operation-id
+                     (visual-evidence-record-operation-id record))
+      (error 'execution-graph-validation-error
+             :field :operation-id
+             :value (visual-evidence-record-operation-id record)
+             :reason "visual evidence write does not match expected operation scope")))
+  (when expected-run-id
+    (%require-string :expected-run-id expected-run-id)
+    (unless (string= expected-run-id
+                     (visual-evidence-record-run-id record))
+      (error 'execution-graph-validation-error
+             :field :run-id
+             :value (visual-evidence-record-run-id record)
+             :reason "visual evidence write does not match expected run scope")))
   (persist-graph-node-replay-safe
    database
    (visual-evidence-record->tek9-node record)
