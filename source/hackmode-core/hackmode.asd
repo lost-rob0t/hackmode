@@ -41,6 +41,7 @@
                              (:file "plan")
                              (:file "recon")
                              (:file "loop")
+                             (:file "direct-candidate")
                              (:file "objective")
                              (:file "extension")
                              (:file "selection")
