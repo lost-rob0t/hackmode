@@ -20,7 +20,7 @@ client / browser / tool
         |
         v
 append-only capture file/spool
- raw evidence + offsets + digests
+ lossless raw evidence + offsets + digests
         |
         v
 capture parser/tailer actor
@@ -55,10 +55,11 @@ typed application exchanges
 #+end_example
 
 * Authority boundary
-- The capture file/spool is source evidence. Analysis never rewrites it.
-- Common Lisp owns capture lifecycle, parser supervision, canonical graph/KB writes, redaction policy, promotion/export, StarIntel projection, and every other effect.
+- The capture file/spool is canonical source evidence. Analysis never rewrites, sanitizes, or replaces it.
+- Common Lisp owns capture lifecycle, parser supervision, canonical graph/KB writes, evidence retention, promotion/export, StarIntel projection, and every other effect.
 - Hackpert/Prolog may classify, correlate, fingerprint, infer, rank, and emit graph deltas.
 - Prolog receives bounded typed projections or evidence references, not arbitrary raw-file or database authority.
+- Bounded projection is not lossy capture: when a projection carries a reference instead of an inline value, the exact source evidence remains retrievable through the operation-scoped evidence path.
 - Passive analysis never grants authority for an active action.
 - Later active actions must cross the normal Hackmode operation-scope, capability/provider, and authorization boundary explicitly.
 
@@ -72,13 +73,15 @@ A typed exchange should retain at least:
 - timestamp and duration;
 - method, scheme, host, port, path, and query;
 - response status;
-- bounded/redacted headers;
-- request/response body digest plus raw-evidence reference;
+- exact observed request and response headers, including repeated fields and original values as represented by the capture format;
+- request/response body digest plus a lossless raw-evidence reference, with exact body bytes retained by the canonical capture store;
 - content type, content length, and encoding;
-- connection/TLS metadata when the capture boundary can provide it safely;
+- connection/TLS metadata available from the capture boundary;
 - capture/parser format version.
 
-Large or sensitive bodies should normally stay in the raw evidence store and be represented by a digest/reference in canonical graph state.
+Large bodies may be represented in canonical graph state by an evidence reference plus digest rather than copied into every node. That is a storage/projection choice only: the source bytes remain exact and retrievable.
+
+No HTTP field is removed or mutated merely because it looks like a credential, cookie, token, API key, session identifier, or other secret. Those values are operation-scoped evidence and must remain available to later explicitly authorized analysis/workflows.
 
 WebSocket, SSE, raw TCP, DNS, or other application traces can be added later through versioned adapters without changing this ownership model.
 
@@ -97,7 +100,7 @@ Useful passive deductions include:
 - endpoint/parameter candidates for later explicitly authorized expert workflows;
 - traffic-derived findings with confidence and exact evidence links.
 
-Credentials, cookies, bearer tokens, API keys, session identifiers, and similar values are secret-bearing evidence. They may be represented by redacted metadata/digests when useful, but they are not reusable plaintext KB knowledge.
+Credentials, cookies, bearer tokens, API keys, session identifiers, and similar values are first-class operation-scoped evidence. A graph/KB projection may inline them when needed or carry an exact evidence reference when boundedness is preferable. It may not silently substitute a digest, placeholder, mask, or omission for the canonical captured value.
 
 * Graph model
 IPX extends the expert graph from =expert-layer.org= rather than creating a parallel traffic database.
@@ -111,7 +114,7 @@ Useful node families include:
 - endpoint;
 - parameter;
 - observed value/type;
-- header/cookie metadata;
+- header/cookie evidence;
 - technology fingerprint;
 - traffic-derived finding;
 - raw evidence reference.
@@ -140,6 +143,7 @@ Per-operation live traffic intelligence:
 - observed flows;
 - session/auth relationships;
 - traffic-derived hypotheses/findings;
+- exact evidence values or stable references to exact source evidence when those values are needed by authorized workflows;
 - recent passive-analysis context.
 
 ** Long-term KB
@@ -152,17 +156,19 @@ Explicitly promoted reusable knowledge:
 ** Global KB / looting
 Explicit export only.
 
-Never loot credentials, cookies, bearer tokens, API keys, session identifiers, private body content, or other secret-bearing raw evidence into a global KB.
+Promotion/export is an authority decision, not a capture-fidelity decision. Secret-bearing raw evidence remains operation-scoped unless an explicit authorized promotion/export requests otherwise. Scope is enforced by access and export boundaries; the canonical source evidence is not mutated to enforce scope.
 
-* Secret and privacy handling
-Raw capture data may contain credentials or private application data and therefore has a stricter boundary than derived graph facts.
+* Evidence fidelity and scope
+Raw capture data may contain credentials or private application data. That changes who may access/export the evidence; it does not permit the capture/parser path to destroy or rewrite what was observed.
 
 Requirements:
-- configurable header/body capture and size limits;
-- canonical redaction of =Authorization=, cookies, common API-key fields, and configured secret fields before expert/StarIntel projection;
-- digests/evidence references survive redaction so facts remain traceable to authorized raw evidence;
-- secrets do not enter Prolog source, normal logs, StarIntel documents, long-term KB, or global KB by default;
+- canonical raw capture is lossless and append-only for the fields/bytes the capture provider records;
+- no automatic redaction, sanitization, secret stripping, masking, hashing-away, or omission of =Authorization=, cookies, API-key-shaped fields, session identifiers, query/form values, or body content;
+- exact source values remain retrievable from operation-scoped evidence even when graph/KB/model projections use bounded references;
+- any explicitly configured capture limit or truncation must be represented as an explicit incomplete/truncated record with provenance; silent truncation is forbidden;
+- StarIntel projection must preserve the requested field/value or a stable exact-evidence reference and must not silently mutate evidence as a side effect of projection;
 - raw-capture retention/deletion policy is explicit and operation-scoped;
+- promotion/export permissions are explicit and independent from capture fidelity;
 - malformed or untrusted captured content is always treated as data, never executable Prolog or Lisp input.
 
 * File/spool contract
@@ -196,6 +202,8 @@ capture evidence
 
 Reuse canonical StarIntel identities and provenance. Transport publication alone is not proof of ingest acceptance; existing Hackmode durable outbox/ack semantics remain authoritative for synchronization state.
 
+StarIntel projection is not a sanitization boundary. When the StarIntel document model does not inline a value, it must carry a stable reference that resolves to the exact operation-scoped evidence under the appropriate authority instead of pretending the omitted value never existed.
+
 * Failure behavior
 - Proxy capture failure is explicit and does not corrupt existing operation state.
 - Parser failure leaves the raw evidence intact and records/quarantines the bad region.
@@ -203,13 +211,14 @@ Reuse canonical StarIntel identities and provenance. Transport publication alone
 - Hackpert malformed output is rejected at the Common Lisp acceptance boundary.
 - StarIntel unavailable means capture + local analysis continue and accepted projections remain queued locally.
 - Reprocessing the same evidence remains idempotent.
+- A projection/storage limit never silently converts complete evidence into an apparently complete partial record.
 
 * Implementation order
 1. Versioned append-only IPX capture format and capture-session identity.
-2. Proxy adapter producing deterministic HTTP request/response records.
+2. Proxy adapter producing deterministic lossless HTTP request/response records.
 3. Tail/replay parser actor with durable checkpoints and quarantine.
 4. Typed exchange/evidence nodes and edges in the Hackmode execution graph.
-5. Redaction and body-reference policy.
+5. Lossless evidence-reference/projection policy with explicit truncation markers only when an operator-configured limit is hit.
 6. Passive Hackpert snapshot facts for exchanges.
 7. Typed passive-analysis graph-delta contract.
 8. Common Lisp graph-delta acceptance and operational-KB/Tek9 persistence.
@@ -218,13 +227,15 @@ Reuse canonical StarIntel identities and provenance. Transport publication alone
 
 * Acceptance proof
 1. Start a capture session for an operation.
-2. Send deterministic fixture HTTP traffic through the proxy.
+2. Send deterministic fixture HTTP traffic through the proxy containing repeated headers, =Authorization=, =Cookie=, =Set-Cookie=, an API-key-shaped header, query/form values, and request/response body bytes.
 3. The capture file records framed request/response evidence with stable correlation and provenance offsets.
-4. Restart the parser and resume from its checkpoint without duplicate graph state.
-5. Hackpert derives endpoint/parameter/fingerprint graph facts passively.
-6. Passive analysis executes zero providers and zero active requests.
-7. Common Lisp validates and persists accepted graph deltas.
-8. Secret headers/fields are absent from Prolog projections, normal logs, StarIntel documents, long-term KB, and global KB by default.
-9. StarIntel can be offline while capture and local analysis continue.
-10. Reconnect drains accepted projections through the durable outbox exactly/idempotently.
-11. Replaying the same capture does not duplicate logical assets, findings, or relations.
+4. Verify every fixture field/value and body byte is retrievable exactly from canonical operation-scoped evidence; none is masked, stripped, replaced by a digest, or silently omitted.
+5. Restart the parser and resume from its checkpoint without duplicate graph state.
+6. Verify bounded typed projections either preserve exact values or carry stable references resolving to the exact canonical evidence.
+7. Hackpert derives endpoint/parameter/fingerprint graph facts passively.
+8. Passive analysis executes zero providers and zero active requests.
+9. Common Lisp validates and persists accepted graph deltas.
+10. Verify promotion/export scope can deny an export without modifying or deleting the canonical operation-scoped evidence.
+11. StarIntel can be offline while capture and local analysis continue.
+12. Reconnect drains accepted projections through the durable outbox exactly/idempotently.
+13. Replaying the same capture does not duplicate logical assets, findings, or relations.
