@@ -45,11 +45,15 @@
                 :capture-session-id "capture-1"
                 :exchange-id "exchange-1"
                 :provenance '(:provider "visual-fixture/1"))))
-    (ensure (eq :visual-evidence (hackmode-database:execution-record-kind first))
-            "visual evidence has wrong execution kind")
-    (ensure (string= (hackmode-database:execution-record-record-id first)
-                     (hackmode-database:execution-record-record-id same))
+    (ensure (string= (hackmode-database:visual-evidence-record-record-id first)
+                     (hackmode-database:visual-evidence-record-record-id same))
             "visual evidence replay changed stable identity")
+    (ensure (string= "capture-1"
+                     (hackmode-database:visual-evidence-record-capture-session-id first))
+            "capture session correlation was not retained")
+    (ensure (string= "exchange-1"
+                     (hackmode-database:visual-evidence-record-exchange-id first))
+            "HTTP exchange correlation was not retained")
     (let* ((path (merge-pathnames
                   (format nil "hackmode-visual-evidence-~D/" (random 1000000000))
                   (uiop:temporary-directory)))
@@ -57,25 +61,28 @@
       (unwind-protect
            (progn
              (tek9:open-database database)
-             (hackmode-database:persist-execution-record database first)
-             (hackmode-database:persist-execution-record database same)
+             (hackmode-database:persist-visual-evidence-record database first)
+             (hackmode-database:persist-visual-evidence-record database same)
              (let ((records (hackmode-database:fetch-visual-evidence-records
                              database "op-visual" :run-id "run-1")))
                (ensure (= 1 (length records))
                        "visual evidence replay duplicated canonical state")
-               (ensure (equal (hackmode-database:execution-record-payload first)
-                              (hackmode-database:execution-record-payload (first records)))
-                       "visual evidence payload changed during Tek9 round-trip")
+               (ensure (equal (tek9:node-props
+                               (hackmode-database:visual-evidence-record->tek9-node first))
+                              (tek9:node-props
+                               (hackmode-database:visual-evidence-record->tek9-node
+                                (first records))))
+                       "visual evidence changed during Tek9 round-trip")
                (ensure (string=
-                        (hackmode-database:execution-record-record-id first)
-                        (hackmode-database:execution-record-record-id
+                        (hackmode-database:visual-evidence-record-record-id first)
+                        (hackmode-database:visual-evidence-record-record-id
                          (hackmode-database:fetch-visual-evidence-record
                           database "op-visual"
-                          (hackmode-database:execution-record-record-id first))))
+                          (hackmode-database:visual-evidence-record-record-id first))))
                        "singular visual evidence fetch lost stable identity"))
              (handler-case
                  (progn
-                   (hackmode-database:persist-execution-record
+                   (hackmode-database:persist-visual-evidence-record
                     database
                     (hackmode-database:make-visual-evidence-record
                      :operation-id "op-visual"
