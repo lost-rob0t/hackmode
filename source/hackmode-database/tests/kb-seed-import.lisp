@@ -116,6 +116,11 @@
                      :evidence-ids '("artifact-conflict")
                      :provenance '(:source "conflict"))))
              (persist-operational-kb-entry database conflict)
+             (ensure (typep (fetch-operational-kb-entry
+                             database "op-atomic"
+                             (operational-kb-entry-record-id conflict))
+                            'operational-kb-entry)
+                     "single operational KB fetch leaked a raw Tek9 node")
              (handler-case
                  (progn
                    (apply #'persist-operational-kb-seed-values database arguments)
