@@ -29,6 +29,7 @@
                (:file "actor-system")
                (:file "outbox")
                (:file "outbox-actor")
+               (:file "http-transport-profile")
                (:file "providers")
                (:file "provider-actor")
                (:file "capture-provider")
