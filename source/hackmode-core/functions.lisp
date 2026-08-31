@@ -53,4 +53,6 @@
 (defun find-apis (url-objects &optional (common-api-urls *api-common-patterns*))
   "find api urls in a list of url-objects based on the given pattern.
    adds 'api' tag to each url-object if it matches the pattern."
-  (mapcar (lambda (url-object) (find-api pattern url-object common-api-urls)) url-objects))
+  (mapcar (lambda (url-object)
+            (find-api url-object common-api-urls))
+          url-objects))
