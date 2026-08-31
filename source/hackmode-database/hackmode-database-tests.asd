@@ -5,6 +5,7 @@
   :components ((:file "tests/execution-graph")
                (:file "tests/long-term-kb")
                (:file "tests/global-kb")
+               (:file "tests/global-kb-canonical-source")
                (:file "tests/replay-conflict")
                (:file "tests/kb-seed-import")
                (:file "tests/execution-outcome-kb")
@@ -18,6 +19,8 @@
              (uiop:symbol-call :hackmode-database-tests :run-tests)
              (uiop:symbol-call :hackmode-database-tests :run-long-term-kb-tests)
              (uiop:symbol-call :hackmode-database-tests :run-global-kb-tests)
+             (uiop:symbol-call :hackmode-database-tests
+                               :run-global-kb-canonical-source-tests)
              (uiop:symbol-call :hackmode-database-tests :run-replay-conflict-tests)
              (uiop:symbol-call :hackmode-database-tests :run-kb-seed-import-tests)
              (uiop:symbol-call :hackmode-database-execution-outcome-tests
