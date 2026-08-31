@@ -130,6 +130,18 @@
                (persist-long-term-kb-promotion database promotion-a)
                (persist-global-kb-export database export-b)
                (persist-global-kb-export database export-a)
+               (let ((fetched (fetch-global-kb-export
+                               database (global-kb-export-record-id export-a))))
+                 (ensure (typep fetched 'global-kb-export)
+                         "singular global KB fetch leaked a raw Tek9 node")
+                 (ensure (string= (global-kb-export-record-id export-a)
+                                  (global-kb-export-record-id fetched))
+                         "singular global KB fetch changed stable identity")
+                 (ensure (equal '("approval-a")
+                                (global-kb-export-evidence-ids fetched))
+                         "singular global KB fetch lost export evidence")
+                 (ensure (null (fetch-global-kb-export database "missing-export"))
+                         "singular global KB fetch should return NIL when absent"))
                (let ((all (fetch-global-kb-exports database))
                      (op-a (fetch-global-kb-exports
                             database :source-operation-id "op-a")))
