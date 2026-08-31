@@ -48,6 +48,7 @@
                              (:file "budget")
                              (:file "budget-loop")
                              (:file "inspection")
+                             (:file "inspection-accessors")
                              (:file "transition-inspection")
                              (:file "selection-inspection")
                              (:file "budget-inspection")))
