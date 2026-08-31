@@ -120,4 +120,84 @@
       (assert-equal :objective-satisfied
                     (hackmode:expert-extension-selection-reason selection)
                     "satisfied objective explains stop selection"))
+    (let* ((work
+             (hackmode:make-expert-playbook-step
+              :id "work"
+              :success-next "done"
+              :failure-next "work"))
+           (done
+             (hackmode:make-expert-playbook-step
+              :id "done"
+              :terminal :succeeded))
+           (playbook
+             (hackmode:make-expert-playbook
+              :id "objective-loop"
+              :version "1"
+              :entry-step "work"
+              :steps (list work done)
+              :stop-conditions
+              (list
+               (hackmode:make-expert-stop-condition :kind :goal-satisfied)
+               (hackmode:make-expert-stop-condition :kind :no-viable-extension))))
+           (plan
+             (hackmode:instantiate-expert-plan
+              playbook
+              :id "objective-plan"
+              :operation "op-a"
+              :run-id "run-a"
+              :objective-id "root-objective"))
+           (policy (hackmode:make-expert-loop-policy :non-progress-threshold 2))
+           (state
+             (hackmode:make-expert-loop-state
+              :operation "op-a"
+              :run-id "run-a"
+              :strategy :symbolic))
+           (satisfied '("foothold")))
+      (flet ((satisfied-p (clause)
+               (member (hackmode:expert-objective-clause-predicate clause)
+                       satisfied
+                       :test #'string=)))
+        (multiple-value-bind (evaluation selection decision next-state)
+            (hackmode:expert-objective-loop-step
+             state plan policy registry objective
+             :authority :active
+             :available-capabilities '("shell-command" "http-probe")
+             :clause-satisfied-p #'satisfied-p
+             :progress-p t)
+          (assert-equal :in-progress
+                        (hackmode:expert-objective-evaluation-status evaluation)
+                        "loop step evaluates current evidence")
+          (assert-equal "recon-path"
+                        (hackmode:expert-extension-selection-selected-id selection)
+                        "loop step selects from current applicable extensions")
+          (assert-equal :continue
+                        (hackmode:expert-loop-decision-kind decision)
+                        "unsatisfied objective continues after progress")
+          (setf satisfied
+                '("foothold" "final_identity" "authenticated_execution"))
+          (multiple-value-bind (second-evaluation second-selection second-decision
+                                second-state)
+              (hackmode:expert-objective-loop-step
+               next-state plan policy registry objective
+               :authority :active
+               :available-capabilities '("shell-command" "http-probe")
+               :clause-satisfied-p #'satisfied-p
+               :progress-p t)
+            (assert-equal :satisfied
+                          (hackmode:expert-objective-evaluation-status
+                           second-evaluation)
+                          "next loop step re-evaluates newly available evidence")
+            (assert-equal :objective-satisfied
+                          (hackmode:expert-extension-selection-reason
+                           second-selection)
+                          "satisfied objective bypasses extension execution")
+            (assert-equal :stop
+                          (hackmode:expert-loop-decision-kind second-decision)
+                          "newly satisfied objective stops on the next iteration")
+            (assert-equal :goal-satisfied
+                          (hackmode:expert-loop-decision-reason second-decision)
+                          "objective satisfaction supplies the typed stop reason")
+            (assert-equal "op-a"
+                          (hackmode:expert-loop-state-operation second-state)
+                          "loop step preserves operation scope")))))
     t))
