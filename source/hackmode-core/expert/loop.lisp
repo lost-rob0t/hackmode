@@ -32,12 +32,35 @@
 
 (defstruct (expert-loop-state
              (:constructor %make-expert-loop-state
-                 (&key operation run-id strategy non-progress-count last-reason)))
+                 (&key operation run-id strategy non-progress-count last-reason))
+             (:conc-name %expert-loop-state-))
   operation
   run-id
   (strategy :symbolic :type keyword)
   (non-progress-count 0 :type integer)
   last-reason)
+
+(defun expert-loop-state-operation (state)
+  "Return an independently mutable snapshot of STATE's operation scope."
+  (check-type state expert-loop-state)
+  (copy-seq (%expert-loop-state-operation state)))
+
+(defun expert-loop-state-run-id (state)
+  "Return an independently mutable snapshot of STATE's run scope."
+  (check-type state expert-loop-state)
+  (copy-seq (%expert-loop-state-run-id state)))
+
+(defun expert-loop-state-strategy (state)
+  (check-type state expert-loop-state)
+  (%expert-loop-state-strategy state))
+
+(defun expert-loop-state-non-progress-count (state)
+  (check-type state expert-loop-state)
+  (%expert-loop-state-non-progress-count state))
+
+(defun expert-loop-state-last-reason (state)
+  (check-type state expert-loop-state)
+  (%expert-loop-state-last-reason state))
 
 (defun make-expert-loop-state (&key operation run-id (strategy :symbolic)
                                     (non-progress-count 0) last-reason)
@@ -51,8 +74,8 @@
     (reject-expert-loop non-progress-count
                         "non-progress count must be a non-negative integer"))
   (%make-expert-loop-state
-   :operation operation
-   :run-id run-id
+   :operation (copy-seq operation)
+   :run-id (copy-seq run-id)
    :strategy strategy
    :non-progress-count non-progress-count
    :last-reason last-reason))
@@ -65,12 +88,12 @@
 
 (defun expert-loop-copy-state (state &key strategy non-progress-count last-reason)
   (%make-expert-loop-state
-   :operation (expert-loop-state-operation state)
-   :run-id (expert-loop-state-run-id state)
-   :strategy (or strategy (expert-loop-state-strategy state))
+   :operation (copy-seq (%expert-loop-state-operation state))
+   :run-id (copy-seq (%expert-loop-state-run-id state))
+   :strategy (or strategy (%expert-loop-state-strategy state))
    :non-progress-count
    (if (null non-progress-count)
-       (expert-loop-state-non-progress-count state)
+       (%expert-loop-state-non-progress-count state)
        non-progress-count)
    :last-reason last-reason))
 
@@ -90,17 +113,17 @@
           return kind))
 
 (defun validate-expert-loop-scope (state plan)
-  (unless (string= (expert-loop-state-operation state)
+  (unless (string= (%expert-loop-state-operation state)
                    (expert-plan-operation plan))
     (reject-expert-loop state
                         "loop operation ~s does not match plan operation ~s"
-                        (expert-loop-state-operation state)
+                        (%expert-loop-state-operation state)
                         (expert-plan-operation plan)))
-  (unless (string= (expert-loop-state-run-id state)
+  (unless (string= (%expert-loop-state-run-id state)
                    (expert-plan-run-id plan))
     (reject-expert-loop state
                         "loop run ~s does not match plan run ~s"
-                        (expert-loop-state-run-id state)
+                        (%expert-loop-state-run-id state)
                         (expert-plan-run-id plan)))
   state)
 
@@ -130,9 +153,9 @@ never dispatches a provider, mutates canonical state, or invokes a model."
          (make-expert-loop-decision
           :kind :stop
           :reason stop-reason
-          :strategy (expert-loop-state-strategy state))
+          :strategy (%expert-loop-state-strategy state))
          (expert-loop-copy-state state :last-reason stop-reason)))))
-  (ecase (expert-loop-state-strategy state)
+  (ecase (%expert-loop-state-strategy state)
     (:symbolic
      (cond
        (progress-p
@@ -143,7 +166,7 @@ never dispatches a provider, mutates canonical state, or invokes a model."
                                  :non-progress-count 0
                                  :last-reason :progress)))
        ((or failure-p (not progress-p))
-        (let ((count (1+ (expert-loop-state-non-progress-count state))))
+        (let ((count (1+ (%expert-loop-state-non-progress-count state))))
           (if (>= count (expert-loop-policy-non-progress-threshold policy))
               (values
                (make-expert-loop-decision
@@ -182,7 +205,7 @@ never dispatches a provider, mutates canonical state, or invokes a model."
            state
            :strategy :direct
            :non-progress-count
-           (1+ (expert-loop-state-non-progress-count state))
+           (1+ (%expert-loop-state-non-progress-count state))
            :last-reason (if failure-p :direct-failure :direct-non-progress)))))))
 
 (export '(+expert-reasoning-strategies+
