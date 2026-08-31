@@ -17,6 +17,22 @@
   (reason nil :read-only t)
   (raw-candidates nil :read-only t))
 
+(defun copy-expert-inspection-string (value)
+  (and value (copy-seq value)))
+
+(defun copy-expert-inspection-blockers (blockers)
+  (mapcar (lambda (blocker)
+            (list (first blocker)
+                  (copy-expert-inspection-string (second blocker))))
+          blockers))
+
+(defun copy-expert-inspection-candidates (candidates)
+  (mapcar (lambda (candidate)
+            (list (copy-expert-inspection-string (first candidate))
+                  (copy-expert-inspection-string (second candidate))
+                  (third candidate)))
+          candidates))
+
 (defun expert-objective-selection-inspection (evaluation selection)
   "Return bounded, side-effect-free objective and extension decision provenance.
 
@@ -33,39 +49,53 @@ identity/version plus the typed admission reason."
                     (expert-extension-selection-objective-version selection)))
     (error "Objective evaluation and extension selection identities do not match"))
   (%make-expert-objective-selection-inspection-state
-   :objective-id (expert-objective-evaluation-objective-id evaluation)
-   :objective-version (expert-objective-evaluation-objective-version evaluation)
+   :objective-id
+   (copy-expert-inspection-string
+    (expert-objective-evaluation-objective-id evaluation))
+   :objective-version
+   (copy-expert-inspection-string
+    (expert-objective-evaluation-objective-version evaluation))
    :status (expert-objective-evaluation-status evaluation)
    :raw-blockers
    (mapcar
     (lambda (clause)
       (list (expert-objective-clause-kind clause)
-            (expert-objective-clause-predicate clause)))
+            (copy-expert-inspection-string
+             (expert-objective-clause-predicate clause))))
     (expert-objective-evaluation-unsatisfied-clauses evaluation))
    :authority (expert-extension-selection-authority selection)
    :strategy (expert-extension-selection-strategy selection)
-   :selected-id (expert-extension-selection-selected-id selection)
-   :selected-version (expert-extension-selection-selected-version selection)
+   :selected-id
+   (copy-expert-inspection-string
+    (expert-extension-selection-selected-id selection))
+   :selected-version
+   (copy-expert-inspection-string
+    (expert-extension-selection-selected-version selection))
    :reason (expert-extension-selection-reason selection)
    :raw-candidates
    (mapcar
     (lambda (candidate)
-      (list (expert-extension-candidate-id candidate)
-            (expert-extension-candidate-version candidate)
+      (list (copy-expert-inspection-string
+             (expert-extension-candidate-id candidate))
+            (copy-expert-inspection-string
+             (expert-extension-candidate-version candidate))
             (expert-extension-candidate-reason candidate)))
     (expert-extension-selection-candidates selection))))
 
 (defun expert-objective-selection-inspection-objective-id (inspection)
-  (expert-objective-selection-inspection-state-objective-id inspection))
+  (copy-expert-inspection-string
+   (expert-objective-selection-inspection-state-objective-id inspection)))
 
 (defun expert-objective-selection-inspection-objective-version (inspection)
-  (expert-objective-selection-inspection-state-objective-version inspection))
+  (copy-expert-inspection-string
+   (expert-objective-selection-inspection-state-objective-version inspection)))
 
 (defun expert-objective-selection-inspection-status (inspection)
   (expert-objective-selection-inspection-state-status inspection))
 
 (defun expert-objective-selection-inspection-blockers (inspection)
-  (copy-tree (expert-objective-selection-inspection-state-raw-blockers inspection)))
+  (copy-expert-inspection-blockers
+   (expert-objective-selection-inspection-state-raw-blockers inspection)))
 
 (defun expert-objective-selection-inspection-authority (inspection)
   (expert-objective-selection-inspection-state-authority inspection))
@@ -74,16 +104,19 @@ identity/version plus the typed admission reason."
   (expert-objective-selection-inspection-state-strategy inspection))
 
 (defun expert-objective-selection-inspection-selected-id (inspection)
-  (expert-objective-selection-inspection-state-selected-id inspection))
+  (copy-expert-inspection-string
+   (expert-objective-selection-inspection-state-selected-id inspection)))
 
 (defun expert-objective-selection-inspection-selected-version (inspection)
-  (expert-objective-selection-inspection-state-selected-version inspection))
+  (copy-expert-inspection-string
+   (expert-objective-selection-inspection-state-selected-version inspection)))
 
 (defun expert-objective-selection-inspection-reason (inspection)
   (expert-objective-selection-inspection-state-reason inspection))
 
 (defun expert-objective-selection-inspection-candidates (inspection)
-  (copy-tree (expert-objective-selection-inspection-state-raw-candidates inspection)))
+  (copy-expert-inspection-candidates
+   (expert-objective-selection-inspection-state-raw-candidates inspection)))
 
 (export '(expert-objective-selection-inspection
           expert-objective-selection-inspection-objective-id
