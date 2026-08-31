@@ -213,10 +213,54 @@
             (push entry entries)))))
     (sort entries #'string< :key #'operational-kb-entry-record-id)))
 
+(defun %validate-long-term-kb-promotion-source (database promotion)
+  "Require PROMOTION to reference the exact live canonical operational assertion."
+  (let* ((operation-id
+           (long-term-kb-promotion-source-operation-id promotion))
+         (source-id
+           (long-term-kb-promotion-source-assertion-id promotion))
+         (graph-name (operational-kb-graph-name operation-id))
+         (node (tek9:fetch-node database source-id :database-name graph-name)))
+    (unless node
+      (error 'long-term-kb-validation-error
+             :field :source-assertion-id
+             :value source-id
+             :reason "source assertion is not persisted in canonical operational KB"))
+    (let ((source (tek9-node->operational-kb-entry node)))
+      (unless
+          (and (eq :assert (operational-kb-entry-kind source))
+               (string= operation-id
+                        (operational-kb-entry-operation-id source))
+               (string= (long-term-kb-promotion-source-run-id promotion)
+                        (operational-kb-entry-run-id source))
+               (string= (long-term-kb-promotion-source-expert-id promotion)
+                        (operational-kb-entry-expert-id source))
+               (string= (long-term-kb-promotion-source-expert-version promotion)
+                        (operational-kb-entry-expert-version source))
+               (equal (long-term-kb-promotion-source-evidence-ids promotion)
+                      (operational-kb-entry-evidence-ids source))
+               (equal (long-term-kb-promotion-key promotion)
+                      (operational-kb-entry-key source))
+               (equal (long-term-kb-promotion-value promotion)
+                      (operational-kb-entry-value source)))
+        (error 'long-term-kb-validation-error
+               :field :source-assertion-id
+               :value source-id
+               :reason "promotion source does not match canonical operational assertion")))
+    (when (find source-id
+                (fetch-operational-kb-entries database operation-id :kind :retract)
+                :key #'operational-kb-entry-target-assertion-id
+                :test #'string=)
+      (error 'long-term-kb-validation-error
+             :field :source-assertion-id
+             :value source-id
+             :reason "source assertion is retracted"))))
+
 (defun persist-long-term-kb-promotion (database promotion)
   "Persist one immutable evidence-backed promotion through canonical Tek9 graph APIs."
   (let ((graph-name (long-term-kb-graph-name)))
     (tek9:with-write-transaction (database)
+      (%validate-long-term-kb-promotion-source database promotion)
       (persist-graph-nodes-replay-safe
        database
        (list (long-term-kb-root-node)
