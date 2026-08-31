@@ -1,5 +1,14 @@
 (in-package :hackmode)
 
+(defun %expert-inspection-copy (value)
+  "Copy mutable inspection data while preserving scalar identity."
+  (typecase value
+    (string (copy-seq value))
+    (cons (cons (%expert-inspection-copy (car value))
+                (%expert-inspection-copy (cdr value))))
+    (vector (map 'vector #'%expert-inspection-copy value))
+    (t value)))
+
 (defstruct (expert-run-inspection
              (:constructor %make-expert-run-inspection
                  (&key operation run-id authority strategy
@@ -17,12 +26,20 @@
   (check-type engine expert-engine)
   (check-type state expert-loop-state)
   (%make-expert-run-inspection
-   :operation (expert-loop-state-operation state)
-   :run-id (expert-loop-state-run-id state)
+   :operation (%expert-inspection-copy (expert-loop-state-operation state))
+   :run-id (%expert-inspection-copy (expert-loop-state-run-id state))
    :authority (expert-engine-mode engine)
    :strategy (expert-loop-state-strategy state)
    :non-progress-count (expert-loop-state-non-progress-count state)
    :last-reason (expert-loop-state-last-reason state)))
+
+(defun expert-run-inspection-operation (inspection)
+  (%expert-inspection-copy
+   (slot-value inspection 'operation)))
+
+(defun expert-run-inspection-run-id (inspection)
+  (%expert-inspection-copy
+   (slot-value inspection 'run-id)))
 
 (defstruct (expert-plan-inspection-state
              (:constructor %make-expert-plan-inspection-state
@@ -43,7 +60,8 @@
   (check-type plan expert-plan)
   (let* ((step (expert-plan-current-step plan))
          (capabilities
-           (sort (copy-list (expert-playbook-step-required-capabilities step))
+           (sort (%expert-inspection-copy
+                  (expert-playbook-step-required-capabilities step))
                  #'string<))
          (stop-conditions
            (sort
@@ -52,31 +70,33 @@
                      (expert-plan-playbook plan)))
             #'string< :key #'symbol-name)))
     (%make-expert-plan-inspection-state
-     :plan-id (expert-plan-id plan)
-     :objective-id (expert-plan-objective-id plan)
-     :current-step-id (expert-playbook-step-id step)
+     :plan-id (%expert-inspection-copy (expert-plan-id plan))
+     :objective-id (%expert-inspection-copy (expert-plan-objective-id plan))
+     :current-step-id (%expert-inspection-copy (expert-playbook-step-id step))
      :raw-required-capabilities capabilities
-     :success-next (expert-playbook-step-success-next step)
-     :failure-next (expert-playbook-step-failure-next step)
+     :success-next (%expert-inspection-copy (expert-playbook-step-success-next step))
+     :failure-next (%expert-inspection-copy (expert-playbook-step-failure-next step))
      :terminal (expert-playbook-step-terminal step)
      :raw-stop-conditions stop-conditions)))
 
 (defun expert-plan-inspection-plan-id (inspection)
-  (expert-plan-inspection-state-plan-id inspection))
+  (%expert-inspection-copy (expert-plan-inspection-state-plan-id inspection)))
 (defun expert-plan-inspection-objective-id (inspection)
-  (expert-plan-inspection-state-objective-id inspection))
+  (%expert-inspection-copy (expert-plan-inspection-state-objective-id inspection)))
 (defun expert-plan-inspection-current-step-id (inspection)
-  (expert-plan-inspection-state-current-step-id inspection))
+  (%expert-inspection-copy (expert-plan-inspection-state-current-step-id inspection)))
 (defun expert-plan-inspection-required-capabilities (inspection)
-  (copy-list (expert-plan-inspection-state-raw-required-capabilities inspection)))
+  (%expert-inspection-copy
+   (expert-plan-inspection-state-raw-required-capabilities inspection)))
 (defun expert-plan-inspection-success-next (inspection)
-  (expert-plan-inspection-state-success-next inspection))
+  (%expert-inspection-copy (expert-plan-inspection-state-success-next inspection)))
 (defun expert-plan-inspection-failure-next (inspection)
-  (expert-plan-inspection-state-failure-next inspection))
+  (%expert-inspection-copy (expert-plan-inspection-state-failure-next inspection)))
 (defun expert-plan-inspection-terminal (inspection)
   (expert-plan-inspection-state-terminal inspection))
 (defun expert-plan-inspection-stop-conditions (inspection)
-  (copy-list (expert-plan-inspection-state-raw-stop-conditions inspection)))
+  (%expert-inspection-copy
+   (expert-plan-inspection-state-raw-stop-conditions inspection)))
 
 (defstruct (expert-action-inspection-state
              (:constructor %make-expert-action-inspection-state
@@ -117,27 +137,34 @@
   "Return bounded metadata for ACTION without exposing raw effect payloads."
   (check-type action expert-active-action)
   (%make-expert-action-inspection-state
-   :id (expert-active-action-id action)
+   :id (%expert-inspection-copy (expert-active-action-id action))
    :kind (expert-active-action-kind action)
    :effect-kind (expert-active-action-effect-kind action)
-   :operation (expert-active-action-operation action)
-   :run-id (expert-active-action-run-id action)
-   :expert-id (expert-active-action-expert-id action)
-   :expert-version (expert-active-action-expert-version action)
-   :raw-evidence-ids (sort (copy-list (expert-active-action-evidence-ids action)) #'string<)
-   :raw-summary (expert-action-inspection-payload-summary action)))
+   :operation (%expert-inspection-copy (expert-active-action-operation action))
+   :run-id (%expert-inspection-copy (expert-active-action-run-id action))
+   :expert-id (%expert-inspection-copy (expert-active-action-expert-id action))
+   :expert-version (%expert-inspection-copy (expert-active-action-expert-version action))
+   :raw-evidence-ids
+   (sort (%expert-inspection-copy (expert-active-action-evidence-ids action)) #'string<)
+   :raw-summary (%expert-inspection-copy
+                 (expert-action-inspection-payload-summary action))))
 
-(defun expert-action-inspection-id (x) (expert-action-inspection-state-id x))
+(defun expert-action-inspection-id (x)
+  (%expert-inspection-copy (expert-action-inspection-state-id x)))
 (defun expert-action-inspection-kind (x) (expert-action-inspection-state-kind x))
 (defun expert-action-inspection-effect-kind (x) (expert-action-inspection-state-effect-kind x))
-(defun expert-action-inspection-operation (x) (expert-action-inspection-state-operation x))
-(defun expert-action-inspection-run-id (x) (expert-action-inspection-state-run-id x))
-(defun expert-action-inspection-expert-id (x) (expert-action-inspection-state-expert-id x))
-(defun expert-action-inspection-expert-version (x) (expert-action-inspection-state-expert-version x))
+(defun expert-action-inspection-operation (x)
+  (%expert-inspection-copy (expert-action-inspection-state-operation x)))
+(defun expert-action-inspection-run-id (x)
+  (%expert-inspection-copy (expert-action-inspection-state-run-id x)))
+(defun expert-action-inspection-expert-id (x)
+  (%expert-inspection-copy (expert-action-inspection-state-expert-id x)))
+(defun expert-action-inspection-expert-version (x)
+  (%expert-inspection-copy (expert-action-inspection-state-expert-version x)))
 (defun expert-action-inspection-evidence-ids (x)
-  (copy-list (expert-action-inspection-state-raw-evidence-ids x)))
+  (%expert-inspection-copy (expert-action-inspection-state-raw-evidence-ids x)))
 (defun expert-action-inspection-summary (x)
-  (copy-tree (expert-action-inspection-state-raw-summary x)))
+  (%expert-inspection-copy (expert-action-inspection-state-raw-summary x)))
 
 (defstruct (expert-action-admission-inspection-state
              (:constructor %make-expert-action-admission-inspection-state
@@ -179,7 +206,8 @@ graph, or KB payload contents. Unexpected conditions still propagate."
          :status :rejected
          :action inspection
          :rejection-kind :invalid-action
-         :reason (invalid-expert-action-reason condition))))))
+         :reason (%expert-inspection-copy
+                  (invalid-expert-action-reason condition)))))))
 
 (defun expert-action-admission-inspection-status (inspection)
   (expert-action-admission-inspection-state-status inspection))
@@ -188,8 +216,8 @@ graph, or KB payload contents. Unexpected conditions still propagate."
 (defun expert-action-admission-inspection-rejection-kind (inspection)
   (expert-action-admission-inspection-state-rejection-kind inspection))
 (defun expert-action-admission-inspection-reason (inspection)
-  (let ((reason (expert-action-admission-inspection-state-reason inspection)))
-    (and reason (copy-seq reason))))
+  (%expert-inspection-copy
+   (expert-action-admission-inspection-state-reason inspection)))
 (defun expert-action-admission-inspection-denied-effect (inspection)
   (expert-action-admission-inspection-state-denied-effect inspection))
 
