@@ -25,12 +25,38 @@
 
 (defstruct (expert-direct-candidate
              (:constructor %make-expert-direct-candidate
-                 (&key operation run-id kind payload provenance)))
+                 (&key operation run-id kind payload provenance))
+             (:conc-name %expert-direct-candidate-))
   operation
   run-id
   kind
   payload
   provenance)
+
+(defun expert-direct-candidate-operation (candidate)
+  "Return an independently mutable snapshot of CANDIDATE's operation scope."
+  (check-type candidate expert-direct-candidate)
+  (copy-seq (%expert-direct-candidate-operation candidate)))
+
+(defun expert-direct-candidate-run-id (candidate)
+  "Return an independently mutable snapshot of CANDIDATE's run scope."
+  (check-type candidate expert-direct-candidate)
+  (copy-seq (%expert-direct-candidate-run-id candidate)))
+
+(defun expert-direct-candidate-kind (candidate)
+  "Return CANDIDATE's immutable typed kind."
+  (check-type candidate expert-direct-candidate)
+  (%expert-direct-candidate-kind candidate))
+
+(defun expert-direct-candidate-payload (candidate)
+  "Return a defensive snapshot of CANDIDATE's symbolic payload."
+  (check-type candidate expert-direct-candidate)
+  (expert-direct-copy-value (%expert-direct-candidate-payload candidate)))
+
+(defun expert-direct-candidate-provenance (candidate)
+  "Return a defensive snapshot of CANDIDATE's generation provenance."
+  (check-type candidate expert-direct-candidate)
+  (expert-direct-copy-value (%expert-direct-candidate-provenance candidate)))
 
 (defun make-expert-direct-candidate (&key operation run-id kind payload provenance)
   "Normalize direct-mode progress into a typed, operation-scoped candidate.
@@ -58,18 +84,18 @@ Hackmode boundaries."
 
 (defun validate-expert-direct-candidate-scope (state candidate)
   (unless (string= (expert-loop-state-operation state)
-                   (expert-direct-candidate-operation candidate))
+                   (%expert-direct-candidate-operation candidate))
     (reject-expert-direct-candidate
      candidate
      "candidate operation ~s does not match loop operation ~s"
-     (expert-direct-candidate-operation candidate)
+     (%expert-direct-candidate-operation candidate)
      (expert-loop-state-operation state)))
   (unless (string= (expert-loop-state-run-id state)
-                   (expert-direct-candidate-run-id candidate))
+                   (%expert-direct-candidate-run-id candidate))
     (reject-expert-direct-candidate
      candidate
      "candidate run ~s does not match loop run ~s"
-     (expert-direct-candidate-run-id candidate)
+     (%expert-direct-candidate-run-id candidate)
      (expert-loop-state-run-id state)))
   candidate)
 
