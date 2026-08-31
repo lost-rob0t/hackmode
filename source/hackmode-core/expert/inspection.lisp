@@ -139,6 +139,60 @@
 (defun expert-action-inspection-summary (x)
   (copy-tree (expert-action-inspection-state-raw-summary x)))
 
+(defstruct (expert-action-admission-inspection-state
+             (:constructor %make-expert-action-admission-inspection-state
+                 (&key status action rejection-kind reason denied-effect)))
+  "Pure operator-facing result of validating one typed active action."
+  (status nil :read-only t)
+  (action nil :read-only t)
+  (rejection-kind nil :read-only t)
+  (reason nil :read-only t)
+  (denied-effect nil :read-only t))
+
+(defun expert-action-admission-inspection (engine action &key operation run-id)
+  "Inspect action admission without executing or mutating anything.
+
+Accepted actions return :ACCEPTED. Expected validation failures return
+:REJECTED with a bounded rejection class. The nested action inspection retains
+only the already-redacted metadata surface and never includes raw provider,
+graph, or KB payload contents. Unexpected conditions still propagate."
+  (check-type engine expert-engine)
+  (check-type action expert-active-action)
+  (let ((inspection (expert-action-inspection action)))
+    (handler-case
+        (progn
+          (validate-expert-active-action engine action
+                                         :operation operation
+                                         :run-id run-id)
+          (%make-expert-action-admission-inspection-state
+           :status :accepted
+           :action inspection))
+      (expert-effect-denied (condition)
+        (%make-expert-action-admission-inspection-state
+         :status :rejected
+         :action inspection
+         :rejection-kind :effect-denied
+         :reason "effect denied by expert authority"
+         :denied-effect (expert-effect-denied-effect condition)))
+      (invalid-expert-action (condition)
+        (%make-expert-action-admission-inspection-state
+         :status :rejected
+         :action inspection
+         :rejection-kind :invalid-action
+         :reason (invalid-expert-action-reason condition))))))
+
+(defun expert-action-admission-inspection-status (inspection)
+  (expert-action-admission-inspection-state-status inspection))
+(defun expert-action-admission-inspection-action (inspection)
+  (expert-action-admission-inspection-state-action inspection))
+(defun expert-action-admission-inspection-rejection-kind (inspection)
+  (expert-action-admission-inspection-state-rejection-kind inspection))
+(defun expert-action-admission-inspection-reason (inspection)
+  (let ((reason (expert-action-admission-inspection-state-reason inspection)))
+    (and reason (copy-seq reason))))
+(defun expert-action-admission-inspection-denied-effect (inspection)
+  (expert-action-admission-inspection-state-denied-effect inspection))
+
 (export '(expert-run-inspection
           expert-run-inspection-operation expert-run-inspection-run-id
           expert-run-inspection-authority expert-run-inspection-strategy
@@ -152,4 +206,10 @@
           expert-action-inspection-kind expert-action-inspection-effect-kind
           expert-action-inspection-operation expert-action-inspection-run-id
           expert-action-inspection-expert-id expert-action-inspection-expert-version
-          expert-action-inspection-evidence-ids expert-action-inspection-summary))
+          expert-action-inspection-evidence-ids expert-action-inspection-summary
+          expert-action-admission-inspection
+          expert-action-admission-inspection-status
+          expert-action-admission-inspection-action
+          expert-action-admission-inspection-rejection-kind
+          expert-action-admission-inspection-reason
+          expert-action-admission-inspection-denied-effect))
