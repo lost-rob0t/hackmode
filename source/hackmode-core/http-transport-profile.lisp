@@ -29,6 +29,11 @@
   backend
   capture-mode)
 
+(defparameter *sensitive-profile-header-names*
+  '("authorization" "proxy-authorization" "cookie" "set-cookie"
+    "x-api-key" "api-key" "x-auth-token" "x-access-token")
+  "Header names forbidden from persisted HTTP profile provenance.")
+
 (defun normalize-capture-mode (mode)
   (unless (member mode '(:intercept :tunnel :direct :unsupported) :test #'eq)
     (error 'provider-transport-policy-error
@@ -120,12 +125,27 @@ stable profile ID so registry/hash ordering cannot alter replay behavior."
               :reason (format nil "capture mode ~s unsupported; provider supports ~s"
                               requested supported))))))
 
+(defun profile-header-name (entry)
+  (etypecase entry
+    (cons (car entry))
+    (string entry)))
+
+(defun sensitive-profile-header-p (entry)
+  (member (string-downcase (string (profile-header-name entry)))
+          *sensitive-profile-header-names*
+          :test #'string=))
+
+(defun safe-profile-headers (headers)
+  "Copy static profile headers while dropping credential-bearing names."
+  (loop for entry in headers
+        unless (sensitive-profile-header-p entry)
+          collect (copy-tree entry)))
+
 (defun http-client-profile-provenance (profile)
   "Return the safe immutable profile snapshot suitable for execution evidence.
 
-Only typed profile metadata is projected. Runtime headers carrying credentials,
-cookies, authorization values, API keys, or other request secrets are never an
-input to this function and therefore cannot leak into the snapshot."
+Credential-bearing header names are filtered even if a caller accidentally puts
+one into the static profile. Runtime request headers are not accepted here."
   (validate-http-client-profile profile)
   (list :profile-id (http-client-profile-id profile)
         :profile-version (http-client-profile-version profile)
@@ -135,8 +155,10 @@ input to this function and therefore cannot leak into the snapshot."
         :accept (http-client-profile-accept profile)
         :accept-language (http-client-profile-accept-language profile)
         :accept-encoding (http-client-profile-accept-encoding profile)
-        :fetch-headers (copy-tree (http-client-profile-fetch-headers profile))
-        :client-hints (copy-tree (http-client-profile-client-hints profile))
+        :fetch-headers (safe-profile-headers
+                        (http-client-profile-fetch-headers profile))
+        :client-hints (safe-profile-headers
+                       (http-client-profile-client-hints profile))
         :http-protocol (http-client-profile-http-protocol profile)
         :backend (http-client-profile-backend profile)
         :capture-mode (http-client-profile-capture-mode profile)))
