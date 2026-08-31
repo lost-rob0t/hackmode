@@ -125,4 +125,60 @@
       (assert-equal "evidence-1"
                     (first (hackmode:expert-action-inspection-evidence-ids status))
                     "action inspection returns defensive evidence copies")))
+  (let* ((active (hackmode:make-expert-engine :mode :active))
+         (passive (hackmode:make-expert-engine :mode :passive))
+         (action
+           (hackmode:make-expert-active-action
+            :id "dispatch-admission-1"
+            :kind :dispatch
+            :operation "op-1"
+            :run-id "run-1"
+            :expert-id "recon"
+            :expert-version "3"
+            :evidence-ids '("evidence-1")
+            :payload
+            (hackmode:make-expert-dispatch-payload
+             :capability "http-probe"
+             :provider "curl"
+             :input "https://secret.example/token=admission-do-not-expose")))
+         (accepted
+           (hackmode:expert-action-admission-inspection
+            active action :operation "op-1" :run-id "run-1"))
+         (denied
+           (hackmode:expert-action-admission-inspection
+            passive action :operation "op-1" :run-id "run-1"))
+         (stale
+           (hackmode:expert-action-admission-inspection
+            active action :operation "other-op" :run-id "run-1")))
+    (assert-equal :accepted
+                  (hackmode:expert-action-admission-inspection-status accepted)
+                  "matching active action is inspectably accepted")
+    (assert-equal nil
+                  (hackmode:expert-action-admission-inspection-rejection-kind accepted)
+                  "accepted action has no rejection class")
+    (assert-equal :rejected
+                  (hackmode:expert-action-admission-inspection-status denied)
+                  "passive dispatch is inspectably rejected")
+    (assert-equal :effect-denied
+                  (hackmode:expert-action-admission-inspection-rejection-kind denied)
+                  "authority rejection is typed")
+    (assert-equal :provider-dispatch
+                  (hackmode:expert-action-admission-inspection-denied-effect denied)
+                  "authority rejection exposes only the denied effect class")
+    (assert-equal :rejected
+                  (hackmode:expert-action-admission-inspection-status stale)
+                  "cross-operation action is inspectably rejected")
+    (assert-equal :invalid-action
+                  (hackmode:expert-action-admission-inspection-rejection-kind stale)
+                  "scope rejection is typed")
+    (assert-equal t
+                  (not (null
+                        (search "does not match expected"
+                                (hackmode:expert-action-admission-inspection-reason stale))))
+                  "scope rejection retains a useful bounded reason")
+    (dolist (inspection (list accepted denied stale))
+      (assert-equal nil
+                    (search "admission-do-not-expose"
+                            (prin1-to-string inspection))
+                    "admission inspection never exposes provider input")))
   t)
