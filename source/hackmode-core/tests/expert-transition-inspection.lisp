@@ -1,5 +1,10 @@
 (in-package :hackmode-tests)
 
+(defun expert-transition-signals-invalid-p (thunk)
+  (handler-case
+      (progn (funcall thunk) nil)
+    (hackmode:invalid-expert-loop () t)))
+
 (defun run-expert-transition-inspection-tests ()
   (let* ((before
            (hackmode:make-expert-loop-state
@@ -41,12 +46,10 @@
                   (hackmode:expert-loop-transition-inspection-to-strategy inspection)
                   "transition inspection exposes the next strategy")
     (assert-equal 1
-                  (hackmode:expert-loop-transition-inspection-from-non-progress-count
-                   inspection)
+                  (hackmode:expert-loop-transition-inspection-from-non-progress-count inspection)
                   "transition inspection exposes previous stall count")
     (assert-equal 2
-                  (hackmode:expert-loop-transition-inspection-to-non-progress-count
-                   inspection)
+                  (hackmode:expert-loop-transition-inspection-to-non-progress-count inspection)
                   "transition inspection exposes next stall count")
     (let ((operation
             (hackmode:expert-loop-transition-inspection-operation inspection))
@@ -95,14 +98,16 @@
            (hackmode:make-expert-loop-state
             :operation "op-1" :run-id "run-1" :strategy :symbolic
             :last-reason :symbolic-stall)))
-    (assert-signals 'hackmode:invalid-expert-loop
-                    (lambda ()
-                      (hackmode:expert-loop-transition-inspection
-                       before decision wrong-scope))
-                    "transition inspection rejects cross-operation state")
-    (assert-signals 'hackmode:invalid-expert-loop
-                    (lambda ()
-                      (hackmode:expert-loop-transition-inspection
-                       before decision wrong-strategy))
-                    "transition inspection rejects decision/state disagreement"))
+    (assert-equal t
+                  (expert-transition-signals-invalid-p
+                   (lambda ()
+                     (hackmode:expert-loop-transition-inspection
+                      before decision wrong-scope)))
+                  "transition inspection rejects cross-operation state")
+    (assert-equal t
+                  (expert-transition-signals-invalid-p
+                   (lambda ()
+                     (hackmode:expert-loop-transition-inspection
+                      before decision wrong-strategy)))
+                  "transition inspection rejects decision/state disagreement"))
   t)
