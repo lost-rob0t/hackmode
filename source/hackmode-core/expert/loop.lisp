@@ -19,6 +19,11 @@
          :value value
          :reason (apply #'format nil control arguments)))
 
+(defun expert-loop-copy-reason (reason)
+  (if (stringp reason)
+      (copy-seq reason)
+      reason))
+
 (defstruct (expert-loop-policy
              (:constructor %make-expert-loop-policy (&key non-progress-threshold)))
   (non-progress-threshold 2 :type integer))
@@ -59,8 +64,9 @@
   (%expert-loop-state-non-progress-count state))
 
 (defun expert-loop-state-last-reason (state)
+  "Return a defensive snapshot when STATE's last reason is mutable text."
   (check-type state expert-loop-state)
-  (%expert-loop-state-last-reason state))
+  (expert-loop-copy-reason (%expert-loop-state-last-reason state)))
 
 (defun make-expert-loop-state (&key operation run-id (strategy :symbolic)
                                     (non-progress-count 0) last-reason)
@@ -78,7 +84,7 @@
    :run-id (copy-seq run-id)
    :strategy strategy
    :non-progress-count non-progress-count
-   :last-reason last-reason))
+   :last-reason (expert-loop-copy-reason last-reason)))
 
 (defstruct (expert-loop-decision
              (:constructor make-expert-loop-decision (&key kind reason strategy)))
@@ -95,7 +101,7 @@
    (if (null non-progress-count)
        (%expert-loop-state-non-progress-count state)
        non-progress-count)
-   :last-reason last-reason))
+   :last-reason (expert-loop-copy-reason last-reason)))
 
 (defun expert-loop-stop-reason (plan &key goal-satisfied-p budget-exhausted-p
                                           policy-denied-p (viable-extension-p t)
