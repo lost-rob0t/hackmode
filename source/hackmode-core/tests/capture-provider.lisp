@@ -61,15 +61,6 @@
                       "replacement process identity")
         (assert-equal 2 launches "restart launch count")
 
-        (hackmode:note-capture-process-exit service :exit-code 24)
-        (assert-equal :failed
-                      (hackmode:capture-service-state service)
-                      "restart exhaustion state")
-        (assert-equal :restart-exhausted
-                      (hackmode:capture-service-failure-class service)
-                      "restart exhaustion classification")
-        (assert-equal 2 launches "bounded restart count")
-
         (hackmode:stop-capture-service service)
         (assert-equal :stopped
                       (hackmode:capture-service-state service)
@@ -77,7 +68,44 @@
         (assert-equal 1 stops "stopper invocation count")
         (assert-equal 2 launches "stop does not relaunch")
         (assert (= 2 (length seen-specs)) ()
-                "Each launch must receive an explicit typed capture specification."))))
+                "Each launch must receive an explicit typed capture specification.")
+        (let ((spec (first seen-specs)))
+          (assert-equal "op-135"
+                        (hackmode:capture-process-spec-operation-id spec)
+                        "process spec operation")
+          (assert-equal "capture-135"
+                        (hackmode:capture-process-spec-capture-session-id spec)
+                        "process spec capture session")
+          (assert-equal '("--listen-host" "127.0.0.1"
+                          "--listen-port" "18080")
+                        (hackmode:capture-process-spec-arguments spec)
+                        "mitmdump listen arguments"))))
+
+    (let ((exhaust-launches 0))
+      (flet ((runner (spec)
+               (declare (ignore spec))
+               (incf exhaust-launches)
+               (format nil "exhaust-pid-~d" exhaust-launches)))
+        (let ((service
+                (hackmode:start-capture-service
+                 "op-exhaust"
+                 :capture-session-id "capture-exhaust"
+                 :endpoint "http://127.0.0.1:18082"
+                 :spool-id "spool-exhaust"
+                 :max-restarts 1
+                 :runner #'runner)))
+          (hackmode:note-capture-process-exit service :exit-code 23)
+          (hackmode:note-capture-process-exit service :exit-code 24)
+          (assert-equal :failed
+                        (hackmode:capture-service-state service)
+                        "restart exhaustion state")
+          (assert-equal :restart-exhausted
+                        (hackmode:capture-service-failure-class service)
+                        "restart exhaustion classification")
+          (assert-equal 2 exhaust-launches "bounded restart count")
+          (assert-equal "capture-exhaust"
+                        (hackmode:capture-service-capture-session-id service)
+                        "session remains stable after exhaustion")))))
 
   (let ((hackmode:*db* nil))
     (flet ((failing-runner (spec)
