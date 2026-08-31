@@ -8,6 +8,7 @@
   :depends-on (#:tek9)
   :components ((:file "package")
                (:file "execution-graph")
+               (:file "http-exchange-headers")
                (:file "operational-kb")
                (:file "execution-outcome-kb")
                (:file "kb-seed-import")
