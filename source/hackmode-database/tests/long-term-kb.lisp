@@ -81,6 +81,70 @@
           (error "retraction unexpectedly promoted into long-term KB"))
       (long-term-kb-validation-error () t)))
   (let* ((path (merge-pathnames
+                (format nil "hackmode-long-term-live-source-~D/"
+                        (random 1000000000))
+                (uiop:temporary-directory)))
+         (database (tek9:new-database "hackmode-long-term-live-source-test"
+                                      :path path)))
+    (unwind-protect
+         (progn
+           (tek9:open-database database)
+           (let* ((source
+                    (make-operational-kb-assertion
+                     :assertion-id "a-live"
+                     :operation-id "op-live"
+                     :run-id "run-1"
+                     :expert-id "recon"
+                     :expert-version "1"
+                     :key '(:service "https")
+                     :value '(:port 443)
+                     :evidence-ids '("result-live")
+                     :provenance '(:source "fixture")))
+                  (promotion
+                    (make-long-term-kb-promotion
+                     :promotion-id "p-live"
+                     :source-assertion source
+                     :promoted-by "operator"
+                     :promoter-version "1"
+                     :evidence-ids '("review-live")
+                     :provenance '(:reason "validated"))))
+             (handler-case
+                 (progn
+                   (persist-long-term-kb-promotion database promotion)
+                   (error "non-canonical assertion unexpectedly promoted"))
+               (long-term-kb-validation-error () t))
+             (persist-operational-kb-entry database source)
+             (persist-long-term-kb-promotion database promotion)
+             (let ((retraction
+                     (make-operational-kb-retraction
+                      :retraction-id "r-live"
+                      :operation-id "op-live"
+                      :run-id "run-2"
+                      :expert-id "recon"
+                      :expert-version "1"
+                      :target-assertion-id
+                      (operational-kb-entry-record-id source)
+                      :evidence-ids '("result-retract")
+                      :provenance '(:source "fixture"))))
+               (persist-operational-kb-entry database retraction)
+               (handler-case
+                   (progn
+                     (persist-long-term-kb-promotion
+                      database
+                      (make-long-term-kb-promotion
+                       :promotion-id "p-retracted"
+                       :source-assertion source
+                       :promoted-by "operator"
+                       :promoter-version "1"
+                       :evidence-ids '("review-retracted")
+                       :provenance '(:reason "must reject")))
+                     (error "retracted assertion unexpectedly promoted"))
+                 (long-term-kb-validation-error () t)))))
+      (when (tek9:db-is-open-p database)
+        (tek9:close-database database))
+      (when (probe-file path)
+        (uiop:delete-directory-tree path :validate t))))
+  (let* ((path (merge-pathnames
                 (format nil "hackmode-long-term-read-~D/" (random 1000000000))
                 (uiop:temporary-directory)))
          (database (tek9:new-database "hackmode-long-term-read-test" :path path)))
@@ -118,6 +182,8 @@
                        :promoter-version "1"
                        :evidence-ids '("review-a")
                        :provenance '(:reason "reusable"))))
+               (persist-operational-kb-entry database source-a)
+               (persist-operational-kb-entry database source-b)
                ;; Persist reverse lexical order so the read contract proves sorting.
                (persist-long-term-kb-promotion database promotion-b)
                (persist-long-term-kb-promotion database promotion-a)
