@@ -187,6 +187,50 @@ an explicit admission/rejection reason. No provider or mutation effect occurs."
             :reason (if selected :selected :no-applicable-extension)
             :raw-candidates candidates))))))
 
+(defun expert-objective-loop-step
+    (state plan policy registry objective
+     &key authority available-capabilities clause-satisfied-p
+       progress-p failure-p budget-exhausted-p policy-denied-p explicit-stop-p)
+  "Re-evaluate one objective iteration before deriving the next loop decision.
+
+Returns four values: the fresh objective evaluation, extension selection, loop
+decision, and next loop state. The current loop reasoning strategy is used for
+extension admission, while AUTHORITY remains an independent caller-supplied
+constraint. This function is pure control-plane composition: it executes no
+provider, persists no state, and grants no effects."
+  (check-type state expert-loop-state)
+  (check-type plan expert-plan)
+  (check-type policy expert-loop-policy)
+  (check-type registry expert-extension-registry)
+  (check-type objective expert-objective)
+  (unless (string= (expert-plan-objective-id plan)
+                   (expert-objective-id objective))
+    (reject-expert-loop
+     objective
+     "plan objective ~s does not match objective ~s"
+     (expert-plan-objective-id plan)
+     (expert-objective-id objective)))
+  (multiple-value-bind (evaluation selection)
+      (expert-select-extension
+       registry objective
+       :authority authority
+       :strategy (expert-loop-state-strategy state)
+       :available-capabilities available-capabilities
+       :clause-satisfied-p clause-satisfied-p)
+    (multiple-value-bind (decision next-state)
+        (expert-loop-next-decision
+         state plan policy
+         :goal-satisfied-p
+         (eq :satisfied (expert-objective-evaluation-status evaluation))
+         :budget-exhausted-p budget-exhausted-p
+         :policy-denied-p policy-denied-p
+         :viable-extension-p
+         (not (null (expert-extension-selection-selected-id selection)))
+         :explicit-stop-p explicit-stop-p
+         :progress-p progress-p
+         :failure-p failure-p)
+      (values evaluation selection decision next-state))))
+
 (export '(+expert-objective-evaluation-statuses+
           +expert-extension-candidate-reasons+
           expert-objective-evaluation
@@ -209,4 +253,5 @@ an explicit admission/rejection reason. No provider or mutation effect occurs."
           expert-extension-selection-selected-version
           expert-extension-selection-reason
           expert-extension-selection-candidates
-          expert-select-extension))
+          expert-select-extension
+          expert-objective-loop-step))
