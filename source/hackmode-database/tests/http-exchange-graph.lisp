@@ -11,6 +11,10 @@
                  :port 443
                  :path "/login?next=%2F"
                  :response-status 302
+                 :request-headers '(("accept" . "text/html")
+                                    ("user-agent" . "HackmodeFixture/1"))
+                 :response-headers '(("content-type" . "text/html; charset=utf-8")
+                                     ("server" . "fixture"))
                  :request-body-digest "sha256:req"
                  :response-body-digest "sha256:resp"
                  :raw-evidence-ref "capture-1:120-418"
@@ -27,6 +31,10 @@
                 :port 443
                 :path "/login?next=%2F"
                 :response-status 302
+                :request-headers '(("accept" . "text/html")
+                                   ("user-agent" . "HackmodeFixture/1"))
+                :response-headers '(("content-type" . "text/html; charset=utf-8")
+                                    ("server" . "fixture"))
                 :request-body-digest "sha256:req"
                 :response-body-digest "sha256:resp"
                 :raw-evidence-ref "capture-1:120-418"
@@ -42,6 +50,16 @@
             "capture session identity was not retained")
     (ensure (string= "exchange-1" (hackmode-database:execution-record-call-id first))
             "exchange correlation identity was not retained")
+    (ensure (equal '(("accept" . "text/html")
+                     ("user-agent" . "HackmodeFixture/1"))
+                   (getf (hackmode-database:execution-record-payload first)
+                         :request-headers))
+            "bounded request headers were not retained")
+    (ensure (equal '(("content-type" . "text/html; charset=utf-8")
+                     ("server" . "fixture"))
+                   (getf (hackmode-database:execution-record-payload first)
+                         :response-headers))
+            "bounded response headers were not retained")
     (let* ((path (merge-pathnames
                   (format nil "hackmode-http-exchange-~D/" (random 1000000000))
                   (uiop:temporary-directory)))
@@ -81,5 +99,24 @@
            :duration-ms 1
            :provenance '(:parser "ipx-http/1"))
           (error "invalid HTTP port unexpectedly accepted"))
+      (hackmode-database:execution-graph-validation-error () t))
+    (handler-case
+        (progn
+          (hackmode-database:make-http-exchange-record
+           :operation-id "op-http"
+           :capture-session-id "capture-1"
+           :exchange-id "secret-header"
+           :method "GET"
+           :scheme "https"
+           :host "example.com"
+           :port 443
+           :path "/"
+           :response-status 200
+           :request-headers '(("authorization" . "Bearer secret"))
+           :raw-evidence-ref "capture-1:10-20"
+           :observed-at "2026-08-30T18:55:00Z"
+           :duration-ms 1
+           :provenance '(:parser "ipx-http/1"))
+          (error "secret-bearing HTTP header unexpectedly accepted"))
       (hackmode-database:execution-graph-validation-error () t)))
   t)
