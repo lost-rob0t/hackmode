@@ -14,13 +14,41 @@
     (error "No Hackmode database is open."))
   (tek9:put-bulk* database documents :database-name database-name))
 
+(defun %validate-capture-source-rotation-lineage (database record)
+  "Reject a second successor for the same operation/session predecessor source."
+  (when (eq :capture-source-rotation (execution-record-kind record))
+    (let* ((operation-id (execution-record-operation-id record))
+           (session-id (execution-record-run-id record))
+           (payload (execution-record-payload record))
+           (previous-source-id (getf payload :previous-source-id))
+           (graph-name (execution-graph-name operation-id)))
+      (dolist (existing
+               (fetch-operation-execution-records
+                database operation-id
+                :run-id session-id
+                :kind :capture-source-rotation))
+        (when (and
+               (string= previous-source-id
+                        (getf (execution-record-payload existing)
+                              :previous-source-id))
+               (not (string= (execution-record-record-id existing)
+                             (execution-record-record-id record))))
+          (%signal-replay-conflict
+           :capture-source-rotation-lineage
+           previous-source-id
+           graph-name
+           existing
+           record))))))
+
 (defun persist-execution-record (database record)
   "Persist one typed execution RECORD into its operation-scoped Tek9 graph."
-  (persist-graph-node-replay-safe
-   database
-   (execution-record->tek9-node record)
-   :database-name (execution-graph-name
-                   (execution-record-operation-id record)))
+  (tek9:with-write-transaction (database)
+    (%validate-capture-source-rotation-lineage database record)
+    (persist-graph-node-replay-safe
+     database
+     (execution-record->tek9-node record)
+     :database-name (execution-graph-name
+                     (execution-record-operation-id record))))
   record)
 
 (defun persist-tool-execution (database call result)
