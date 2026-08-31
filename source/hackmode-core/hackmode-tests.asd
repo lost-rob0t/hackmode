@@ -23,7 +23,8 @@
                (:file "tests/expert-budget-inspection")
                (:file "tests/expert-direct-candidate")
                (:file "tests/capture-provider")
-               (:file "tests/http-transport-profile"))
+               (:file "tests/http-transport-profile")
+               (:file "tests/http-requester"))
   :perform (test-op (op system)
              (declare (ignore op system))
              (uiop:symbol-call :hackmode-tests :run-tests)
@@ -48,4 +49,6 @@
              (uiop:symbol-call :hackmode-tests :run-expert-direct-candidate-tests)
              (uiop:symbol-call :hackmode-tests :run-capture-provider-tests)
              (uiop:symbol-call :hackmode-http-transport-profile-tests
-                               :run-http-transport-profile-tests)))
+                               :run-http-transport-profile-tests)
+             (uiop:symbol-call :hackmode-http-requester-tests
+                               :run-http-requester-tests)))
