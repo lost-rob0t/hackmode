@@ -1,0 +1,16 @@
+(in-package :hackmode-tests)
+
+(defun run-find-apis-test ()
+  (let* ((api (hackmode:parse-url "https://example.test/api/v1/users"))
+         (plain (hackmode:parse-url "https://example.test/about"))
+         (matches (hackmode:find-apis (list api plain) '("/api/"))))
+    (assert-equal (list api nil) matches "API classification results")
+    (assert (member "api" (hackmode:doc-tags api) :test #'string=) ()
+            "Matching URL must receive the api tag.")
+    (assert (not (member "api" (hackmode:doc-tags plain) :test #'string=)) ()
+            "Non-matching URL must not receive the api tag.")))
+
+(defun run-functions-tests ()
+  (run-find-apis-test)
+  (format t "Hackmode function tests passed.~%")
+  t)
