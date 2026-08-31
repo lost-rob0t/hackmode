@@ -197,9 +197,20 @@
     entry))
 
 (defun fetch-operational-kb-entry (database operation-id record-id)
-  "Fetch one operational KB graph node by stable RECORD-ID."
-  (tek9:fetch-node database record-id
-                   :database-name (operational-kb-graph-name operation-id)))
+  "Return one typed operational-KB entry by stable RECORD-ID, or NIL."
+  (%kb-require-string :operation-id operation-id)
+  (%kb-require-string :record-id record-id)
+  (let ((node (tek9:fetch-node
+               database record-id
+               :database-name (operational-kb-graph-name operation-id))))
+    (when node
+      (let ((entry (tek9-node->operational-kb-entry node)))
+        (unless (string= operation-id (operational-kb-entry-operation-id entry))
+          (error 'operational-kb-validation-error
+                 :field :operation-id
+                 :value (operational-kb-entry-operation-id entry)
+                 :reason "stored entry does not match graph operation scope"))
+        entry))))
 
 (defun fetch-operational-kb-entries (database operation-id &key run-id kind)
   "Return typed operational-KB entries for one operation, including retractions."
