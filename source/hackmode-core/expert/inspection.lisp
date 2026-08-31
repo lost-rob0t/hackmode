@@ -33,6 +33,14 @@
    :non-progress-count (expert-loop-state-non-progress-count state)
    :last-reason (expert-loop-state-last-reason state)))
 
+(defun expert-run-inspection-operation (inspection)
+  (%expert-inspection-copy
+   (slot-value inspection 'operation)))
+
+(defun expert-run-inspection-run-id (inspection)
+  (%expert-inspection-copy
+   (slot-value inspection 'run-id)))
+
 (defstruct (expert-plan-inspection-state
              (:constructor %make-expert-plan-inspection-state
                  (&key plan-id objective-id current-step-id
