@@ -63,6 +63,29 @@
       (assert-equal "run-1"
                     (hackmode:expert-loop-transition-inspection-run-id inspection)
                     "transition inspection returns a defensive run-id copy")))
+  (let* ((reason (copy-seq "symbolic stall"))
+         (before
+           (hackmode:make-expert-loop-state
+            :operation "op-1" :run-id "run-string" :strategy :symbolic))
+         (decision
+           (hackmode::make-expert-loop-decision
+            :kind :escalate :reason reason :strategy :direct))
+         (after
+           (hackmode:make-expert-loop-state
+            :operation "op-1" :run-id "run-string" :strategy :direct
+            :last-reason reason))
+         (inspection
+           (hackmode:expert-loop-transition-inspection before decision after)))
+    (setf (char reason 0) #\X)
+    (assert-equal "symbolic stall"
+                  (hackmode:expert-loop-transition-inspection-reason inspection)
+                  "transition inspection snapshots mutable source reason strings")
+    (let ((returned
+            (hackmode:expert-loop-transition-inspection-reason inspection)))
+      (setf (char returned 0) #\X)
+      (assert-equal "symbolic stall"
+                    (hackmode:expert-loop-transition-inspection-reason inspection)
+                    "transition inspection returns a defensive reason copy")))
   (let* ((before
            (hackmode:make-expert-loop-state
             :operation "op-1" :run-id "run-1" :strategy :direct))

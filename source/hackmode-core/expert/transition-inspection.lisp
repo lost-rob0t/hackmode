@@ -1,5 +1,10 @@
 (in-package :hackmode)
 
+(defun copy-expert-loop-transition-reason (reason)
+  (if (stringp reason)
+      (copy-seq reason)
+      reason))
+
 (defstruct (expert-loop-transition-inspection-state
              (:constructor %make-expert-loop-transition-inspection-state
                  (&key raw-operation raw-run-id kind reason
@@ -80,7 +85,8 @@
    :raw-operation (copy-seq (expert-loop-state-operation before))
    :raw-run-id (copy-seq (expert-loop-state-run-id before))
    :kind (expert-loop-decision-kind decision)
-   :reason (expert-loop-decision-reason decision)
+   :reason (copy-expert-loop-transition-reason
+            (expert-loop-decision-reason decision))
    :from-strategy (expert-loop-state-strategy before)
    :to-strategy (expert-loop-state-strategy after)
    :from-non-progress-count (expert-loop-state-non-progress-count before)
@@ -98,7 +104,8 @@
   (expert-loop-transition-inspection-state-kind inspection))
 
 (defun expert-loop-transition-inspection-reason (inspection)
-  (expert-loop-transition-inspection-state-reason inspection))
+  (copy-expert-loop-transition-reason
+   (expert-loop-transition-inspection-state-reason inspection)))
 
 (defun expert-loop-transition-inspection-from-strategy (inspection)
   (expert-loop-transition-inspection-state-from-strategy inspection))
