@@ -15,6 +15,7 @@
                (:file "tests/expert-selection")
                (:file "tests/expert-budget")
                (:file "tests/expert-inspection")
+               (:file "tests/expert-transition-inspection")
                (:file "tests/expert-selection-inspection"))
   :perform (test-op (op system)
              (declare (ignore op system))
@@ -31,4 +32,5 @@
              (uiop:symbol-call :hackmode-tests :run-expert-selection-tests)
              (uiop:symbol-call :hackmode-tests :run-expert-budget-tests)
              (uiop:symbol-call :hackmode-tests :run-expert-inspection-tests)
+             (uiop:symbol-call :hackmode-tests :run-expert-transition-inspection-tests)
              (uiop:symbol-call :hackmode-tests :run-expert-selection-inspection-tests)))
