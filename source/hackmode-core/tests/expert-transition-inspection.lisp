@@ -9,7 +9,7 @@
             :non-progress-count 1
             :last-reason :symbolic-non-progress))
          (decision
-           (hackmode:make-expert-loop-decision
+           (hackmode::make-expert-loop-decision
             :kind :escalate
             :reason :symbolic-stall
             :strategy :direct))
@@ -64,7 +64,7 @@
            (hackmode:make-expert-loop-state
             :operation "op-1" :run-id "run-1" :strategy :direct))
          (decision
-           (hackmode:make-expert-loop-decision
+           (hackmode::make-expert-loop-decision
             :kind :resume-symbolic :reason :direct-progress :strategy :symbolic))
          (after
            (hackmode:make-expert-loop-state
@@ -85,7 +85,7 @@
            (hackmode:make-expert-loop-state
             :operation "op-1" :run-id "run-1" :strategy :symbolic))
          (decision
-           (hackmode:make-expert-loop-decision
+           (hackmode::make-expert-loop-decision
             :kind :escalate :reason :symbolic-stall :strategy :direct))
          (wrong-scope
            (hackmode:make-expert-loop-state
