@@ -52,6 +52,28 @@
                   (getf (hackmode:expert-direct-candidate-payload candidate)
                         :predicate)
                   "candidate owns a defensive payload snapshot")
+    (let ((operation (hackmode:expert-direct-candidate-operation candidate))
+          (run-id (hackmode:expert-direct-candidate-run-id candidate))
+          (exposed-payload (hackmode:expert-direct-candidate-payload candidate))
+          (provenance (hackmode:expert-direct-candidate-provenance candidate)))
+      (setf (char operation 0) #\X)
+      (setf (char run-id 0) #\X)
+      (setf (char (getf exposed-payload :predicate) 0) #\X)
+      (setf (char (getf provenance :source) 0) #\X)
+      (assert-equal "op-a"
+                    (hackmode:expert-direct-candidate-operation candidate)
+                    "candidate operation accessor returns a defensive string")
+      (assert-equal "run-1"
+                    (hackmode:expert-direct-candidate-run-id candidate)
+                    "candidate run accessor returns a defensive string")
+      (assert-equal "root-proven"
+                    (getf (hackmode:expert-direct-candidate-payload candidate)
+                          :predicate)
+                    "candidate payload accessor returns a defensive snapshot")
+      (assert-equal "direct"
+                    (getf (hackmode:expert-direct-candidate-provenance candidate)
+                          :source)
+                    "candidate provenance accessor returns a defensive snapshot"))
     (handler-case
         (progn
           (hackmode:expert-loop-resume-with-direct-candidate
