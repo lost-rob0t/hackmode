@@ -4,6 +4,7 @@
   :serial t
   :components ((:file "tests/execution-graph")
                (:file "tests/long-term-kb")
+               (:file "tests/long-term-kb-singular-fetch")
                (:file "tests/global-kb")
                (:file "tests/global-kb-canonical-source")
                (:file "tests/replay-conflict")
@@ -19,6 +20,8 @@
              (declare (ignore op system))
              (uiop:symbol-call :hackmode-database-tests :run-tests)
              (uiop:symbol-call :hackmode-database-tests :run-long-term-kb-tests)
+             (uiop:symbol-call :hackmode-database-tests
+                               :run-long-term-kb-singular-fetch-tests)
              (uiop:symbol-call :hackmode-database-tests :run-global-kb-tests)
              (uiop:symbol-call :hackmode-database-tests
                                :run-global-kb-canonical-source-tests)
