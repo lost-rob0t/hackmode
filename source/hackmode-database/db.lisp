@@ -293,10 +293,48 @@
             (push promotion promotions)))))
     (sort promotions #'string< :key #'long-term-kb-promotion-record-id)))
 
+(defun %validate-global-kb-export-source (database export)
+  "Require EXPORT to reference the exact canonical long-term promotion claim."
+  (let* ((source-id (global-kb-export-source-promotion-id export))
+         (node (tek9:fetch-node database source-id
+                                :database-name (long-term-kb-graph-name))))
+    (unless node
+      (error 'global-kb-validation-error
+             :field :source-promotion-id
+             :value source-id
+             :reason "source promotion is not persisted in canonical long-term KB"))
+    (let ((promotion (tek9-node->long-term-kb-promotion node)))
+      (unless
+          (and (string= source-id
+                        (long-term-kb-promotion-record-id promotion))
+               (string= (global-kb-export-source-operation-id export)
+                        (long-term-kb-promotion-source-operation-id promotion))
+               (string= (global-kb-export-source-assertion-id export)
+                        (long-term-kb-promotion-source-assertion-id promotion))
+               (string= (global-kb-export-source-run-id export)
+                        (long-term-kb-promotion-source-run-id promotion))
+               (string= (global-kb-export-source-expert-id export)
+                        (long-term-kb-promotion-source-expert-id promotion))
+               (string= (global-kb-export-source-expert-version export)
+                        (long-term-kb-promotion-source-expert-version promotion))
+               (equal (global-kb-export-source-evidence-ids export)
+                      (long-term-kb-promotion-source-evidence-ids promotion))
+               (equal (global-kb-export-promotion-evidence-ids export)
+                      (long-term-kb-promotion-evidence-ids promotion))
+               (equal (global-kb-export-key export)
+                      (long-term-kb-promotion-key promotion))
+               (equal (global-kb-export-value export)
+                      (long-term-kb-promotion-value promotion)))
+        (error 'global-kb-validation-error
+               :field :source-promotion-id
+               :value source-id
+               :reason "export source does not match canonical long-term promotion")))))
+
 (defun persist-global-kb-export (database export)
   "Persist one explicit immutable export through canonical Tek9 graph APIs."
   (let ((graph-name (global-kb-graph-name)))
     (tek9:with-write-transaction (database)
+      (%validate-global-kb-export-source database export)
       (persist-graph-nodes-replay-safe
        database
        (list (global-kb-root-node)
