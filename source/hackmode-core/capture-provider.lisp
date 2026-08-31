@@ -5,6 +5,9 @@
   capture-session-id
   endpoint
   spool-id
+  spool-path
+  (addon-path "tools/ipx/mitmproxy-addon.py" :type string)
+  (format-version 1 :type integer)
   (program "mitmdump" :type string)
   arguments)
 
@@ -44,8 +47,12 @@
     (values (aref groups 0)
             (parse-integer (aref groups 1)))))
 
+(defun capture-addon-setting (name value)
+  (format nil "~a=~a" name value))
+
 (defun make-capture-process-specification (operation-id capture-session-id
-                                           endpoint spool-id program)
+                                           endpoint spool-id spool-path
+                                           addon-path format-version program)
   (multiple-value-bind (host port)
       (capture-endpoint-host-port endpoint)
     (make-capture-process-spec
@@ -53,9 +60,23 @@
      :capture-session-id (copy-seq capture-session-id)
      :endpoint (copy-seq endpoint)
      :spool-id (copy-seq spool-id)
+     :spool-path (copy-seq spool-path)
+     :addon-path (copy-seq addon-path)
+     :format-version format-version
      :program (copy-seq program)
      :arguments (list "--listen-host" host
-                      "--listen-port" (write-to-string port)))))
+                      "--listen-port" (write-to-string port)
+                      "-s" (copy-seq addon-path)
+                      "--set" (capture-addon-setting
+                               "hackmode_operation_id" operation-id)
+                      "--set" (capture-addon-setting
+                               "hackmode_capture_session_id" capture-session-id)
+                      "--set" (capture-addon-setting
+                               "hackmode_spool_id" spool-id)
+                      "--set" (capture-addon-setting
+                               "hackmode_spool_path" spool-path)
+                      "--set" (capture-addon-setting
+                               "hackmode_ipx_version" format-version)))))
 
 (defun default-capture-process-runner (spec)
   "Spawn mitmdump for SPEC without granting the subprocess persistence authority."
@@ -93,7 +114,9 @@
       service)))
 
 (defun start-capture-service (operation-id
-                              &key capture-session-id endpoint spool-id
+                              &key capture-session-id endpoint spool-id spool-path
+                                (addon-path "tools/ipx/mitmproxy-addon.py")
+                                (format-version 1)
                                 (program "mitmdump")
                                 (max-restarts 2)
                                 (runner #'default-capture-process-runner)
@@ -101,16 +124,21 @@
   "Start one operation-scoped mitmdump capture service and return typed state.
 
 RUNNER and STOPPER are injected process boundaries so lifecycle behavior can be
-tested without subprocesses. This service owns process supervision only; it has
-no Tek9, KB, or StarIntel mutation path."
+tested without subprocesses. The mitmdump addon writes append-only source
+evidence to SPOOL-PATH; it has no Tek9, KB, or StarIntel mutation path."
   (let* ((operation (capture-non-empty-string operation-id "operation-id"))
          (proxy-endpoint (capture-non-empty-string endpoint "endpoint"))
          (spool (capture-non-empty-string spool-id "spool-id"))
+         (spool-file (capture-non-empty-string (or spool-path spool-id)
+                                               "spool-path"))
+         (addon (capture-non-empty-string addon-path "addon-path"))
          (session (capture-non-empty-string
                    (or capture-session-id
                        (capture-session-identity operation proxy-endpoint spool))
                    "capture-session-id"))
          (program-name (capture-non-empty-string program "program")))
+    (unless (and (integerp format-version) (plusp format-version))
+      (error "format-version must be a positive integer."))
     (unless (and (integerp max-restarts) (not (minusp max-restarts)))
       (error "max-restarts must be a non-negative integer."))
     (check-type runner function)
@@ -121,13 +149,15 @@ no Tek9, KB, or StarIntel mutation path."
              :capture-session-id session
              :endpoint proxy-endpoint
              :spool-id spool
+             :version format-version
              :state :stopped
              :max-restarts max-restarts
              :runner runner
              :stopper stopper
              :process-spec
              (make-capture-process-specification
-              operation session proxy-endpoint spool program-name))))
+              operation session proxy-endpoint spool spool-file addon
+              format-version program-name))))
       (launch-capture-process service))))
 
 (defun note-capture-process-exit (service &key exit-code)

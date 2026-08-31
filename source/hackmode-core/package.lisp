@@ -201,6 +201,7 @@
    :capture-process-spec-capture-session-id
    :capture-process-spec-endpoint
    :capture-process-spec-spool-id
+   :capture-process-spec-spool-path
    :capture-process-spec-program
    :capture-process-spec-arguments
    :capture-service
