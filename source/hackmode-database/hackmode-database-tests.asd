@@ -11,7 +11,8 @@
                (:file "tests/effective-operational-kb")
                (:file "tests/http-exchange-graph")
                (:file "tests/capture-checkpoint")
-               (:file "tests/capture-quarantine"))
+               (:file "tests/capture-quarantine")
+               (:file "tests/capture-source-rotation"))
   :perform (test-op (op system)
              (declare (ignore op system))
              (uiop:symbol-call :hackmode-database-tests :run-tests)
@@ -28,4 +29,6 @@
              (uiop:symbol-call :hackmode-database-tests
                                :run-capture-checkpoint-tests)
              (uiop:symbol-call :hackmode-database-tests
-                               :run-capture-quarantine-tests)))
+                               :run-capture-quarantine-tests)
+             (uiop:symbol-call :hackmode-database-tests
+                               :run-capture-source-rotation-tests)))

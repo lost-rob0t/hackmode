@@ -46,7 +46,8 @@
     (%require-string :run-id run-id))
   (when (and kind
              (not (member kind '(:tool-call :tool-result :http-exchange
-                                  :capture-checkpoint :capture-quarantine)
+                                  :capture-checkpoint :capture-quarantine
+                                  :capture-source-rotation)
                           :test #'eq)))
     (error 'execution-graph-validation-error
            :field :kind :value kind :reason "unsupported execution record filter"))
@@ -103,6 +104,20 @@
    #'<
    :key (lambda (record)
           (getf (execution-record-payload record) :offset))))
+
+(defun fetch-capture-source-rotations
+    (database operation-id capture-session-id)
+  "Return typed source-rotation lineage in predecessor durable-offset order."
+  (%require-string :operation-id operation-id)
+  (%require-string :capture-session-id capture-session-id)
+  (sort
+   (fetch-operation-execution-records
+    database operation-id
+    :run-id capture-session-id
+    :kind :capture-source-rotation)
+   #'<
+   :key (lambda (record)
+          (getf (execution-record-payload record) :previous-final-offset))))
 
 (defun persist-operational-kb-entry (database entry)
   "Persist one replay-safe operational KB assertion or retraction through Tek9."
