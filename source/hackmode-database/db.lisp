@@ -378,9 +378,13 @@
   export)
 
 (defun fetch-global-kb-export (database record-id)
-  "Fetch one explicit global KB export by stable record identity."
-  (tek9:fetch-node database record-id
-                   :database-name (global-kb-graph-name)))
+  "Return one typed global KB export by stable RECORD-ID, or NIL."
+  (%global-require-string :record-id record-id)
+  (let ((node (tek9:fetch-node
+               database record-id
+               :database-name (global-kb-graph-name))))
+    (when node
+      (tek9-node->global-kb-export node))))
 
 (defun fetch-global-kb-exports (database &key source-operation-id)
   "Return typed global KB exports in deterministic record-ID order."
