@@ -44,7 +44,19 @@
                 :technology-hints '("nginx" "fixture")
                 :capture-session-id "capture-1"
                 :exchange-id "exchange-1"
-                :provenance '(:provider "visual-fixture/1"))))
+                :provenance '(:provider "visual-fixture/1")))
+         (second (hackmode-database:make-visual-evidence-record
+                  :operation-id "op-visual"
+                  :run-id "run-1"
+                  :job-id "shot-2"
+                  :asset-id "url:https://example.test/admin"
+                  :requested-url "https://example.test/admin"
+                  :final-url "https://example.test/admin"
+                  :screenshot-evidence-ref "evidence/screens/shot-2.png"
+                  :screenshot-digest "sha256:shot-2"
+                  :captured-at "2026-08-31T19:00:01Z"
+                  :duration-ms 10
+                  :provenance '(:provider "visual-fixture/1"))))
     (ensure (string= (hackmode-database:visual-evidence-record-record-id first)
                      (hackmode-database:visual-evidence-record-record-id same))
             "visual evidence replay changed stable identity")
@@ -63,15 +75,24 @@
              (tek9:open-database database)
              (hackmode-database:persist-visual-evidence-record database first)
              (hackmode-database:persist-visual-evidence-record database same)
+             (hackmode-database:persist-visual-evidence-record database second)
              (let ((records (hackmode-database:fetch-visual-evidence-records
                              database "op-visual" :run-id "run-1")))
-               (ensure (= 1 (length records))
+               (ensure (= 2 (length records))
                        "visual evidence replay duplicated canonical state")
+               (ensure (equal (mapcar #'hackmode-database:visual-evidence-record-record-id records)
+                              (sort (copy-list
+                                     (mapcar #'hackmode-database:visual-evidence-record-record-id records))
+                                    #'string<))
+                       "visual evidence records are not returned in deterministic ID order")
                (ensure (equal (tek9:node-props
                                (hackmode-database:visual-evidence-record->tek9-node first))
                               (tek9:node-props
                                (hackmode-database:visual-evidence-record->tek9-node
-                                (first records))))
+                                (find (hackmode-database:visual-evidence-record-record-id first)
+                                      records
+                                      :key #'hackmode-database:visual-evidence-record-record-id
+                                      :test #'string=))))
                        "visual evidence changed during Tek9 round-trip")
                (ensure (string=
                         (hackmode-database:visual-evidence-record-record-id first)
@@ -80,6 +101,21 @@
                           database "op-visual"
                           (hackmode-database:visual-evidence-record-record-id first))))
                        "singular visual evidence fetch lost stable identity"))
+             (handler-case
+                 (progn
+                   (hackmode-database:persist-visual-evidence-record
+                    database first
+                    :expected-operation-id "op-other")
+                   (error "cross-operation visual evidence write unexpectedly accepted"))
+               (hackmode-database:execution-graph-validation-error () t))
+             (handler-case
+                 (progn
+                   (hackmode-database:persist-visual-evidence-record
+                    database first
+                    :expected-operation-id "op-visual"
+                    :expected-run-id "run-other")
+                   (error "cross-run visual evidence write unexpectedly accepted"))
+               (hackmode-database:execution-graph-validation-error () t))
              (handler-case
                  (progn
                    (hackmode-database:persist-visual-evidence-record
