@@ -221,6 +221,17 @@
    :start-capture-service
    :note-capture-process-exit
    :stop-capture-service
+   ;; Capture replay
+   :ipx-replay-result
+   :ipx-replay-result-operation-id
+   :ipx-replay-result-capture-session-id
+   :ipx-replay-result-source-id
+   :ipx-replay-result-start-offset
+   :ipx-replay-result-end-offset
+   :ipx-replay-result-committed-count
+   :ipx-replay-result-quarantine-count
+   :ipx-replay-result-truncated-p
+   :replay-ipx-http-spool
    ;; Optional Prolog expert layer
    :*expert-program*
    :expert-unavailable
