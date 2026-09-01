@@ -37,7 +37,7 @@
             nuclei
             zap
             gospider
-            swiProlog
+            swi-prolog
           ];
 
           # Hackmode historically consumed Lish through Quicklisp. Keep the
@@ -367,7 +367,7 @@
               pkgs.nuclei
               pkgs.zap
               pkgs.gospider
-              pkgs.swiProlog
+              pkgs.swi-prolog
             ];
             shellHook = ''
               export LD_LIBRARY_PATH=${pkgs.lib.makeLibraryPath [ pkgs.openssl pkgs.libedit pkgs.libev pkgs.lmdb pkgs.file ]}:''${LD_LIBRARY_PATH:-}
