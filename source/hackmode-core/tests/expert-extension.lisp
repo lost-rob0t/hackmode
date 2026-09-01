@@ -70,6 +70,34 @@
                     (hackmode:expert-extension-id
                      (first (hackmode:list-expert-extensions registry)))
                     "registry accessor is defensive"))
+    (let* ((id (copy-seq "stable-extension"))
+           (version (copy-seq "v1"))
+           (extension
+             (hackmode:make-expert-extension
+              :id id
+              :version version
+              :objective-predicates '("foothold")
+              :required-capabilities nil
+              :authority :passive
+              :strategies '(:symbolic))))
+      (setf (char id 0) #\X
+            (char version 0) #\X)
+      (assert-equal "stable-extension"
+                    (hackmode:expert-extension-id extension)
+                    "extension snapshots caller-owned ID strings")
+      (assert-equal "v1"
+                    (hackmode:expert-extension-version extension)
+                    "extension snapshots caller-owned version strings")
+      (let ((returned-id (hackmode:expert-extension-id extension))
+            (returned-version (hackmode:expert-extension-version extension)))
+        (setf (char returned-id 0) #\Y
+              (char returned-version 0) #\Y)
+        (assert-equal "stable-extension"
+                      (hackmode:expert-extension-id extension)
+                      "extension ID accessor returns a defensive snapshot")
+        (assert-equal "v1"
+                      (hackmode:expert-extension-version extension)
+                      "extension version accessor returns a defensive snapshot")))
     (handler-case
         (progn
           (hackmode:register-expert-extension registry recon)
