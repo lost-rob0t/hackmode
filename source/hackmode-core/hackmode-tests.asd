@@ -24,7 +24,8 @@
                (:file "tests/expert-direct-candidate")
                (:file "tests/capture-provider")
                (:file "tests/http-transport-profile")
-               (:file "tests/visual-evidence-outbox"))
+               (:file "tests/visual-evidence-outbox")
+               (:file "tests/http-requester"))
   :perform (test-op (op system)
              (declare (ignore op system))
              (uiop:symbol-call :hackmode-tests :run-tests)
@@ -51,4 +52,6 @@
              (uiop:symbol-call :hackmode-http-transport-profile-tests
                                :run-http-transport-profile-tests)
              (uiop:symbol-call :hackmode-visual-evidence-outbox-tests
-                               :run-visual-evidence-outbox-tests)))
+                               :run-visual-evidence-outbox-tests)
+             (uiop:symbol-call :hackmode-http-requester-tests
+                               :run-http-requester-tests)))
