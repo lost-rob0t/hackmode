@@ -28,6 +28,7 @@
                (:file "starintel-documents")
                (:file "actor-system")
                (:file "outbox")
+               (:file "visual-evidence-outbox")
                (:file "outbox-actor")
                (:file "http-transport-profile")
                (:file "providers")
