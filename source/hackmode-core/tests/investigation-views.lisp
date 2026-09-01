@@ -85,7 +85,49 @@
                              "assets/by-type rebuild equivalence")
                (assert-equal before-tag
                              (hackmode:investigation-view-rows db :by-tag)
-                             "assets/by-tag rebuild equivalence"))))
+                             "assets/by-tag rebuild equivalence")))
+
+           ;; Ingest-state views must map canonical durable outbox records rather
+           ;; than duplicating state into the primary operation database.
+           (let* ((queued
+                    (make-instance 'hackmode:outbox-entry
+                                   :id "outbox-queued"
+                                   :document-id "doc-queued"
+                                   :dtype "url"
+                                   :operation "op-views"
+                                   :payload "{}"
+                                   :state :queued
+                                   :created-at 10
+                                   :updated-at 10))
+                  (failed
+                    (make-instance 'hackmode:outbox-entry
+                                   :id "outbox-failed"
+                                   :document-id "doc-failed"
+                                   :dtype "url"
+                                   :operation "op-views"
+                                   :payload "{}"
+                                   :state :failed
+                                   :created-at 20
+                                   :updated-at 20)))
+             (hackmode:persist-outbox-entry db queued)
+             (hackmode:persist-outbox-entry db failed)
+             (hackmode:ensure-investigation-views db :rebuild t)
+             (assert-equal '("outbox-queued")
+                           (hackmode:investigation-view-outbox-ids
+                            db :queued)
+                           "ingest/by-state queued selection")
+             (assert-equal '("outbox-failed")
+                           (hackmode:investigation-view-outbox-ids
+                            db :failed)
+                           "ingest/by-state failed selection")
+             (let ((before
+                     (hackmode:investigation-view-rows
+                      db :ingest-by-state)))
+               (hackmode:rebuild-investigation-views db)
+               (assert-equal before
+                             (hackmode:investigation-view-rows
+                              db :ingest-by-state)
+                             "ingest/by-state rebuild equivalence"))))
       (when (tek9:db-is-open-p db)
         (tek9:close-database db))
       (remove-test-path root)))
