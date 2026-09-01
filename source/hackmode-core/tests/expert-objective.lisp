@@ -62,6 +62,32 @@
       (assert-equal "http-probe"
                     (first (hackmode:expert-objective-granted-capabilities objective))
                     "returned capability list cannot mutate objective"))
+    (let* ((caller-id (copy-seq "mutable-objective"))
+           (caller-version (copy-seq "version-1"))
+           (isolated
+             (hackmode:make-expert-objective
+              :id caller-id
+              :version caller-version
+              :clauses (list goal)
+              :granted-capabilities nil)))
+      (setf (char caller-id 0) #\X
+            (char caller-version 0) #\X)
+      (assert-equal "mutable-objective"
+                    (hackmode:expert-objective-id isolated)
+                    "caller-owned ID mutation cannot rewrite objective identity")
+      (assert-equal "version-1"
+                    (hackmode:expert-objective-version isolated)
+                    "caller-owned version mutation cannot rewrite objective version")
+      (let ((returned-id (hackmode:expert-objective-id isolated))
+            (returned-version (hackmode:expert-objective-version isolated)))
+        (setf (char returned-id 0) #\Y
+              (char returned-version 0) #\Y)
+        (assert-equal "mutable-objective"
+                      (hackmode:expert-objective-id isolated)
+                      "returned ID mutation cannot rewrite objective identity")
+        (assert-equal "version-1"
+                      (hackmode:expert-objective-version isolated)
+                      "returned version mutation cannot rewrite objective version")))
     (dolist (bad `((:clause-kind
                     ,(lambda ()
                        (hackmode:make-expert-objective-clause
