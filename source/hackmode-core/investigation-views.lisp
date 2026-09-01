@@ -1,5 +1,10 @@
 (in-package :hackmode)
 
+(export '(ensure-investigation-views
+          rebuild-investigation-views
+          investigation-view-rows
+          investigation-view-asset-ids))
+
 (defparameter +assets-by-type-view-name+ "assets/by-type")
 (defparameter +assets-by-tag-view-name+ "assets/by-tag")
 
