@@ -63,9 +63,17 @@ sudo pacman -S sbcl git
 #+end_src
 
 *** NixOS
-Install direnv, then allow the repository environment:
+The public flake exposes both the command CLI and the interactive expert shell.
+
 #+begin_src shell
-direnv allow
+nix run github:lost-rob0t/hackmode -- --help
+nix run github:lost-rob0t/hackmode#expert
+#+end_src
+
+For a development checkout:
+
+#+begin_src shell
+nix develop
 #+end_src
 
 ** Build
@@ -77,12 +85,78 @@ make build
 sudo make install
 #+end_src
 
+The Makefile installs both =hm= and =hm-expert=.
+
+* Command line
+=hm= is the non-interactive command entry point. Command-mode work is persisted in the current workspace's =.hackmode/= Tek9 store. Set =HACKMODE_OPERATION= to select a named operation explicitly.
+
+** Expert shell
+#+begin_src shell
+hm expert
+#+end_src
+
+The dedicated entry point is equivalent:
+
+#+begin_src shell
+hm-expert
+#+end_src
+
+With Nix:
+
+#+begin_src shell
+nix run github:lost-rob0t/hackmode#expert
+#+end_src
+
+** Scan
+Run Nmap and retain its XML observation in the active Hackmode operation:
+
+#+begin_src shell
+hm scan 192.168.1.0/24
+hm scan 192.168.1.10 -sV
+#+end_src
+
+With Nix:
+
+#+begin_src shell
+nix run github:lost-rob0t/hackmode -- scan 192.168.1.0/24
+#+end_src
+
+** Recon
+Run the baseline domain recon providers, deduplicate discovered domains, and persist typed assets:
+
+#+begin_src shell
+hm recon starintel.actor
+#+end_src
+
+** Inventory import
+Import newline-delimited domains, hosts/IPs, and URLs. Blank lines and =#= comments are ignored.
+
+#+begin_src shell
+hm inventory import inventory.txt
+hm inventory import domains.txt domain
+hm inventory import hosts.txt host
+hm inventory import urls.txt url
+#+end_src
+
+The default =auto= mode recognizes HTTP(S) URLs and IP literals; remaining values are treated as domains.
+
+* Lish commands
+The expert shell calls the same implementations as the public CLI instead of maintaining a second command path:
+
+#+begin_example
+scan 192.168.1.0/24
+recon starintel.actor
+inventory import inventory.txt
+#+end_example
+
+=nix flake check= includes a dedicated Lish compile/load check plus CLI help and inventory-import smoke tests.
+
 * Configure
 Hackmode follows the Lisp tradition of a user init file so the environment can be extended without forking the runtime.
 
 The default init file is =~/.config/hackmode/init.lisp=.
 
-The shell work is inspired by LISH and should operate on typed Hackmode objects, not only strings. Existing commands remain callable as Common Lisp functions outside the interactive shell.
+The shell is backed by Lish and operates on typed Hackmode objects rather than only strings. Existing commands remain callable as Common Lisp functions outside the interactive shell.
 
 * Migration status
 - Common Lisp runtime: already here.
