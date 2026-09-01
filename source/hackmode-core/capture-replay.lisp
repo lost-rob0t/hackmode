@@ -127,6 +127,18 @@
      :duration-ms (round (* 1000 (- timestamp-end timestamp-start)))
      :provenance (ipx-frame-provenance pathname source-id start end))))
 
+(defun ipx-decode-http-exchange
+    (octets pathname operation-id capture-session-id source-id start end)
+  "Decode one framed record. Return EXCHANGE and NIL, or NIL and the decode error."
+  (handler-case
+      (values
+       (ipx-object->http-exchange
+        (jsown:parse (ipx-octets->ascii octets))
+        pathname operation-id capture-session-id source-id start end)
+       nil)
+    (error (condition)
+      (values nil condition))))
+
 (defun ipx-persist-checkpoint
     (database operation-id capture-session-id source-id offset last-record-id pathname)
   (hackmode-database:persist-execution-record
@@ -182,29 +194,28 @@ checkpoint so a later replay can consume it after the writer completes the frame
                    frame-start frame-end "truncated IPX frame")
               (incf quarantine-count))
             (return))
-          (handler-case
-              (let* ((object (jsown:parse (ipx-octets->ascii octets)))
-                     (exchange
-                       (ipx-object->http-exchange
-                        object path operation-id capture-session-id source-id
-                        frame-start frame-end)))
-                (hackmode-database:persist-execution-record database exchange)
-                (ipx-persist-checkpoint
-                 database operation-id capture-session-id source-id frame-end
-                 (hackmode-database:execution-record-record-id exchange) path)
-                (incf committed-count))
-            (error (condition)
-              (let ((quarantine
-                      (ipx-persist-quarantine
-                       database path operation-id capture-session-id source-id
-                       frame-start frame-end (princ-to-string condition))))
-                (when quarantine
-                  (incf quarantine-count))
-                (ipx-persist-checkpoint
-                 database operation-id capture-session-id source-id frame-end
-                 (and quarantine
-                      (hackmode-database:execution-record-record-id quarantine))
-                 path)))))))
+          (multiple-value-bind (exchange decode-error)
+              (ipx-decode-http-exchange
+               octets path operation-id capture-session-id source-id
+               frame-start frame-end)
+            (if decode-error
+                (let ((quarantine
+                        (ipx-persist-quarantine
+                         database path operation-id capture-session-id source-id
+                         frame-start frame-end (princ-to-string decode-error))))
+                  (when quarantine
+                    (incf quarantine-count))
+                  (ipx-persist-checkpoint
+                   database operation-id capture-session-id source-id frame-end
+                   (and quarantine
+                        (hackmode-database:execution-record-record-id quarantine))
+                   path))
+                (progn
+                  (hackmode-database:persist-execution-record database exchange)
+                  (ipx-persist-checkpoint
+                   database operation-id capture-session-id source-id frame-end
+                   (hackmode-database:execution-record-record-id exchange) path)
+                  (incf committed-count)))))))
     (make-ipx-replay-result
      :operation-id operation-id
      :capture-session-id capture-session-id
