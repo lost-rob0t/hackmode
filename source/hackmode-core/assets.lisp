@@ -175,14 +175,15 @@ older recon/client integrations while they migrate to the generic event stream."
   (bind-asset-operation asset)
   (setf (doc-id asset) (asset-deterministic-id asset :parent-id parent-id))
   (put-doc asset :database database)
+  (maintain-investigation-asset-views database asset)
   asset)
 
 (defun discover-asset (asset &key (database *db*) parent-id (publish t))
   "Persist ASSET exactly once, then publish a :DISCOVERED event.
 
 Returns two values: the canonical stored asset and true only when this call
-created it. Persistence happens before event publication, so subscribers never
-observe an asset that is absent from the local operation store."
+created it. Persistence happens before view maintenance and event publication,
+so subscribers never observe an asset absent from canonical local state."
   (unless (and database (tek9:db-is-open-p database))
     (error "DISCOVER-ASSET requires an open local operation database."))
   (normalize-asset asset)
@@ -193,6 +194,7 @@ observe an asset that is absent from the local operation store."
         (values existing nil)
         (progn
           (put-doc asset :database database)
+          (maintain-investigation-asset-views database asset)
           (when publish
             (publish-asset-event :discovered asset))
           (values asset t)))))
@@ -216,23 +218,27 @@ events are never published for unpersisted results."
 (defun query-assets (&key (database *db*) type predicate)
   "Return operation-local assets matching TYPE and PREDICATE.
 
-This first protocol slice intentionally uses Tek9's existing snapshot iterator.
-Indexes/views can be added without changing callers once query volume requires
-it."
+Typed queries use Hackmode's materialized `assets/by-type' investigation view.
+Unconstrained queries retain the generic snapshot iterator."
   (unless (and database (tek9:db-is-open-p database))
     (error "QUERY-ASSETS requires an open local operation database."))
-  (let ((wanted (and type (string-downcase (string type))))
-        assets)
-    (tek9:map-database
-     database
-     :map-fn
-     (lambda (key document)
-       (declare (ignore key))
-       (let* ((value (tek9:doc-value document))
-              (kind (and (typep value 'meta)
-                         (ignore-errors (asset-kind value)))))
-         (when (and kind
-                    (or (null wanted) (string= wanted kind))
-                    (or (null predicate) (funcall predicate value)))
-           (push value assets)))))
-    (nreverse assets)))
+  (let ((wanted (and type (string-downcase (string type)))))
+    (if wanted
+        (loop for id in (investigation-view-asset-ids database :by-type wanted)
+              for asset = (tek9:fetch* database id)
+              when (and (typep asset 'meta)
+                        (or (null predicate) (funcall predicate asset)))
+                collect asset)
+        (let (assets)
+          (tek9:map-database
+           database
+           :map-fn
+           (lambda (key document)
+             (declare (ignore key))
+             (let* ((value (tek9:doc-value document))
+                    (kind (and (typep value 'meta)
+                               (ignore-errors (asset-kind value)))))
+               (when (and kind
+                          (or (null predicate) (funcall predicate value)))
+                 (push value assets)))))
+          (nreverse assets)))))
