@@ -36,6 +36,7 @@
                (:file "providers")
                (:file "provider-actor")
                (:file "capture-provider")
+               (:file "capture-replay")
                (:file "expert")
                (:module "expert-actions"
                 :pathname "expert/"
