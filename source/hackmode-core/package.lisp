@@ -176,6 +176,8 @@
    :outbox-payload-id
    :enqueue-starintel-json
    :enqueue-asset-for-starintel
+   :visual-evidence->starintel-json
+   :enqueue-visual-evidence-for-starintel
    :fetch-outbox-entry
    :list-outbox-entries
    :outbox-backoff-seconds
