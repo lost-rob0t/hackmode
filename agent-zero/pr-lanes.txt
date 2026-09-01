@@ -1,3 +1,0 @@
-# One open pull request is allowed per Agent Zero branch-prefix lane.
-rage-hackpert/
-rage-database/
