@@ -85,7 +85,24 @@
                              "assets/by-type rebuild equivalence")
                (assert-equal before-tag
                              (hackmode:investigation-view-rows db :by-tag)
-                             "assets/by-tag rebuild equivalence"))))
+                             "assets/by-tag rebuild equivalence")))
+
+           ;; RED contract for #15: use only the public outbox enqueue path, then
+           ;; require the not-yet-implemented ingest-state investigation query.
+           (multiple-value-bind (entry created-p)
+               (hackmode:enqueue-starintel-json
+                db
+                (jsown:new-js
+                  ("_id" "view-red-doc")
+                  ("dtype" "url"))
+                :operation "op-views"
+                :now 30)
+             (declare (ignore entry))
+             (assert created-p () "Outbox RED fixture must be durably created."))
+           (assert-equal 1
+                         (length
+                          (hackmode::investigation-view-outbox-ids db :queued))
+                         "ingest/by-state queued selection must exist"))
       (when (tek9:db-is-open-p db)
         (tek9:close-database db))
       (remove-test-path root)))
