@@ -57,21 +57,25 @@
 (defun ensure-investigation-views (database &key rebuild)
   "Register Hackmode-owned asset investigation views in DATABASE.
 
-When REBUILD is true, rebuild both views from canonical operation documents.
-The view definitions stay in Hackmode; Tek9 remains the generic view engine."
+A newly registered view is rebuilt immediately so operation databases created
+before this feature do not return false-empty results. REBUILD forces both views
+to be rebuilt from canonical operation documents."
   (unless (and database (tek9:db-is-open-p database))
     (error "Investigation views require an open operation database."))
   (labels ((ensure-view (name constructor)
-             (or (gethash name (tek9:db-views database))
-                 (tek9:add-view database (funcall constructor)))))
-    (let ((by-type (ensure-view +assets-by-type-view-name+
-                                #'make-assets-by-type-view))
-          (by-tag (ensure-view +assets-by-tag-view-name+
-                               #'make-assets-by-tag-view)))
-      (when rebuild
-        (tek9:apply-view-to-database database by-type)
-        (tek9:apply-view-to-database database by-tag))
-      (values by-type by-tag))))
+             (let ((existing (gethash name (tek9:db-views database))))
+               (if existing
+                   (values existing nil)
+                   (values (tek9:add-view database (funcall constructor)) t)))))
+    (multiple-value-bind (by-type by-type-created-p)
+        (ensure-view +assets-by-type-view-name+ #'make-assets-by-type-view)
+      (multiple-value-bind (by-tag by-tag-created-p)
+          (ensure-view +assets-by-tag-view-name+ #'make-assets-by-tag-view)
+        (when (or rebuild by-type-created-p)
+          (tek9:apply-view-to-database database by-type))
+        (when (or rebuild by-tag-created-p)
+          (tek9:apply-view-to-database database by-tag))
+        (values by-type by-tag)))))
 
 (defun rebuild-investigation-views (database)
   "Rebuild every currently supported Hackmode investigation view."
