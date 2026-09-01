@@ -145,7 +145,7 @@
                  (assert-equal before
                                (hackmode:investigation-view-rows
                                 db :ingest-by-state)
-                               "ingest/by-state rebuild equivalence"))))))
+                               "ingest/by-state rebuild equivalence"))))
       (when (tek9:db-is-open-p db)
         (tek9:close-database db))
       (remove-test-path root)))
