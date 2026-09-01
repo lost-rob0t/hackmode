@@ -25,6 +25,7 @@
                (:file "tests/expert-budget-inspection")
                (:file "tests/expert-direct-candidate")
                (:file "tests/capture-provider")
+               (:file "tests/ipx-replay")
                (:file "tests/http-transport-profile")
                (:file "tests/visual-evidence-outbox")
                (:file "tests/http-requester"))
@@ -53,6 +54,7 @@
              (uiop:symbol-call :hackmode-tests :run-expert-budget-inspection-tests)
              (uiop:symbol-call :hackmode-tests :run-expert-direct-candidate-tests)
              (uiop:symbol-call :hackmode-tests :run-capture-provider-tests)
+             (uiop:symbol-call :hackmode-tests :run-ipx-replay-tests)
              (uiop:symbol-call :hackmode-http-transport-profile-tests
                                :run-http-transport-profile-tests)
              (uiop:symbol-call :hackmode-visual-evidence-outbox-tests
