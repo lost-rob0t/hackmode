@@ -122,9 +122,9 @@ stdout so the complete observation can be retained in the active operation."
     (ensure-cli-operation)
     (labels ((collect-provider (name thunk)
                (handler-case
-                   (progn
+                   (let ((provider-assets (funcall thunk)))
                      (incf successful-providers)
-                     (dolist (asset (funcall thunk))
+                     (dolist (asset provider-assets)
                        (let ((key (hackmode:domain-name asset)))
                          (unless (gethash key seen)
                            (setf (gethash key seen) t)
