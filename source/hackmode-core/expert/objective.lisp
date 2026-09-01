@@ -61,12 +61,23 @@ never interpreted as executable Prolog source by this layer."
 
 (defstruct (expert-objective
              (:constructor %make-expert-objective
-                 (&key id version raw-clauses raw-limits raw-granted-capabilities)))
+                 (&key id version raw-clauses raw-limits raw-granted-capabilities))
+             (:conc-name %expert-objective-))
   (id nil :read-only t)
   (version nil :read-only t)
   (raw-clauses nil :read-only t)
   (raw-limits nil :read-only t)
   (raw-granted-capabilities nil :read-only t))
+
+(defun expert-objective-id (objective)
+  "Return an independently mutable snapshot of OBJECTIVE's stable identity."
+  (check-type objective expert-objective)
+  (copy-seq (%expert-objective-id objective)))
+
+(defun expert-objective-version (objective)
+  "Return an independently mutable snapshot of OBJECTIVE's version identity."
+  (check-type objective expert-objective)
+  (copy-seq (%expert-objective-version objective)))
 
 (defun normalize-expert-objective-capabilities (capabilities)
   (unless (listp capabilities)
@@ -119,8 +130,8 @@ execution authority and encodes no fixed recon or attack phase ordering."
                              "objective clauses must be normalized clauses"))
   (validate-expert-objective-limits limits)
   (%make-expert-objective
-   :id id
-   :version version
+   :id (copy-seq id)
+   :version (copy-seq version)
    :raw-clauses (copy-list clauses)
    :raw-limits (copy-list limits)
    :raw-granted-capabilities
@@ -129,17 +140,17 @@ execution authority and encodes no fixed recon or attack phase ordering."
 (defun expert-objective-clauses (objective)
   "Return a defensive copy of OBJECTIVE clauses."
   (check-type objective expert-objective)
-  (copy-list (expert-objective-raw-clauses objective)))
+  (copy-list (%expert-objective-raw-clauses objective)))
 
 (defun expert-objective-limits (objective)
   "Return a defensive copy of OBJECTIVE limits."
   (check-type objective expert-objective)
-  (copy-list (expert-objective-raw-limits objective)))
+  (copy-list (%expert-objective-raw-limits objective)))
 
 (defun expert-objective-granted-capabilities (objective)
   "Return deterministically normalized capability grants for OBJECTIVE."
   (check-type objective expert-objective)
-  (copy-list (expert-objective-raw-granted-capabilities objective)))
+  (copy-list (%expert-objective-raw-granted-capabilities objective)))
 
 (export '(+expert-objective-clause-kinds+
           invalid-expert-objective
