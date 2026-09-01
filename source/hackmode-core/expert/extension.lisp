@@ -43,13 +43,24 @@
 (defstruct (expert-extension
              (:constructor %make-expert-extension
                  (&key id version raw-objective-predicates
-                       raw-required-capabilities authority raw-strategies)))
+                       raw-required-capabilities authority raw-strategies))
+             (:conc-name %expert-extension-))
   (id nil :read-only t)
   (version nil :read-only t)
   (raw-objective-predicates nil :read-only t)
   (raw-required-capabilities nil :read-only t)
   (authority :passive :read-only t)
   (raw-strategies nil :read-only t))
+
+(defun expert-extension-id (extension)
+  "Return an independently mutable snapshot of EXTENSION's stable identity."
+  (check-type extension expert-extension)
+  (copy-seq (%expert-extension-id extension)))
+
+(defun expert-extension-version (extension)
+  "Return an independently mutable snapshot of EXTENSION's version identity."
+  (check-type extension expert-extension)
+  (copy-seq (%expert-extension-version extension)))
 
 (defun make-expert-extension (&key id version objective-predicates
                                    required-capabilities authority strategies)
@@ -71,8 +82,8 @@ minimum engine authority required for selection."
                              "unsupported authority requirement ~s"
                              authority))
   (%make-expert-extension
-   :id id
-   :version version
+   :id (copy-seq id)
+   :version (copy-seq version)
    :raw-objective-predicates
    (normalize-expert-extension-strings objective-predicates
                                        "objective predicates")
@@ -84,15 +95,19 @@ minimum engine authority required for selection."
 
 (defun expert-extension-objective-predicates (extension)
   (check-type extension expert-extension)
-  (copy-list (expert-extension-raw-objective-predicates extension)))
+  (copy-list (%expert-extension-raw-objective-predicates extension)))
 
 (defun expert-extension-required-capabilities (extension)
   (check-type extension expert-extension)
-  (copy-list (expert-extension-raw-required-capabilities extension)))
+  (copy-list (%expert-extension-raw-required-capabilities extension)))
+
+(defun expert-extension-authority (extension)
+  (check-type extension expert-extension)
+  (%expert-extension-authority extension))
 
 (defun expert-extension-strategies (extension)
   (check-type extension expert-extension)
-  (copy-list (expert-extension-raw-strategies extension)))
+  (copy-list (%expert-extension-raw-strategies extension)))
 
 (defstruct (expert-extension-registry
              (:constructor %make-expert-extension-registry (&key raw-extensions)))
