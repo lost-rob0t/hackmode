@@ -25,6 +25,7 @@
                (:file "database")
                (:file "operations")
                (:file "assets")
+               (:file "investigation-views")
                (:file "starintel-documents")
                (:file "actor-system")
                (:file "outbox")
