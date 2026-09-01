@@ -13,7 +13,9 @@
          (spool (merge-pathnames "capture.ipx.jsonl" root))
          (db (tek9:new-database "ipx-replay" :path root))
          (valid-line
-           "{\"schema\":\"hackmode-ipx-http\",\"version\":1,\"operation_id\":\"op-ipx\",\"capture_session_id\":\"cap-1\",\"spool_id\":\"spool-1\",\"exchange_id\":\"exchange-1\",\"timestamp_start\":1000.0,\"timestamp_end\":1000.125,\"request\":{\"method\":\"GET\",\"scheme\":\"https\",\"host\":\"example.test\",\"port\":443,\"path\":\"/api?x=1\",\"http_version\":\"HTTP/2\",\"headers_raw_b64\":[],\"body_raw_b64\":\"\"},\"response\":{\"status_code\":200,\"reason\":\"OK\",\"http_version\":\"HTTP/2\",\"headers_raw_b64\":[],\"body_raw_b64\":\"\"},\"connection\":{},\"provider\":{\"name\":\"mitmproxy\",\"addon_schema\":\"hackmode-ipx-http\",\"addon_version\":1}}\n"))
+           (format nil
+                   "~a~%"
+                   "{\"schema\":\"hackmode-ipx-http\",\"version\":1,\"operation_id\":\"op-ipx\",\"capture_session_id\":\"cap-1\",\"spool_id\":\"spool-1\",\"exchange_id\":\"exchange-1\",\"timestamp_start\":1000.0,\"timestamp_end\":1000.125,\"request\":{\"method\":\"GET\",\"scheme\":\"https\",\"host\":\"example.test\",\"port\":443,\"path\":\"/api?x=1\",\"http_version\":\"HTTP/2\",\"headers_raw_b64\":[],\"body_raw_b64\":\"\"},\"response\":{\"status_code\":200,\"reason\":\"OK\",\"http_version\":\"HTTP/2\",\"headers_raw_b64\":[],\"body_raw_b64\":\"\"},\"connection\":{},\"provider\":{\"name\":\"mitmproxy\",\"addon_schema\":\"hackmode-ipx-http\",\"addon_version\":1}}")))
     (unwind-protect
          (progn
            (uiop:ensure-all-directories-exist (list root))
@@ -63,7 +65,7 @@
                              db "op-ipx" :run-id "cap-1" :kind :http-exchange))
                            "replay-safe exchange count"))
 
-           (write-ascii-file spool "{not-json}\n" :append t)
+           (write-ascii-file spool (format nil "{not-json}~%") :append t)
            (let ((malformed
                    (hackmode:replay-ipx-http-spool
                     db spool
