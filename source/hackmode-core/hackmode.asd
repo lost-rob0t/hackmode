@@ -30,6 +30,7 @@
                (:file "outbox")
                (:file "outbox-actor")
                (:file "http-transport-profile")
+               (:file "http-requester")
                (:file "providers")
                (:file "provider-actor")
                (:file "capture-provider")
