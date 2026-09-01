@@ -13,18 +13,38 @@
     :capability-unavailable)
   "Closed explanations for extension candidate admission decisions.")
 
+(defun expert-selection-copy-identity (value)
+  (if (stringp value)
+      (copy-seq value)
+      value))
+
 (defstruct (expert-objective-evaluation
              (:constructor %make-expert-objective-evaluation
-                 (&key objective-id objective-version status raw-unsatisfied-clauses)))
+                 (&key objective-id objective-version status raw-unsatisfied-clauses))
+             (:conc-name %expert-objective-evaluation-))
   (objective-id nil :read-only t)
   (objective-version nil :read-only t)
   (status :in-progress :read-only t)
   (raw-unsatisfied-clauses nil :read-only t))
 
+(defun expert-objective-evaluation-objective-id (evaluation)
+  (check-type evaluation expert-objective-evaluation)
+  (expert-selection-copy-identity
+   (%expert-objective-evaluation-objective-id evaluation)))
+
+(defun expert-objective-evaluation-objective-version (evaluation)
+  (check-type evaluation expert-objective-evaluation)
+  (expert-selection-copy-identity
+   (%expert-objective-evaluation-objective-version evaluation)))
+
+(defun expert-objective-evaluation-status (evaluation)
+  (check-type evaluation expert-objective-evaluation)
+  (%expert-objective-evaluation-status evaluation))
+
 (defun expert-objective-evaluation-unsatisfied-clauses (evaluation)
   "Return deterministic unmet objective clauses as a defensive list copy."
   (check-type evaluation expert-objective-evaluation)
-  (copy-list (expert-objective-evaluation-raw-unsatisfied-clauses evaluation)))
+  (copy-list (%expert-objective-evaluation-raw-unsatisfied-clauses evaluation)))
 
 (defun expert-objective-runtime-clause-p (clause)
   (member (expert-objective-clause-kind clause)
@@ -70,15 +90,29 @@ canonical state."
 
 (defstruct (expert-extension-candidate
              (:constructor make-expert-extension-candidate
-                 (&key id version reason)))
+                 (&key id version reason))
+             (:conc-name %expert-extension-candidate-))
   (id nil :read-only t)
   (version nil :read-only t)
   (reason nil :read-only t))
 
+(defun expert-extension-candidate-id (candidate)
+  (check-type candidate expert-extension-candidate)
+  (expert-selection-copy-identity (%expert-extension-candidate-id candidate)))
+
+(defun expert-extension-candidate-version (candidate)
+  (check-type candidate expert-extension-candidate)
+  (expert-selection-copy-identity (%expert-extension-candidate-version candidate)))
+
+(defun expert-extension-candidate-reason (candidate)
+  (check-type candidate expert-extension-candidate)
+  (%expert-extension-candidate-reason candidate))
+
 (defstruct (expert-extension-selection
              (:constructor %make-expert-extension-selection
                  (&key objective-id objective-version authority strategy
-                       selected-id selected-version reason raw-candidates)))
+                       selected-id selected-version reason raw-candidates))
+             (:conc-name %expert-extension-selection-))
   (objective-id nil :read-only t)
   (objective-version nil :read-only t)
   (authority nil :read-only t)
@@ -88,10 +122,42 @@ canonical state."
   (reason nil :read-only t)
   (raw-candidates nil :read-only t))
 
+(defun expert-extension-selection-objective-id (selection)
+  (check-type selection expert-extension-selection)
+  (expert-selection-copy-identity
+   (%expert-extension-selection-objective-id selection)))
+
+(defun expert-extension-selection-objective-version (selection)
+  (check-type selection expert-extension-selection)
+  (expert-selection-copy-identity
+   (%expert-extension-selection-objective-version selection)))
+
+(defun expert-extension-selection-authority (selection)
+  (check-type selection expert-extension-selection)
+  (%expert-extension-selection-authority selection))
+
+(defun expert-extension-selection-strategy (selection)
+  (check-type selection expert-extension-selection)
+  (%expert-extension-selection-strategy selection))
+
+(defun expert-extension-selection-selected-id (selection)
+  (check-type selection expert-extension-selection)
+  (expert-selection-copy-identity
+   (%expert-extension-selection-selected-id selection)))
+
+(defun expert-extension-selection-selected-version (selection)
+  (check-type selection expert-extension-selection)
+  (expert-selection-copy-identity
+   (%expert-extension-selection-selected-version selection)))
+
+(defun expert-extension-selection-reason (selection)
+  (check-type selection expert-extension-selection)
+  (%expert-extension-selection-reason selection))
+
 (defun expert-extension-selection-candidates (selection)
   "Return candidate decision provenance as a defensive list copy."
   (check-type selection expert-extension-selection)
-  (copy-list (expert-extension-selection-raw-candidates selection)))
+  (copy-list (%expert-extension-selection-raw-candidates selection)))
 
 (defun expert-extension-understands-objective-p (extension objective)
   (some (lambda (predicate)
