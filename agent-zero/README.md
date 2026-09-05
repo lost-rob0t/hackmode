@@ -32,7 +32,7 @@ StarIntel is an integration target, not a second Hackmode authority. Hackmode ma
 Copy both profiles into the Agent Zero user-agent directory:
 
 ```sh
-./agent-zero/install.sh /a0/usr
+sh agent-zero/install.sh /a0/usr
 ```
 
 The default target is `/a0/usr` when no argument is supplied.
