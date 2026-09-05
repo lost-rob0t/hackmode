@@ -166,6 +166,32 @@
             dontStrip = true;
           };
 
+          # Nixpkgs currently exposes an nfiles Lisp derivation that does not
+          # make the `nfiles` ASDF system discoverable from buildASDFSystem.
+          # Pin and build the exact upstream system so Hackmode's dependency is
+          # hermetic instead of falling back to a mutable Quicklisp tree.
+          nfilesSrc = builtins.fetchGit {
+            url = "https://github.com/atlas-engineer/nfiles.git";
+            rev = "b44b06caf20cececeaee2153a747902c508a9c48";
+          };
+
+          nfiles = pkgs.sbcl.buildASDFSystem {
+            pname = "nfiles";
+            version = "1.1.4";
+            src = nfilesSrc;
+            systems = [ "nfiles" ];
+            lispLibs = [
+              cl.alexandria
+              cl.nclasses
+              cl.quri
+              cl.serapeum
+              cl."trivial-garbage"
+              cl."trivial-package-local-nicknames"
+              cl."trivial-types"
+            ];
+            dontStrip = true;
+          };
+
           hackmodeDatabase = pkgs.sbcl.buildASDFSystem {
             pname = "hackmode-database";
             version = "0.1.0";
@@ -185,7 +211,7 @@
             lispLibs = [
               cl.serapeum
               cl."local-time"
-              cl.nfiles
+              nfiles
               cl.nhooks
               cl."bordeaux-threads"
               tek9
