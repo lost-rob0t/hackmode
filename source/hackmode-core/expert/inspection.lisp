@@ -12,7 +12,8 @@
 (defstruct (expert-run-inspection
              (:constructor %make-expert-run-inspection
                  (&key operation run-id authority strategy
-                       non-progress-count last-reason)))
+                       non-progress-count last-reason))
+             (:conc-name %expert-run-inspection-))
   "Pure operator-facing snapshot of one Hackpert run controller state."
   (operation nil :read-only t)
   (run-id nil :read-only t)
@@ -34,12 +35,28 @@
    :last-reason (expert-loop-state-last-reason state)))
 
 (defun expert-run-inspection-operation (inspection)
+  "Return a defensive snapshot of INSPECTION's operation scope."
+  (check-type inspection expert-run-inspection)
   (%expert-inspection-copy
-   (slot-value inspection 'operation)))
+   (%expert-run-inspection-operation inspection)))
 
 (defun expert-run-inspection-run-id (inspection)
+  "Return a defensive snapshot of INSPECTION's run scope."
+  (check-type inspection expert-run-inspection)
   (%expert-inspection-copy
-   (slot-value inspection 'run-id)))
+   (%expert-run-inspection-run-id inspection)))
+
+(defun expert-run-inspection-authority (inspection)
+  (check-type inspection expert-run-inspection)
+  (%expert-run-inspection-authority inspection))
+
+(defun expert-run-inspection-strategy (inspection)
+  (check-type inspection expert-run-inspection)
+  (%expert-run-inspection-strategy inspection))
+
+(defun expert-run-inspection-non-progress-count (inspection)
+  (check-type inspection expert-run-inspection)
+  (%expert-run-inspection-non-progress-count inspection))
 
 (defstruct (expert-plan-inspection-state
              (:constructor %make-expert-plan-inspection-state

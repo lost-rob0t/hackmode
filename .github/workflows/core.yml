@@ -25,7 +25,7 @@ jobs:
       - name: Checkout pinned Tek9
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          repository: lost-rob0t/tek9
+          repository: nsaspy/tek9
           ref: 1cb978084da8b4f1d184b3ef2a1d30057f525608
           path: deps/tek9-ci
           fetch-depth: 1
@@ -33,7 +33,7 @@ jobs:
       - name: Checkout pinned StarIntel Common Lisp schema
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          repository: lost-rob0t/star-cl
+          repository: nsaspy/star-cl
           ref: b8dfbe2f9f56065ace8c3313b92ca748a115cdfa
           path: deps/star-cl-ci
           fetch-depth: 1
@@ -118,6 +118,7 @@ jobs:
 
       - name: Upload Common Lisp diagnostic log
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: hackmode-core-log
