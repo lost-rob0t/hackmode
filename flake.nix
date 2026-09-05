@@ -212,6 +212,8 @@
             dontStrip = true;
           };
 
+          sento = import ./nix/sento.nix { inherit pkgs cl; };
+
           hackmodeDatabase = pkgs.sbcl.buildASDFSystem {
             pname = "hackmode-database";
             version = "0.1.0";
@@ -240,7 +242,7 @@
               cl.jsown
               cl."cl-ppcre"
               cl.dexador
-              cl.sento
+              sento
               cl.shellpool
             ];
             dontStrip = true;
