@@ -63,10 +63,51 @@ sudo pacman -S sbcl git
 #+end_src
 
 *** NixOS
-Install direnv, then allow the repository environment:
+The public flake intentionally exposes a small stable package/app surface for both the command CLI and the interactive expert shell.
+
+#+begin_example
+packages.<system>.default
+packages.<system>.hm
+packages.<system>.expert
+apps.<system>.default
+apps.<system>.hm
+apps.<system>.expert
+checks.<system>.*
+devShells.<system>.default
+#+end_example
+
+Inspect it directly:
+
 #+begin_src shell
-direnv allow
+nix flake show github:lost-rob0t/hackmode
 #+end_src
+
+Build each public package output:
+
+#+begin_src shell
+nix build github:lost-rob0t/hackmode
+nix build github:lost-rob0t/hackmode#hm
+nix build github:lost-rob0t/hackmode#expert
+#+end_src
+
+Run the apps without installing them:
+
+#+begin_src shell
+nix run github:lost-rob0t/hackmode -- --help
+nix run github:lost-rob0t/hackmode#hm -- --help
+nix run github:lost-rob0t/hackmode#expert
+#+end_src
+
+For a development checkout:
+
+#+begin_src shell
+nix flake show
+nix flake check
+nix develop
+nix develop -c hm --help
+#+end_src
+
+Internal Common Lisp dependency derivations are deliberately not exported through =packages=; they remain implementation details of the flake.
 
 ** Build
 #+begin_src shell
@@ -77,17 +118,83 @@ make build
 sudo make install
 #+end_src
 
+The Makefile installs both =hm= and =hm-expert=.
+
+* Command line
+=hm= is the non-interactive command entry point. Command-mode work is persisted in the current workspace's =.hackmode/= Tek9 store. Set =HACKMODE_OPERATION= to select a named operation explicitly.
+
+** Expert shell
+#+begin_src shell
+hm expert
+#+end_src
+
+The dedicated entry point is equivalent:
+
+#+begin_src shell
+hm-expert
+#+end_src
+
+With Nix:
+
+#+begin_src shell
+nix run github:lost-rob0t/hackmode#expert
+#+end_src
+
+** Scan
+Run Nmap and retain its XML observation in the active Hackmode operation:
+
+#+begin_src shell
+hm scan 192.168.1.0/24
+hm scan 192.168.1.10 -sV
+#+end_src
+
+With Nix:
+
+#+begin_src shell
+nix run github:lost-rob0t/hackmode -- scan 192.168.1.0/24
+#+end_src
+
+** Recon
+Run the baseline domain recon providers, deduplicate discovered domains, and persist typed assets:
+
+#+begin_src shell
+hm recon starintel.actor
+#+end_src
+
+** Inventory import
+Import newline-delimited domains, hosts/IPs, and URLs. Blank lines and =#= comments are ignored.
+
+#+begin_src shell
+hm inventory import inventory.txt
+hm inventory import domains.txt domain
+hm inventory import hosts.txt host
+hm inventory import urls.txt url
+#+end_src
+
+The default =auto= mode recognizes HTTP(S) URLs and IP literals; remaining values are treated as domains.
+
+* Lish commands
+The expert shell calls the same implementations as the public CLI instead of maintaining a second command path:
+
+#+begin_example
+scan 192.168.1.0/24
+recon starintel.actor
+inventory import inventory.txt
+#+end_example
+
+=nix flake check= verifies the public package/app output contract, Lish compile/load, CLI help, expert entrypoint packaging, and inventory-import persistence smoke test.
+
 * Configure
 Hackmode follows the Lisp tradition of a user init file so the environment can be extended without forking the runtime.
 
 The default init file is =~/.config/hackmode/init.lisp=.
 
-The shell work is inspired by LISH and should operate on typed Hackmode objects, not only strings. Existing commands remain callable as Common Lisp functions outside the interactive shell.
+The shell is backed by Lish and operates on typed Hackmode objects rather than only strings. Existing commands remain callable as Common Lisp functions outside the interactive shell.
 
 * Migration status
 - Common Lisp runtime: already here.
 - Tek9-backed operation/local database: already here; being hardened rather than replaced casually.
-- Agent Zero development profiles: under =agent-zero/=, with separate database and Hackpert ownership.
+- Agent Zero development profiles: under =agent-zero/=, with separate tooling/shipping and Hackpert/LISH ownership.
 - Emacs package: migration in progress under issue #4.
 - Operation templates: migrated into =templates/= by issue #4.
 - Script collection: source-only curation tracked by issue #5; do not import compiled/generated artifacts.
