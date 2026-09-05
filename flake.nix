@@ -2,16 +2,15 @@
   description = "Hackmode actor-oriented reconnaissance and investigation environment";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs";
+    nixpkgs.url = "github:NixOS/nixpkgs";
   };
 
   outputs = { self, nixpkgs }:
     let
       systems = [ "x86_64-linux" "aarch64-linux" ];
       eachSystem = f: nixpkgs.lib.genAttrs systems (system: f system);
-    in
-    {
-      packages = eachSystem (system:
+
+      mkSystem = system:
         let
           pkgs = import nixpkgs { inherit system; };
           cl = pkgs.sbcl.pkgs;
@@ -41,8 +40,8 @@
           ];
 
           # Hackmode historically consumed Lish through Quicklisp. Keep the
-          # exact Yew/Lish snapshot explicit so `nix flake check` proves that
-          # the expert shell is actually compilable without a mutable QL tree.
+          # exact Yew/Lish snapshot explicit so the expert shell is buildable
+          # without relying on a mutable local Quicklisp tree.
           yewSrc = builtins.fetchGit {
             url = "https://github.com/lost-rob0t/yew-for-hackmode.git";
             rev = "33e87d3f8e8972da1b8162ba67ffd41bee447cfb";
@@ -257,7 +256,7 @@
             '';
           };
 
-          hmExpert = pkgs.writeShellApplication {
+          expert = pkgs.writeShellApplication {
             name = "hm-expert";
             runtimeInputs = [ hm ];
             text = ''
@@ -267,21 +266,31 @@
 
           hackmode = pkgs.symlinkJoin {
             name = "hackmode-0.2.0";
-            paths = [ hm hmExpert ];
+            paths = [ hm expert ];
           };
         in
         {
-          default = hackmode;
           inherit
+            pkgs
+            runtimeLibs
+            runtimeTools
+            lish
             hackmode
             hm
-            hmExpert
-            lish
-            hackmodeCore
-            hackmodeDatabase
-            providerDns
-            providerRecon
+            expert
             ;
+        };
+    in
+    {
+      # Public package API. Build internals stay private in mkSystem so
+      # `nix flake show` presents a small stable interface to users.
+      packages = eachSystem (system:
+        let
+          built = mkSystem system;
+        in
+        {
+          default = built.hackmode;
+          inherit (built) hm expert;
         });
 
       apps = eachSystem (system: {
@@ -295,17 +304,32 @@
         };
         expert = {
           type = "app";
-          program = "${self.packages.${system}.hmExpert}/bin/hm-expert";
+          program = "${self.packages.${system}.expert}/bin/hm-expert";
         };
       });
 
       checks = eachSystem (system:
         let
-          pkgs = import nixpkgs { inherit system; };
-          packages = self.packages.${system};
-          lishRuntime = pkgs.sbcl.withPackages (_: [ packages.lish ]);
+          built = mkSystem system;
+          pkgs = built.pkgs;
+          lishRuntime = pkgs.sbcl.withPackages (_: [ built.lish ]);
         in
         {
+          public-output-contract =
+            let
+              packageNames = builtins.attrNames self.packages.${system};
+              appNames = builtins.attrNames self.apps.${system};
+            in
+            assert packageNames == [ "default" "expert" "hm" ];
+            assert appNames == [ "default" "expert" "hm" ];
+            pkgs.runCommand "hackmode-public-output-contract" { } ''
+              test -x ${self.packages.${system}.default}/bin/hm
+              test -x ${self.packages.${system}.default}/bin/hm-expert
+              test -x ${self.packages.${system}.hm}/bin/hm
+              test -x ${self.packages.${system}.expert}/bin/hm-expert
+              touch "$out"
+            '';
+
           lish-compiles = pkgs.runCommand "hackmode-lish-compiles" {
             nativeBuildInputs = [ lishRuntime ];
           } ''
@@ -319,7 +343,7 @@
           '';
 
           cli-help = pkgs.runCommand "hackmode-cli-help" {
-            nativeBuildInputs = [ packages.hm ];
+            nativeBuildInputs = [ self.packages.${system}.hm ];
           } ''
             export HOME="$TMPDIR/home"
             mkdir -p "$HOME"
@@ -328,8 +352,16 @@
             touch "$out"
           '';
 
+          expert-entrypoint = pkgs.runCommand "hackmode-expert-entrypoint" {
+            nativeBuildInputs = [ self.packages.${system}.expert ];
+          } ''
+            command -v hm-expert >/dev/null
+            test -x "$(command -v hm-expert)"
+            touch "$out"
+          '';
+
           inventory-import = pkgs.runCommand "hackmode-inventory-import" {
-            nativeBuildInputs = [ packages.hm ];
+            nativeBuildInputs = [ self.packages.${system}.hm ];
           } ''
             export HOME="$TMPDIR/home"
             export XDG_CONFIG_HOME="$HOME/.config"
@@ -345,13 +377,14 @@
 
       devShells = eachSystem (system:
         let
-          pkgs = import nixpkgs { inherit system; };
+          built = mkSystem system;
+          pkgs = built.pkgs;
         in
         {
           default = pkgs.mkShell {
             packages = [
-              self.packages.${system}.hackmode
-              self.packages.${system}.lish
+              built.hackmode
+              built.lish
               pkgs.pkg-config
               pkgs.sbcl
               pkgs.glib
@@ -370,9 +403,10 @@
               pkgs.swi-prolog
             ];
             shellHook = ''
-              export LD_LIBRARY_PATH=${pkgs.lib.makeLibraryPath [ pkgs.openssl pkgs.libedit pkgs.libev pkgs.lmdb pkgs.file ]}:''${LD_LIBRARY_PATH:-}
+              export LD_LIBRARY_PATH=${pkgs.lib.makeLibraryPath built.runtimeLibs}:''${LD_LIBRARY_PATH:-}
               echo "Hackmode development environment"
               echo "Run: hm --help"
+              echo "Expert: hm-expert"
               echo "Check: nix flake check"
             '';
           };
