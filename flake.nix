@@ -192,6 +192,26 @@
             dontStrip = true;
           };
 
+          # As with nfiles, build the actual nhooks ASDF system explicitly so
+          # Hackmode does not depend on Quicklisp or a non-discoverable wrapper.
+          nhooksSrc = builtins.fetchGit {
+            url = "https://github.com/atlas-engineer/nhooks.git";
+            rev = "3847bc749a6f6eb1103bc21f8ef3b4f6b301e822";
+          };
+
+          nhooks = pkgs.sbcl.buildASDFSystem {
+            pname = "nhooks";
+            version = "1.2.2";
+            src = nhooksSrc;
+            systems = [ "nhooks" ];
+            lispLibs = [
+              cl."bordeaux-threads"
+              cl.serapeum
+              cl."closer-mop"
+            ];
+            dontStrip = true;
+          };
+
           hackmodeDatabase = pkgs.sbcl.buildASDFSystem {
             pname = "hackmode-database";
             version = "0.1.0";
@@ -212,7 +232,7 @@
               cl.serapeum
               cl."local-time"
               nfiles
-              cl.nhooks
+              nhooks
               cl."bordeaux-threads"
               tek9
               hackmodeDatabase
