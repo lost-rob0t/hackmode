@@ -63,18 +63,51 @@ sudo pacman -S sbcl git
 #+end_src
 
 *** NixOS
-The public flake exposes both the command CLI and the interactive expert shell.
+The public flake intentionally exposes a small stable package/app surface for both the command CLI and the interactive expert shell.
+
+#+begin_example
+packages.<system>.default
+packages.<system>.hm
+packages.<system>.expert
+apps.<system>.default
+apps.<system>.hm
+apps.<system>.expert
+checks.<system>.*
+devShells.<system>.default
+#+end_example
+
+Inspect it directly:
+
+#+begin_src shell
+nix flake show github:lost-rob0t/hackmode
+#+end_src
+
+Build each public package output:
+
+#+begin_src shell
+nix build github:lost-rob0t/hackmode
+nix build github:lost-rob0t/hackmode#hm
+nix build github:lost-rob0t/hackmode#expert
+#+end_src
+
+Run the apps without installing them:
 
 #+begin_src shell
 nix run github:lost-rob0t/hackmode -- --help
+nix run github:lost-rob0t/hackmode#hm -- --help
 nix run github:lost-rob0t/hackmode#expert
 #+end_src
 
 For a development checkout:
 
 #+begin_src shell
+nix flake show
+nix flake check
 nix develop
+nix develop -c hm --help
 #+end_src
+
+Internal Common Lisp dependency derivations are deliberately not exported through =packages=; they remain implementation details of the flake.
 
 ** Build
 #+begin_src shell
@@ -149,7 +182,7 @@ recon starintel.actor
 inventory import inventory.txt
 #+end_example
 
-=nix flake check= includes a dedicated Lish compile/load check plus CLI help and inventory-import smoke tests.
+=nix flake check= verifies the public package/app output contract, Lish compile/load, CLI help, expert entrypoint packaging, and inventory-import persistence smoke test.
 
 * Configure
 Hackmode follows the Lisp tradition of a user init file so the environment can be extended without forking the runtime.
@@ -161,7 +194,7 @@ The shell is backed by Lish and operates on typed Hackmode objects rather than o
 * Migration status
 - Common Lisp runtime: already here.
 - Tek9-backed operation/local database: already here; being hardened rather than replaced casually.
-- Agent Zero development profiles: under =agent-zero/=, with separate database and Hackpert ownership.
+- Agent Zero development profiles: under =agent-zero/=, with separate tooling/shipping and Hackpert/LISH ownership.
 - Emacs package: migration in progress under issue #4.
 - Operation templates: migrated into =templates/= by issue #4.
 - Script collection: source-only curation tracked by issue #5; do not import compiled/generated artifacts.
