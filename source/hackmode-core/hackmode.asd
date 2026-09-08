@@ -15,6 +15,7 @@
                #:starintel
                #:jsown
                #:cl-ppcre
+               #:ironclad
                #:dexador
                #:sento
                #:shellpool)
