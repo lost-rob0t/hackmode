@@ -107,6 +107,32 @@
                             :offset)))
                (assert-equal offset-before offset-after
                              "truncated frame does not advance checkpoint"))))
+           ;; Issue #182: a checkpoint must fingerprint the consumed spool prefix.
+           ;; A replaced spool file (different content at the same source-id) or a
+           ;; spool truncated below the recorded offset must be rejected instead of
+           ;; silently decoding unrelated bytes into canonical evidence.
+           (let ((replacement (merge-pathnames "replacement.ipx.jsonl" root)))
+             (write-ascii-file replacement valid-line)
+             (handler-case
+                 (progn
+                   (hackmode:replay-ipx-http-spool
+                    db replacement
+                    :operation-id "op-ipx"
+                    :capture-session-id "cap-1"
+                    :source-id "spool-1")
+                   (error "replaced spool unexpectedly replayed from stale checkpoint"))
+               (hackmode:ipx-spool-fingerprint-mismatch () t)))
+           (let ((shorter (merge-pathnames "shortened.ipx.jsonl" root)))
+             (write-ascii-file shorter "{")
+             (handler-case
+                 (progn
+                   (hackmode:replay-ipx-http-spool
+                    db shorter
+                    :operation-id "op-ipx"
+                    :capture-session-id "cap-1"
+                    :source-id "spool-1")
+                   (error "shortened spool unexpectedly replayed past stale offset"))
+               (hackmode:ipx-spool-fingerprint-mismatch () t)))
       (when (tek9:db-is-open-p db)
         (tek9:close-database db))
       (remove-test-path root)))

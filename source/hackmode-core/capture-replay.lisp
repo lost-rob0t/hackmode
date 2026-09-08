@@ -10,6 +10,18 @@
   (quarantine-count 0 :type integer)
   (truncated-p nil :type boolean))
 
+(define-condition ipx-spool-fingerprint-mismatch (error)
+  ((offset :initarg :offset :reader ipx-spool-fingerprint-mismatch-offset)
+   (expected-fingerprint :initarg :expected-fingerprint
+                         :reader ipx-spool-fingerprint-mismatch-expected-fingerprint)
+   (actual-fingerprint :initarg :actual-fingerprint
+                       :reader ipx-spool-fingerprint-mismatch-actual-fingerprint)
+   (reason :initarg :reason :reader ipx-spool-fingerprint-mismatch-reason))
+  (:report (lambda (condition stream)
+             (format stream "IPX spool fingerprint mismatch at offset ~a: ~a"
+                     (ipx-spool-fingerprint-mismatch-offset condition)
+                     (ipx-spool-fingerprint-mismatch-reason condition)))))
+
 (defun ipx-require-string (value label)
   (unless (and (stringp value) (plusp (length value)))
     (error "~a must be a non-empty string." label))
@@ -54,6 +66,23 @@
         :source-path (namestring pathname)
         :offset start
         :length (- end start)))
+
+(defun ipx-spool-fingerprint (pathname start end)
+  "Return the SHA-256 hex digest of the spool bytes in [START, END)."
+  (with-open-file (stream pathname :direction :input
+                                   :element-type '(unsigned-byte 8))
+    (file-position stream start)
+    (let ((digest (ironclad:make-digest :sha256))
+          (buffer (make-array 65536 :element-type '(unsigned-byte 8))))
+      (loop with position = start
+            while (< position end)
+            for remaining = (- end position)
+            for n = (read-sequence buffer stream :end (min remaining 65536))
+            do (progn
+                 (ironclad:update-digest digest buffer :end n)
+                 (incf position n))
+            finally (return (ironclad:byte-array-to-hex-string
+                             (ironclad:produce-digest digest)))))))
 
 (defun ipx-quarantine-at-offset-p
     (database operation-id capture-session-id source-id offset)
@@ -141,18 +170,21 @@
 
 (defun ipx-persist-checkpoint
     (database operation-id capture-session-id source-id offset last-record-id pathname)
-  (hackmode-database:persist-execution-record
-   database
-   (hackmode-database:make-capture-checkpoint-record
-    :operation-id operation-id
-    :capture-session-id capture-session-id
-    :source-id source-id
-    :offset offset
-    :last-record-id last-record-id
-    :framing-version "hackmode-ipx-http/1"
-    :provenance (list :parser "hackmode-ipx-http/1"
-                      :source-id source-id
-                      :source-path (namestring pathname)))))
+  (let ((fingerprint (ipx-spool-fingerprint pathname 0 offset)))
+    (hackmode-database:persist-execution-record
+     database
+     (hackmode-database:make-capture-checkpoint-record
+      :operation-id operation-id
+      :capture-session-id capture-session-id
+      :source-id source-id
+      :offset offset
+      :last-record-id last-record-id
+      :spool-fingerprint fingerprint
+      :spool-size offset
+      :framing-version "hackmode-ipx-http/1"
+      :provenance (list :parser "hackmode-ipx-http/1"
+                        :source-id source-id
+                        :source-path (namestring pathname))))))
 
 (defun replay-ipx-http-spool
     (database pathname &key operation-id capture-session-id source-id)
@@ -177,6 +209,31 @@ checkpoint so a later replay can consume it after the writer completes the frame
          (quarantine-count 0)
          (truncated-p nil)
          (end-offset start-offset))
+    (when (and checkpoint (plusp start-offset))
+      (let* ((payload (hackmode-database:execution-record-payload checkpoint))
+             (expected (getf payload :spool-fingerprint))
+             (recorded-size (getf payload :spool-size))
+             (actual-size (and (probe-file path)
+                               (with-open-file (stream path
+                                                       :direction :input
+                                                       :element-type '(unsigned-byte 8))
+                                 (file-length stream)))))
+        (when (and recorded-size (or (null actual-size) (< actual-size recorded-size)))
+          (error 'ipx-spool-fingerprint-mismatch
+                 :offset start-offset
+                 :expected-fingerprint expected
+                 :actual-fingerprint nil
+                 :reason (format nil "spool file is missing or shorter (~a bytes) than the recorded checkpoint size (~a bytes)"
+                                 (or actual-size 0) recorded-size)))
+        (when expected
+          (let ((actual (ipx-spool-fingerprint path 0 start-offset)))
+            (unless (string= expected actual)
+              (error 'ipx-spool-fingerprint-mismatch
+                     :offset start-offset
+                     :expected-fingerprint expected
+                     :actual-fingerprint actual
+                     :reason (format nil "spool prefix [0,~d) content differs from the checkpointed fingerprint"
+                                     start-offset)))))))
     (with-open-file (stream path
                             :direction :input
                             :element-type '(unsigned-byte 8))

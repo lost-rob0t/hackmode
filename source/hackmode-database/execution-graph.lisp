@@ -97,6 +97,9 @@
   (%require-non-negative-integer :offset (getf payload :offset))
   (%require-optional-string :last-record-id (getf payload :last-record-id))
   (%require-string :framing-version (getf payload :framing-version))
+  (when (getf payload :spool-size)
+    (%require-non-negative-integer :spool-size (getf payload :spool-size)))
+  (%require-optional-string :spool-fingerprint (getf payload :spool-fingerprint))
   payload)
 
 (defun %validate-capture-quarantine-payload (payload)
@@ -207,15 +210,21 @@
 
 (defun make-capture-checkpoint-record
     (&key operation-id capture-session-id source-id offset last-record-id
-          framing-version provenance)
-  "Construct one immutable replay checkpoint in the operation execution graph."
+          framing-version spool-fingerprint spool-size provenance)
+  "Construct one immutable replay checkpoint in the operation execution graph.
+
+SPOOL-FINGERPRINT and SPOOL-SIZE, when supplied, tie the recorded offset to the
+exact consumed spool prefix so replay can reject a different or shortened file
+instead of silently decoding unrelated bytes into canonical evidence."
   (%require-string :operation-id operation-id)
   (%require-string :capture-session-id capture-session-id)
   (%require-string :source-id source-id)
   (%require-provenance provenance)
   (let ((payload (list :offset offset
                        :last-record-id last-record-id
-                       :framing-version framing-version)))
+                       :framing-version framing-version
+                       :spool-fingerprint spool-fingerprint
+                       :spool-size spool-size)))
     (%validate-capture-checkpoint-payload payload)
     (%make-execution-record
      :kind :capture-checkpoint

@@ -231,6 +231,11 @@
    :ipx-replay-result-committed-count
    :ipx-replay-result-quarantine-count
    :ipx-replay-result-truncated-p
+   :ipx-spool-fingerprint-mismatch
+   :ipx-spool-fingerprint-mismatch-offset
+   :ipx-spool-fingerprint-mismatch-expected-fingerprint
+   :ipx-spool-fingerprint-mismatch-actual-fingerprint
+   :ipx-spool-fingerprint-mismatch-reason
    :replay-ipx-http-spool
    ;; Optional Prolog expert layer
    :*expert-program*
