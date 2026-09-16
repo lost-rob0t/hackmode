@@ -57,6 +57,10 @@
               (setf rest (cddr rest)))
              (t (return nil)))))
 
+(defun plist-key-present-p (plist key)
+  (loop for tail on plist by #'cddr
+        thereis (eq (car tail) key)))
+
 (defun normalize-tool-key (value)
   (etypecase value
     (keyword value)
@@ -118,7 +122,7 @@ provider input representation. EXAMPLES and OPTIONS are manifest metadata."
     :description ,description
     :examples ,examples
     :options ,options
-    :coercer ,(or coercer '#'identity)))
+    :coercer ,(if coercer coercer '#'identity)))
 
 (defun make-tool-arg (name type &key required repeatable default flag description)
   "Construct one typed tool argument declaration."
@@ -241,7 +245,7 @@ provider input representation. EXAMPLES and OPTIONS are manifest metadata."
     (dolist (definition (tool-mapping-arguments mapping))
       (let ((name (tool-argument-name definition)))
         (cond
-          ((getf result name) nil)
+          ((plist-key-present-p result name) nil)
           ((tool-argument-required-p definition)
            (error "Required tool argument ~s is missing." name))
           ((not (null (tool-argument-default definition)))
@@ -340,7 +344,7 @@ provider input representation. EXAMPLES and OPTIONS are manifest metadata."
         (make-instance 'url
                        :scheme (or scheme "http")
                        :host (or host "")
-                       :port (or port (if (string= scheme "https") 443 80))
+                       :port (or port (if (and scheme (string= scheme "https")) 443 80))
                        :path (or path "")
                        :query (or query "")))))
 
