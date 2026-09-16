@@ -14,7 +14,7 @@
              (hackmode-actor-event-conflict-event-id condition)))))
 
 (defvar *actor-event-sink* nil
-  "Optional function receiving each newly appended Hackmode actor event.")
+  "Optional best-effort projection function for newly committed actor events.")
 
 (defun actor-event-stream-key (stream-id sequence)
   (format nil "~8,'0X:~A:~20,'0D"
@@ -56,7 +56,8 @@
 
 EVENT-ID makes retries idempotent. The event body, ordered stream row and stream
 head commit in one Tek9 transaction. Reusing an id with different content fails
-closed."
+closed. Any configured projection sink runs only after the canonical transaction
+commits; sink failure can never erase or roll back canonical local history."
   (unless (and (stringp stream-id) (plusp (length stream-id)))
     (error "Actor event stream id must be a non-empty string."))
   (unless (keywordp event-type)
@@ -70,54 +71,62 @@ closed."
                 "hackmode-actor-event-v1"
                 stream-id
                 (string-downcase (symbol-name event-type))
-                digest))))
-    (tek9:with-write-transaction
-        (database :database-names
-                  '("actor-events" "actor-event-stream" "actor-event-heads"))
-      (let ((existing
-              (tek9:fetch* database stable-id
-                           :database-name +actor-event-records-db+)))
-        (when existing
-          (if (same-hackmode-actor-event-p
-               existing stream-id event-type owned-payload digest)
-              (return-from append-hackmode-actor-event
-                (values (copy-tree existing) :replayed))
-              (error 'hackmode-actor-event-conflict
-                     :event-id stable-id
-                     :existing (copy-tree existing)
-                     :incoming (list :stream-id stream-id
-                                     :event-type event-type
-                                     :payload owned-payload
-                                     :payload-digest digest))))
-        (let* ((head
-                 (tek9:fetch* database stream-id
-                              :database-name +actor-event-heads-db+))
-               (sequence (if head (1+ (getf head :sequence)) 0))
-               (predecessor (and head (getf head :event-id)))
-               (event
-                 (list :event-id stable-id
-                       :stream-id stream-id
-                       :sequence sequence
-                       :predecessor-id predecessor
-                       :event-type event-type
-                       :payload owned-payload
-                       :payload-digest digest
-                       :timestamp timestamp)))
-          (tek9:put* database event
-                     :id stable-id
-                     :database-name +actor-event-records-db+)
-          (tek9:put* database stable-id
-                     :id (actor-event-stream-key stream-id sequence)
-                     :database-name +actor-event-stream-db+)
-          (tek9:put* database
-                     (list :sequence sequence
-                           :event-id stable-id
-                           :payload-digest digest)
-                     :id stream-id
-                     :database-name +actor-event-heads-db+)
-          (when *actor-event-sink*
-            (funcall *actor-event-sink* (copy-tree event)))
-          (values event :appended))))))
+                digest)))
+         (event nil)
+         (status nil))
+    (multiple-value-setq (event status)
+      (tek9:with-write-transaction
+          (database :database-names
+                    '("actor-events" "actor-event-stream" "actor-event-heads"))
+        (let ((existing
+                (tek9:fetch* database stable-id
+                             :database-name +actor-event-records-db+)))
+          (when existing
+            (if (same-hackmode-actor-event-p
+                 existing stream-id event-type owned-payload digest)
+                (return-from append-hackmode-actor-event
+                  (values (copy-tree existing) :replayed))
+                (error 'hackmode-actor-event-conflict
+                       :event-id stable-id
+                       :existing (copy-tree existing)
+                       :incoming (list :stream-id stream-id
+                                       :event-type event-type
+                                       :payload owned-payload
+                                       :payload-digest digest))))
+          (let* ((head
+                   (tek9:fetch* database stream-id
+                                :database-name +actor-event-heads-db+))
+                 (sequence (if head (1+ (getf head :sequence)) 0))
+                 (predecessor (and head (getf head :event-id)))
+                 (new-event
+                   (list :event-id stable-id
+                         :stream-id stream-id
+                         :sequence sequence
+                         :predecessor-id predecessor
+                         :event-type event-type
+                         :payload owned-payload
+                         :payload-digest digest
+                         :timestamp timestamp)))
+            (tek9:put* database new-event
+                       :id stable-id
+                       :database-name +actor-event-records-db+)
+            (tek9:put* database stable-id
+                       :id (actor-event-stream-key stream-id sequence)
+                       :database-name +actor-event-stream-db+)
+            (tek9:put* database
+                       (list :sequence sequence
+                             :event-id stable-id
+                             :payload-digest digest)
+                       :id stream-id
+                       :database-name +actor-event-heads-db+)
+            (values new-event :appended)))))
+    (when (and (eq status :appended) *actor-event-sink*)
+      (handler-case
+          (funcall *actor-event-sink* (copy-tree event))
+        (condition (condition)
+          (warn "Hackmode actor-event projection failed after local commit: ~a"
+                condition))))
+    (values event status)))
 
 (defun replay-hackmode-actor-events (stream-id
                                      &key (database *operations-database*))
