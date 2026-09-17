@@ -150,6 +150,60 @@
    :provider-job-id
    :execute-provider-job
    :run-capability
+   ;; Tool schema and mappings
+   :tool-target-shape
+   :tool-target-shape-name
+   :tool-target-shape-description
+   :tool-target-shape-examples
+   :tool-target-shape-options
+   :tool-argument
+   :tool-argument-name
+   :tool-argument-type
+   :tool-argument-required-p
+   :tool-argument-repeatable-p
+   :tool-argument-default
+   :tool-argument-flag
+   :tool-argument-description
+   :tool-mapping
+   :tool-mapping-capability
+   :tool-mapping-provider
+   :tool-mapping-executable
+   :tool-mapping-target-shapes
+   :tool-mapping-arguments
+   :tool-mapping-example-targets
+   :tool-mapping-platforms
+   :tool-mapping-packages
+   :tool-mapping-fixed-arguments
+   :tool-mapping-metadata
+   :tool-command-input
+   :tool-command-input-raw-target
+   :tool-command-input-target
+   :tool-command-input-target-shape
+   :tool-command-input-arguments
+   :tool-command-input-target-options
+   :*tool-target-shapes*
+   :*tool-mappings*
+   :register-tool-target-shape
+   :define-target-shape
+   :find-tool-target-shape
+   :list-tool-target-shapes
+   :tool-target-shape-accepts-p
+   :make-tool-arg
+   :register-tool-mapping
+   :define-tool-mapping
+   :find-tool-mapping
+   :list-tool-mappings
+   :make-validated-tool-command-input
+   :tool-mapping-available-p
+   :kali-linux-p
+   :build-tool-command-argv
+   :register-kali-command-tool-providers
+   ;; Replayable actor journal
+   :hackmode-actor-event-conflict
+   :hackmode-actor-event-conflict-event-id
+   :*actor-event-sink*
+   :append-hackmode-actor-event
+   :replay-hackmode-actor-events
    ;; Persistent StarIntel outbox
    :+outbox-database-name+
    :outbox-entry
@@ -187,10 +241,29 @@
    :make-starintel-http-transport
    ;; Shared actor runtime
    :*hackmode-actor-system*
+   :*hackmode-actor*
+   :*tool-actors*
    :*outbox-actor*
    :*provider-supervisor*
    :ensure-hackmode-actor-system
    :stop-hackmode-actor-system
+   :tool-actor-name
+   :list-tool-actor-descriptors
+   :describe-tool-actor
+   :find-tool-actor
+   :sync-tool-actors
+   :dispatch-tool-actor
+   :start-hackmode-actor
+   :ask-hackmode-actor
+   ;; StarIntel registry bridge
+   :*starintel-actor-registry-base-url*
+   :*starintel-actor-registry-path*
+   :*starintel-actor-registry-authority*
+   :*starintel-actor-registry-headers-function*
+   :hackmode-actor-manifest
+   :encode-hackmode-actor-manifest
+   :register-hackmode-with-starintel
+   :refresh-hackmode-starintel-registration
    ;; Outbox actor
    :start-outbox-actor
    :drain-outbox-async
