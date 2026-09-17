@@ -88,6 +88,55 @@
         (assert-equal "version-1"
                       (hackmode:expert-objective-version isolated)
                       "returned version mutation cannot rewrite objective version")))
+    (let* ((caller-predicate (copy-seq "final_identity"))
+           (caller-limit-name (copy-seq "provider-actions"))
+           (caller-capability (copy-seq "http-probe"))
+           (isolated-clause
+             (hackmode:make-expert-objective-clause
+              :kind :goal
+              :predicate caller-predicate
+              :arguments '(:uid 0)))
+           (isolated-limit
+             (hackmode:make-expert-objective-limit
+              :name caller-limit-name
+              :maximum 3))
+           (isolated
+             (hackmode:make-expert-objective
+              :id "value-freeze"
+              :version "1"
+              :clauses (list isolated-clause)
+              :limits (list isolated-limit)
+              :granted-capabilities (list caller-capability))))
+      (setf (char caller-predicate 0) #\X
+            (char caller-limit-name 0) #\X
+            (char caller-capability 0) #\X)
+      (assert-equal "final_identity"
+                    (hackmode:expert-objective-clause-predicate isolated-clause)
+                    "caller-owned predicate mutation cannot rewrite objective semantics")
+      (assert-equal "provider-actions"
+                    (hackmode:expert-objective-limit-name isolated-limit)
+                    "caller-owned limit-name mutation cannot rewrite objective budget identity")
+      (assert-equal "http-probe"
+                    (first (hackmode:expert-objective-granted-capabilities isolated))
+                    "caller-owned capability mutation cannot rewrite objective grants")
+      (let ((returned-predicate
+              (hackmode:expert-objective-clause-predicate isolated-clause))
+            (returned-limit-name
+              (hackmode:expert-objective-limit-name isolated-limit))
+            (returned-capability
+              (first (hackmode:expert-objective-granted-capabilities isolated))))
+        (setf (char returned-predicate 0) #\Y
+              (char returned-limit-name 0) #\Y
+              (char returned-capability 0) #\Y)
+        (assert-equal "final_identity"
+                      (hackmode:expert-objective-clause-predicate isolated-clause)
+                      "returned predicate mutation cannot rewrite objective semantics")
+        (assert-equal "provider-actions"
+                      (hackmode:expert-objective-limit-name isolated-limit)
+                      "returned limit-name mutation cannot rewrite objective budget identity")
+        (assert-equal "http-probe"
+                      (first (hackmode:expert-objective-granted-capabilities isolated))
+                      "returned capability mutation cannot rewrite objective grants")))
     (dolist (bad `((:clause-kind
                     ,(lambda ()
                        (hackmode:make-expert-objective-clause

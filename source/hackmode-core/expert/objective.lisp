@@ -18,10 +18,21 @@
 
 (defstruct (expert-objective-clause
              (:constructor %make-expert-objective-clause
-                 (&key kind predicate raw-arguments)))
+                 (&key kind predicate raw-arguments))
+             (:conc-name %expert-objective-clause-))
   (kind nil :read-only t)
   (predicate nil :read-only t)
   (raw-arguments nil :read-only t))
+
+(defun expert-objective-clause-kind (clause)
+  "Return CLAUSE's closed structural kind."
+  (check-type clause expert-objective-clause)
+  (%expert-objective-clause-kind clause))
+
+(defun expert-objective-clause-predicate (clause)
+  "Return an independently mutable snapshot of CLAUSE's predicate identity."
+  (check-type clause expert-objective-clause)
+  (copy-seq (%expert-objective-clause-predicate clause)))
 
 (defun make-expert-objective-clause (&key kind predicate arguments)
   "Create one immutable-by-interface objective clause from typed data.
@@ -37,18 +48,29 @@ never interpreted as executable Prolog source by this layer."
     (reject-expert-objective arguments "clause arguments must be a list"))
   (%make-expert-objective-clause
    :kind kind
-   :predicate predicate
+   :predicate (copy-seq predicate)
    :raw-arguments (copy-tree arguments)))
 
 (defun expert-objective-clause-arguments (clause)
   "Return a defensive copy of CLAUSE arguments."
   (check-type clause expert-objective-clause)
-  (copy-tree (expert-objective-clause-raw-arguments clause)))
+  (copy-tree (%expert-objective-clause-raw-arguments clause)))
 
 (defstruct (expert-objective-limit
-             (:constructor %make-expert-objective-limit (&key name maximum)))
+             (:constructor %make-expert-objective-limit (&key name maximum))
+             (:conc-name %expert-objective-limit-))
   (name nil :read-only t)
   (maximum 0 :read-only t))
+
+(defun expert-objective-limit-name (limit)
+  "Return an independently mutable snapshot of LIMIT's stable name."
+  (check-type limit expert-objective-limit)
+  (copy-seq (%expert-objective-limit-name limit)))
+
+(defun expert-objective-limit-maximum (limit)
+  "Return LIMIT's non-negative maximum."
+  (check-type limit expert-objective-limit)
+  (%expert-objective-limit-maximum limit))
 
 (defun make-expert-objective-limit (&key name maximum)
   "Create one named non-negative objective budget limit."
@@ -57,7 +79,7 @@ never interpreted as executable Prolog source by this layer."
   (unless (and (integerp maximum) (not (minusp maximum)))
     (reject-expert-objective maximum
                              "limit maximum must be a non-negative integer"))
-  (%make-expert-objective-limit :name name :maximum maximum))
+  (%make-expert-objective-limit :name (copy-seq name) :maximum maximum))
 
 (defstruct (expert-objective
              (:constructor %make-expert-objective
@@ -86,7 +108,7 @@ never interpreted as executable Prolog source by this layer."
   (unless (every #'expert-action-string-p capabilities)
     (reject-expert-objective capabilities
                              "granted capabilities must be non-empty strings"))
-  (let ((sorted (sort (copy-list capabilities) #'string<)))
+  (let ((sorted (sort (mapcar #'copy-seq capabilities) #'string<)))
     (loop for left on sorted
           while (cdr left)
           when (string= (first left) (second left))
@@ -150,7 +172,7 @@ execution authority and encodes no fixed recon or attack phase ordering."
 (defun expert-objective-granted-capabilities (objective)
   "Return deterministically normalized capability grants for OBJECTIVE."
   (check-type objective expert-objective)
-  (copy-list (%expert-objective-raw-granted-capabilities objective)))
+  (mapcar #'copy-seq (%expert-objective-raw-granted-capabilities objective)))
 
 (export '(+expert-objective-clause-kinds+
           invalid-expert-objective
