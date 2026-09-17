@@ -1,10 +1,11 @@
 (asdf:defsystem :hackmode-tests
-  :description "Regression tests for Hackmode core state, asset lifecycle, and expert reasoning"
+  :description "Regression tests for Hackmode core state, asset lifecycle, actor tools, and expert reasoning"
   :depends-on (#:hackmode #:hackmode-database)
   :serial t
   :components ((:file "tests/core-state")
                (:file "tests/investigation-views")
                (:file "tests/functions")
+               (:file "tests/tool-actors")
                (:file "tests/expert")
                (:file "tests/expert-orchestration")
                (:file "tests/expert-state-snapshot")
@@ -34,6 +35,7 @@
              (uiop:symbol-call :hackmode-tests :run-tests)
              (uiop:symbol-call :hackmode-tests :run-investigation-view-tests)
              (uiop:symbol-call :hackmode-tests :run-functions-tests)
+             (uiop:symbol-call :hackmode-tool-actor-tests :run-tool-actor-tests)
              (uiop:symbol-call :hackmode-tests :run-expert-tests)
              (uiop:symbol-call :hackmode-tests :run-expert-orchestration-tests)
              (uiop:symbol-call :hackmode-tests :run-expert-state-snapshot-tests)
