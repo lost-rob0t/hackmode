@@ -305,3 +305,5 @@ capability and optional provider using the `hackmode.target.v1` extension."
    *target-receiver-actors*)
   (clrhash *target-receiver-actors*)
   t)
+
+(nhooks:add-hook *startup-hook* #'start-starintel-target-receivers)
