@@ -22,8 +22,8 @@
 
 (defun keyword-plist-p (value)
   (and (proper-plist-p value)
-       (loop for (key ignored) on value by #'cddr
-             always (progn (declare (ignore ignored)) (keywordp key)))))
+       (loop for tail on value by #'cddr
+             always (keywordp (car tail)))))
 
 (defun registry-json-key (key)
   (let* ((source (string-downcase (symbol-name key)))
@@ -222,10 +222,9 @@ replay journal and a later startup/refresh may retry it."
                 (append-hackmode-actor-event
                  +hackmode-runtime-stream+
                  :registry-registration-accepted
-                 (list :manifest-digest digest
-                       :status status
-                       :response (or body ""))
-                 :event-id (registry-event-id manifest :accepted))
+                 (list :manifest-digest digest :status status)
+                 :event-id
+                 (registry-event-id manifest :accepted (princ-to-string status)))
                 (values body status))
               (error "StarIntel registry returned HTTP ~a: ~a" status body)))
       (dex:http-request-failed (condition)
