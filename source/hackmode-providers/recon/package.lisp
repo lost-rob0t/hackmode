@@ -4,6 +4,7 @@
   (:export
    :*subfinder-program*
    :*http-probe-program*
+   :*nmap-program*
    :parse-subfinder-output
    :run-subfinder
    :subfinder-enumerate
@@ -16,6 +17,10 @@
    :run-http-probe
    :http-probe
    :register-http-probe-provider
+   :parse-nmap-service-xml
+   :run-nmap-service-xml
+   :nmap-service-enumerate
+   :register-nmap-provider
    :register-recon-providers))
 
 (in-package :hackmode-provider-recon)

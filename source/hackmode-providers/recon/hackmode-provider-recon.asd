@@ -9,4 +9,5 @@
   :components ((:file "package")
                (:file "recon")
                (:file "http-runner")
+               (:file "nmap")
                (:file "registration")))
