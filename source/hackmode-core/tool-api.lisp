@@ -122,7 +122,7 @@ provider input representation. EXAMPLES and OPTIONS are manifest metadata."
     :description ,description
     :examples ,examples
     :options ,options
-    :coercer ,(if coercer coercer '#'identity)))
+    :coercer ,(or coercer '(function identity))))
 
 (defun make-tool-arg (name type &key required repeatable default flag description)
   "Construct one typed tool argument declaration."
