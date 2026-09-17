@@ -107,6 +107,12 @@
      :availability (tool-actor-availability definition mapping)
      :metadata (copy-tree (tool-mapping-metadata mapping)))))
 
+(defun semantic-tool-actor-descriptor (definition)
+  "Return the replay-stable actor definition, excluding live availability."
+  (let ((descriptor (tool-actor-descriptor-from-definition definition)))
+    (remf descriptor :availability)
+    descriptor))
+
 (defun list-tool-actor-descriptors ()
   "Return every currently registered provider as a stable tool-actor descriptor."
   (mapcar #'tool-actor-descriptor-from-definition
@@ -127,20 +133,27 @@
     (and definition
          (tool-actor-descriptor-from-definition definition))))
 
-(defun tool-command-id (definition input)
-  (starintel:digest-id
-   "hackmode-tool-command-v1"
-   (tool-actor-name
-    (capability-provider-capability definition)
-    (capability-provider-name definition))
-   (provider-input-id (tool-command-input-target input))
-   (tool-command-input-target-shape input)
-   (with-standard-io-syntax
-     (let ((*print-readably* t)
-           (*print-pretty* nil))
-       (prin1-to-string
-        (list :arguments (tool-command-input-arguments input)
-              :target-options (tool-command-input-target-options input)))))))
+(defun tool-command-id (definition input &optional idempotency-key)
+  (if idempotency-key
+      (starintel:digest-id
+       "hackmode-tool-command-key-v1"
+       (tool-actor-name
+        (capability-provider-capability definition)
+        (capability-provider-name definition))
+       (string idempotency-key))
+      (starintel:digest-id
+       "hackmode-tool-command-v1"
+       (tool-actor-name
+        (capability-provider-capability definition)
+        (capability-provider-name definition))
+       (provider-input-id (tool-command-input-target input))
+       (tool-command-input-target-shape input)
+       (with-standard-io-syntax
+         (let ((*print-readably* t)
+               (*print-pretty* nil))
+           (prin1-to-string
+            (list :arguments (tool-command-input-arguments input)
+                  :target-options (tool-command-input-target-options input))))))))
 
 (defun terminal-tool-event-id (command-id terminal-type)
   (starintel:digest-id
@@ -190,7 +203,7 @@
    :started-at (provider-job-result-started-at result)
    :finished-at (provider-job-result-finished-at result)))
 
-(defun append-tool-request-event (definition mapping command-id input)
+(defun append-tool-request-event (definition command-id input idempotency-key)
   (append-hackmode-actor-event
    (tool-actor-stream-id
     (capability-provider-capability definition)
@@ -201,13 +214,13 @@
             (capability-provider-capability definition)
             (capability-provider-name definition))
     :command-id command-id
+    :idempotency-key (and idempotency-key (string idempotency-key))
     :capability (capability-provider-capability definition)
     :provider (capability-provider-name definition)
     :target-shape (tool-command-input-target-shape input)
     :target-id (provider-input-id (tool-command-input-target input))
     :arguments (copy-tree (tool-command-input-arguments input))
-    :target-options (copy-tree (tool-command-input-target-options input))
-    :availability (tool-actor-availability definition mapping))
+    :target-options (copy-tree (tool-command-input-target-options input)))
    :event-id (request-tool-event-id command-id)))
 
 (defun append-tool-terminal-event (definition command-id result)
@@ -226,20 +239,22 @@
      :event-id (terminal-tool-event-id command-id kind))))
 
 (defun make-tool-failure-result (definition command-id condition)
-  (list
-   :command-id command-id
-   :job-id nil
-   :capability (capability-provider-capability definition)
-   :provider (capability-provider-name definition)
-   :state :failed
-   :created-count 0
-   :asset-ids nil
-   :error (princ-to-string condition)
-   :started-at (unix-now)
-   :finished-at (unix-now)))
+  (let ((now (unix-now)))
+    (list
+     :command-id command-id
+     :job-id nil
+     :capability (capability-provider-capability definition)
+     :provider (capability-provider-name definition)
+     :state :failed
+     :created-count 0
+     :asset-ids nil
+     :error (princ-to-string condition)
+     :started-at now
+     :finished-at now)))
 
 (defun execute-tool-actor-request (definition target
                                    &key arguments target-options target-shape
+                                     idempotency-key
                                      (database *db*))
   "Validate and execute one tool command with event-sourced idempotency."
   (let* ((mapping (effective-tool-mapping definition))
@@ -249,11 +264,11 @@
             :arguments arguments
             :target-options target-options
             :target-shape target-shape))
-         (command-id (tool-command-id definition input))
+         (command-id (tool-command-id definition input idempotency-key))
          (existing (existing-tool-terminal-result command-id)))
     (when existing
       (return-from execute-tool-actor-request existing))
-    (append-tool-request-event definition mapping command-id input)
+    (append-tool-request-event definition command-id input idempotency-key)
     (let ((result
             (handler-case
                 (progn
@@ -289,7 +304,8 @@
 (defun tool-actor-handler (capability provider)
   (lambda (message)
     (destructuring-bind
-        (command &key target arguments target-options target-shape reply-to)
+        (command &key target arguments target-options target-shape
+                      idempotency-key reply-to)
         message
       (let ((definition (find-capability-provider capability provider)))
         (case command
@@ -307,7 +323,8 @@
              definition target
              :arguments arguments
              :target-options target-options
-             :target-shape target-shape)
+             :target-shape target-shape
+             :idempotency-key idempotency-key)
             reply-to))
           (otherwise
            (error "Unknown Hackmode tool actor command: ~s" command)))))))
@@ -329,7 +346,7 @@
           (append-hackmode-actor-event
            +hackmode-runtime-stream+
            :tool-actor-defined
-           (tool-actor-descriptor-from-definition definition)
+           (semantic-tool-actor-descriptor definition)
            :event-id
            (starintel:digest-id
             "hackmode-tool-actor-definition-v1"
@@ -350,7 +367,8 @@
   (gethash actor-name *tool-actors*))
 
 (defun dispatch-tool-actor (actor-name target
-                            &key arguments target-options target-shape time-out)
+                            &key arguments target-options target-shape
+                              idempotency-key time-out)
   "Asynchronously ask ACTOR-NAME to execute a validated tool request."
   (let ((actor (or (find-tool-actor actor-name)
                    (error "Unknown Hackmode tool actor ~s." actor-name)))
@@ -359,7 +377,8 @@
                 :target target
                 :arguments arguments
                 :target-options target-options
-                :target-shape target-shape)))
+                :target-shape target-shape
+                :idempotency-key idempotency-key)))
     (if time-out
         (sento.actor:ask actor message :time-out time-out)
         (sento.actor:ask actor message))))
@@ -367,7 +386,8 @@
 (defun root-tool-actor-handler ()
   (lambda (message)
     (destructuring-bind
-        (command &key actor target arguments target-options target-shape stream-id reply-to)
+        (command &key actor target arguments target-options target-shape
+                      idempotency-key stream-id reply-to)
         message
       (case command
         (:list-tools
@@ -386,6 +406,7 @@
                   :arguments arguments
                   :target-options target-options
                   :target-shape target-shape
+                  :idempotency-key idempotency-key
                   :reply-to (or reply-to sento.actor:*sender*)))
            tool-actor))
         (:refresh-tools
@@ -396,9 +417,8 @@
           reply-to))
         (:manifest
          (reply-tool-actor-caller
-          (if (fboundp 'hackmode-actor-manifest)
-              (hackmode-actor-manifest)
-              nil)
+          (when (fboundp 'hackmode-actor-manifest)
+            (funcall (symbol-function 'hackmode-actor-manifest)))
           reply-to))
         (otherwise
          (error "Unknown Hackmode root actor command: ~s" command))))))
