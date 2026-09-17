@@ -60,8 +60,9 @@
 
 (defun target-execution-id (document)
   "Return StarIntel execution identity injected by the target dispatcher, if any."
-  (or (optional-target-string (target-extension-object document) "execution_id")
-      (optional-target-string (target-json-value document "extensions") "execution_id")))
+  (let ((extensions (target-json-value document "extensions")))
+    (or (optional-target-string extensions "target_execution_id")
+        (optional-target-string (target-extension-object document) "execution_id"))))
 
 (defun target-actor-component (value)
   (string-downcase
@@ -158,43 +159,47 @@ Generic targets carry capability/provider selection in the
 
 (defun target-value->typed-input (value target-type input-type document)
   "Convert StarIntel target VALUE into the provider's Hackmode input type."
-  (let ((type-name
-          (and input-type
-               (string-downcase
-                (if (symbolp input-type)
-                    (symbol-name input-type)
-                    (string input-type))))))
-    (cond
-      ((or (string= (or type-name "") "domain")
-           (and (null input-type) (string-equal target-type "domain")))
-       (make-instance 'domain
-                      :record value
-                      :record-type "A"
-                      :operation (target-operation-name document)
-                      :tags (target-context-tags document)
-                      :tool "starintel-target"))
-      ((or (string= (or type-name "") "host")
-           (and (null input-type)
-                (member (string-downcase target-type)
-                        '("host" "hostname" "ip" "ipv4" "ipv6")
-                        :test #'string=)))
-       (let ((address-p
-               (member (string-downcase target-type)
-                       '("ip" "ipv4" "ipv6")
-                       :test #'string=)))
-         (make-instance 'host
-                        :hostname (if address-p "" value)
-                        :ip (if address-p value "")
-                        :operation (target-operation-name document)
-                        :tags (target-context-tags document)
-                        :tool "starintel-target")))
-      ((or (string= (or type-name "") "url")
-           (and (null input-type) (string-equal target-type "url")))
-       (parse-target-url value document))
-      (input-type
-       (error "No StarIntel target converter for Hackmode input type ~s."
-              input-type))
-      (t value))))
+  (let* ((type-name
+           (and input-type
+                (string-downcase
+                 (if (symbolp input-type)
+                     (symbol-name input-type)
+                     (string input-type)))))
+         (input
+           (cond
+             ((or (string= (or type-name "") "domain")
+                  (and (null input-type) (string-equal target-type "domain")))
+              (make-instance 'domain
+                             :record value
+                             :record-type "A"
+                             :operation (target-operation-name document)
+                             :tags (target-context-tags document)
+                             :tool "starintel-target"))
+             ((or (string= (or type-name "") "host")
+                  (and (null input-type)
+                       (member (string-downcase target-type)
+                               '("host" "hostname" "ip" "ipv4" "ipv6")
+                               :test #'string=)))
+              (let ((address-p
+                      (member (string-downcase target-type)
+                              '("ip" "ipv4" "ipv6")
+                              :test #'string=)))
+                (make-instance 'host
+                               :hostname (if address-p "" value)
+                               :ip (if address-p value "")
+                               :operation (target-operation-name document)
+                               :tags (target-context-tags document)
+                               :tool "starintel-target")))
+             ((or (string= (or type-name "") "url")
+                  (and (null input-type) (string-equal target-type "url")))
+              (parse-target-url value document))
+             (input-type
+              (error "No StarIntel target converter for Hackmode input type ~s."
+                     input-type))
+             (t value))))
+    (when (typep input 'meta)
+      (normalize-asset input))
+    input))
 
 (defun starintel-target->dispatch-request (document definition)
   "Validate DOCUMENT and convert it into a Hackmode provider dispatch request."
@@ -258,8 +263,8 @@ Generic targets carry capability/provider selection in the
   "Register ACTOR with StarIntel Server when its local actor index is loaded.
 
 Return true when registration occurred. This keeps Hackmode independently
-loadable while enabling zero-transport-copy target delivery in an embedded
-StarIntel Server image."
+loadable while enabling direct target delivery in an embedded StarIntel Server
+image."
   (let* ((package (find-package :star.actors))
          (symbol (and package (find-symbol "REGISTER-ACTOR" package))))
     (when (and symbol (fboundp symbol))
@@ -296,7 +301,7 @@ capability and optional provider using the `hackmode.target.v1` extension."
   (maphash
    (lambda (actor-name actor)
      (declare (ignore actor-name))
-     (ignore-errors (sento.actor:stop actor)))
+     (ignore-errors (sento.actor:tell actor :stop)))
    *target-receiver-actors*)
   (clrhash *target-receiver-actors*)
   t)
