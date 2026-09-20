@@ -10,3 +10,4 @@
 # Generated/helper binaries must not be committed during hackmode-scripts migration.
 tools/legacy/**/ralp
 tools/legacy/**/.local/bin/
+.prolog/
