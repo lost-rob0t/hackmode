@@ -1,0 +1,144 @@
+#+title: Actor-to-Actor Protocol (A2A) — initial design
+#+status: Initial design, 2026-09-19. Nothing here is implemented yet unless explicitly marked EXISTS.
+
+* Problem
+
+Actors in the StarIntel orbit currently talk to each other through exactly
+one channel: one-way document publication to the StarIntel ingest bridge
+(the =documents= topic exchange, routing key =documents.ingest.<dtype>=,
+per =starintel-server/source/rabbit.lisp=). That channel is right for
+evidence and typed documents, and it stays. What does not exist is a
+protocol for one actor to CALL another actor — request, reply, error,
+timeout — across runtimes:
+
+- Common Lisp Sento actors inside starintel-server and in Hackmode
+  (EXISTS: =source/hackmode-core/actor-system.lisp=,
+  =provider-actor.lisp=, =outbox-actor.lisp=);
+- Python fleet actors (EXISTS: the Pykka fleet pattern in the pro-actors
+  family and the vendored wireless tools under =tools/wireless=);
+- future star-lang native actors (EXISTS as declarations: =actor= forms
+  with =:accepts=, =:produces=, =:service-uri=, =:mailbox (bounded n)= in
+  star-lang fixtures; the runtime is still landing).
+
+* Non-goals
+
+- Not a replacement for document ingest. Evidence and typed findings
+  continue to flow through the outbox -> ingest bridge -> server path.
+- Not a workflow engine, scheduler, or cluster manager.
+- No credential or secret carriage in A2A bodies (see the lossless-evidence
+  invariant: references, not destructive copies; and secrets never ride
+  generic channels).
+
+* Existing pieces this builds on (all verified present)
+
+1. *star-lang wire envelopes.* star-lang's =star-actor-protocol= and
+   =star-canonical-json= systems already define canonical-JSON wire
+   envelopes with lifecycle message types (envelope, ack, error, cancel)
+   and a =star-message-v1= protocol identifier, plus portable payload
+   validation (required/unknown fields, enums, decimal strings, list and
+   optional recursion).
+2. *star-lang actor declarations.* =actor= declarations already carry the
+   metadata A2A needs for addressing and capability discovery:
+   =:service-uri "star://..."=, =:accepts= / =:produces= typed document or
+   message names, =:mailbox (bounded n)=, =:restart=, =:protocol=,
+   =:endpoint=.
+3. *StarIntel actor manifests.* The =actor-manifest= dtype already
+   publishes per-actor contracts (entrypoint, input/output dtypes, routing
+   keys, runtime) as ordinary documents.
+4. *star:// service URIs.* The star URI work in the starintel-server
+   family defines star:// service addresses; A2A adopts the same shape for
+   actor addresses. Grammar reconciliation with that repository is an open
+   item (see Open questions).
+5. *Delivery substrate.* AMQP via the existing RabbitMQ fabric, plus
+   in-process Sento =tell= for co-located Lisp actors.
+
+* Protocol v0 ("star-a2a/0")
+
+** Envelope
+
+Every A2A message is a canonical-JSON object:
+
+#+begin_src js
+{
+  "protocol": "star-a2a/0",
+  "messageType": "request" | "reply" | "error" | "event",
+  "messageId": "<ulid or deterministic id>",
+  "correlationId": "<messageId of the request, for reply/error>",
+  "from": "star://<site>/<actor>",
+  "to": "star://<site>/<actor>",
+  "replyTo": "star://<site>/<actor>",     // requests only
+  "manifestRef": "<actor-manifest document _id of the sender>",
+  "operationRef": "<hackmode operation id or StarIntel dataset/op id>",
+  "expiresAt": "<iso-datetime>",          // requests only
+  "body": { ... typed payload ... }
+}
+#+end_src
+
+Field rules:
+
+- =body= MUST be a star-lang message or document declaration instance
+  (=message= forms exist for exactly this). Receivers validate against the
+  sender's manifest-declared accepts set; unknown or invalid bodies are
+  errors, not guesses.
+- =messageId= is unique; replies carry =correlationId= = the request's
+  =messageId=. One request yields at most one =reply= or =error= before
+  =expiresAt= (plus optional streamed =event= frames that share the
+  correlation id — v0 allows them, v0 consumers may ignore them).
+- =error= bodies use the existing lifecycle error envelope shape from
+  star-lang rather than a new error taxonomy.
+- =operationRef= ties every call to the operation scope it ran under, the
+  same scoping HACKMODE_OPERATION already provides in star-cli.
+
+** Addressing
+
+=star://<site>/<actor>= where =<site>= identifies the runtime host (server,
+workstation, fleet) and =<actor>= matches the actor-manifest identity.
+In-process Lisp calls resolve the same logical address through the Sento
+actor index (EXISTS: =star.actors:register-actor=) without touching AMQP;
+the envelope is identical either way.
+
+** Semantics
+
+- Delivery is at-least-once; consumers must be idempotent on
+  =(messageId, body-digest)=. This matches the document path's
+  deterministic-id discipline already used by the wireless tools.
+- Timeouts are sender-side: an unanswered request past =expiresAt= is a
+  local failure; senders MUST NOT retry unbounded (bounded retry with
+  backoff, then surface to the operation log).
+- Bounded mailboxes per the actor's declared =:mailbox= limit; overflow is
+  an error outcome, not silent drop.
+- No delivery implies persistence: an actor that must persist a result
+  publishes a document through the normal outbox path; the A2A reply only
+  acknowledges the call.
+
+** Transport binding v0
+
+1. AMQP: a dedicated durable topic exchange =star-a2a=, routing key
+   =<site>.<actor>= derived from the =to= address, per-message reply
+   queues for requesters. Kept separate from the =documents= exchange so
+   ingest bridging and A2A cannot starve each other.
+2. In-process: direct Sento =tell= for co-located Lisp actors.
+
+** Capability discovery
+
+Callers resolve =to= addresses and accepted body types from
+=actor-manifest= documents already flowing through ingest. No separate
+registry service in v0.
+
+* Rollout
+
+1. Implement envelope encode/decode in star-lang =star-canonical-json=
+   (canonical JSON is already there) and a thin Lisp client in hackmode's
+   actor core for in-process calls.
+2. Add the AMQP binding behind the existing server rabbit configuration.
+3. Wire one real caller: the wireless recon tools calling a normalization
+   actor instead of publishing raw mappings.
+4. Only then consider Python-side client parity.
+
+* Open questions
+
+- Exact star:// grammar ownership: reconcile with the star URI repository
+  before freezing addresses.
+- Whether =event= streaming frames stay in v0 or move to a v1 extension.
+- Cross-site trust: v0 assumes one administrative domain; capability
+  tokens are explicitly deferred.

@@ -1,0 +1,191 @@
+[
+  {
+    "id": "NET-001",
+    "title": "Bootstrap starintel-network repo: runtime, transport, dual-form runner, schema lock",
+    "labels": [
+      "recon",
+      "actor",
+      "windows"
+    ],
+    "depends_on": [],
+    "body_md": "<!-- starintel-adard-source: operator chat instruction 2026-09-19 + design.md -->\n\n## Context\n\nForgejo repo `starintel-labs/starintel-network` on git.starintel.actor hosting a Pykka actor fleet for Windows network recon, following the anatomy of `starintel-pro-actors` (read-only reference; do not modify that repo). This slice lays the foundation every actor slice builds on: package skeleton, RabbitMQ transport with pro-actors semantics, pinned schema boundary, actor manifest registry, the `starnet` CLI, and the mandatory dual-form runner.\n\n**Blocked until the canonical StarIntel 0.10.1 release is minted** (host / network-device / relation / observation / source dtypes). The canonical repo was at release 0.9.2 at design time; this repo must pin `schema/starintel-schema.lock.json` to the minted 0.10.x release commit and resolve `schema_version`/`release_version` from the lock, never from memory or this issue. If the mint has not landed, this slice stays open.\n\n## Scope\n\n- Repo skeleton per design.md \u00a73: `python/src/starintel_network/` package (pyproject with `amqp`/`dev` extras), docker/Dockerfile (one named target per runnable actor), compose.yaml with broker healthcheck, CI mirroring pro-actors gates (pytest, ruff, mypy).\n- `actor.py`: Pykka facade Actor/ActorSystem with pro-actors lifecycle semantics (idempotent shutdown, drain, no fire-and-forget).\n- `transport.py`: Pika consumer thread owning settlement; consume `documents.target.dispatch.<actor>` (compat binding `actors.<actor>.new.target` only); publish to `documents.ingest.<dtype>` with publisher confirms, mandatory routing, persistent delivery; ACK only after every required output confirmed; one bounded retry policy that does not poison-loop.\n- `schema_boundary.py`: load the locked schema, validate every outbound document via `starintel_doc.validate_document`; permanent contract errors NACK without requeue.\n- `registry.py`: ActorServiceRegistration + conformance test (every runnable family registered) + container coverage test (every registered family has a Docker/compose service).\n- `runner.py`: single entry `run_operation(actor_id, operation, target, options)` used by BOTH the daemon transport and the CLI.\n- `cli.py`: `starnet` umbrella typer app; `starnet <actor> <subcommand>` builds the same TargetSpec and goes through the same validate + RabbitMQ publish path (`--rabbit-url` / RABBITMQ_* env; `--jsonl` local-first fallback). A toy `starnet echo` smoke family proves the pipeline.\n- `manifests.py`: ActorManifestSpec-compatible manifest registry + `starintel-actor-manifests`-style emission to `documents.ingest.actor-manifest`.\n- Dual-form conformance test: daemon-form and CLI-form produce byte-identical document lists through a shared publisher fake for the echo family. This test is the enforcement gate for the operator invariant that every actor has a CLI form using RabbitMQ on the same path as the daemon.\n- At-least-once determinism test: replayed targets produce identical `_id`s.\n\n## Acceptance criteria\n\n- Schema lock present and resolved from the minted canonical 0.10.x release; `schema-release.py check`-equivalent passes against the pinned commit.\n- All gates green hermetically (pytest, ruff, mypy) recorded via prolog-verify; live broker test opt-in via env, skip otherwise.\n- Echo family: daemon consumes a dispatched target off a real (per-run) broker and publishes a confirmed schema-valid document; CLI form emits the identical document.\n- Container coverage test enforces image/compose registration.\n\n## Dependencies\n\n- External: canonical 0.10.1 dtype mint (host, network-device, relation, observation, source).\n- None in this set (first slice).\n\n## Non-goals\n\n- Any Windows protocol probing (actors come in later slices).\n- Shared-library extraction out of starintel-pro-actors; patterns are re-owned here, that repo stays untouched.\n- Credential handling of any kind.\n\n\n## Status update (2026-09-19, filing time)\n\nThe repo already exists and is bootstrapped: `starintel-labs/starintel-network` on git.starintel.actor (main @ fb9cd5a) ships the WiGLE + Kismet actor systems, the `starnet` CLI, transport with RabbitMQ publisher confirms, and CI. Remaining for THIS slice: the recon-fleet bindings described above (dispatch consumer keys, Pykka facade parity, registry/conformance), and re-pinning `schema/starintel-schema.lock.json` from `pending-0.10.1` to the canonical 0.10.1 commit once branch `spec/0.10.1-unify` merges (it is pushed, PR pending operator decision)."
+  },
+  {
+    "id": "NET-002",
+    "title": "Probe support library + protocol-fake test harness",
+    "labels": [
+      "recon",
+      "actor",
+      "windows"
+    ],
+    "depends_on": [
+      "NET-001"
+    ],
+    "body_md": "<!-- starintel-adard-source: operator chat instruction 2026-09-19 + design.md -->\n\n## Context\n\nEvery recon actor needs the same cross-cutting machinery: per-host rate limiting, probe budgets, evidence-grade source documents, deterministic document identity, host-document upsert merges, target-option validation, and hermetic protocol fakes for tests. Centralizing it now keeps the actor slices small and uniform.\n\n## Scope\n\n- `probes/limits.py`: token bucket per destination host AND per actor (default 1 req/s, burst 2, jitter 10-250ms), global per-actor concurrency ceiling (default 4), per-target wall-clock budget (default 60s), probe-attempt cap (default 25), connect/read timeouts (5s/10s), max 2 retries with backoff; rate-limit/auth-failure responses are terminal. Budget exhaustion ends the run with an observation (`budget-exhausted`), never a crash.\n- `probes/evidence.py`: build source documents per design.md \u00a75.2 \u2014 probe id, target, request_summary (method/opcode/qname only, `auth: none`), response_bytes_sha256, response_size, captured_at, tool + exact pinned tool version. No credentials, no raw wire bytes, no file content, ever (enforced by a redaction test with canary fixtures).\n- `docs/builders.py`: `build_host`, `merge_host_enrichment` (set-only: actors may ADD service_records entries, interface_records, os fields, data keys; never delete or overwrite another actor's evidence), `build_relation(subject_endpoint, predicate, object_endpoint)` with deterministic endpoint serialization, `build_observation`, `build_source`; first_seen/last_seen/observed_by_ids maintenance.\n- `probes/identity.py`: deterministic `_id` scheme per design.md \u00a75.3 (host/network-device slugs; sha256 over canonical tuples for relation/observation/source); replay produces identical ids.\n- `probes/targets.py`: TargetSpec decode for host / domain / cidr targets; target_options validated against manifest configuration_schema; oversize options NACK permanently as contract errors.\n- Protocol-fake harness `tests/fakes/`: framework for scripted byte-level responders (TCP/UDP) with recorded-frame replay and inter-arrival assertions for rate-limit verification; DNS fake via `dnslib`; LDAP fake via `ldaptor`; SMB2 fake built against `smbprotocol` codec expectations; SMB1/pipe path via impacket `SimpleSMBServer` (localhost, per-run ports); KRB-ERROR/KDC fake and DCERPC/EPM fake helpers encoding canned frames via impacket codecs.\n- Golden-doc determinism helper: run an actor against a fake twice, assert byte-identical outputs.\n\n## Acceptance criteria\n\n- Rate limiter inter-arrival assertions green under adversarial scheduling tests; budgets and caps unbypassable (negative tests).\n- Builders emit schema-valid documents against the locked 0.10.x schema; merge semantics proven by property tests (no lost updates across actors).\n- Canary-redaction test proves no secrets/wire-bytes can enter source docs.\n- Fake harness boots each transport type in-test with per-run ports; no default-gate test touches a real network.\n\n## Dependencies\n\n- NET-001 (repo skeleton, schema boundary, manifest registry).\n\n## Non-goals\n\n- No actor logic; no live targets; no credential seams.\n"
+  },
+  {
+    "id": "NET-003",
+    "title": "netbios-recon actor (fleet pattern reference)",
+    "labels": [
+      "recon",
+      "actor",
+      "windows"
+    ],
+    "depends_on": [
+      "NET-002"
+    ],
+    "body_md": "<!-- starintel-adard-source: operator chat instruction 2026-09-19 + design.md -->\n\n## Context\n\nNBNS Node Status (UDP 137) is the simplest Windows protocol in the set; this actor is deliberately first among the probe actors so it doubles as the reference implementation of the full fleet pattern (manifest, daemon, CLI, fakes, docs, gates) for every later actor.\n\n## Scope\n\n- Actor id `netbios-recon`, operations: `node-status` (unicast NBNS Node Status REQUEST, parse name table and trailing MAC) backed by `impacket.nmb` behind a small pure-python port so tests fake at the codec boundary.\n- Parse matrix: unique names `<00>` workstation, `<03>` messenger, `<20>` file server; group names `<1C>` domain controllers, `<1B>` domain master browser; name scope; MAC from response trailer.\n- Outputs: host `data.netbios_name/netbios_names[]/netbios_scope`; `device_class` heuristic (file-server if `<20>`, domain-controller if `<1B>`+`<1C>`, else workstation); `interface_records[] += {mac}`; `service_records[] += {port:137, proto:udp, product: NetBIOS NS}`; relation `member_of` host to workgroup/domain endpoint; full name table observation; source per design \u00a75.2.\n- Manifest entry with ops limits: single UDP probe, max 2 retries, unicast only; configuration_schema exposes timeout.\n- Dual forms: daemon consumer `documents.target.dispatch.netbios-recon`; CLI `starnet netbios node-status <ip>` through the same runner/validate/publish path (RabbitMQ primary, `--jsonl` fallback).\n- Tests: scripted UDP fakes (workstation / DC / file-server / empty tables), blackhole timeout fake, golden-doc determinism, dual-form byte-identity, opsec test (exactly one destination, no broadcast address permitted).\n- Docker target + compose service + container coverage.\n\n## Acceptance criteria\n\n- Name-table parse matrix green; full doc set (host+relation+observation+source) schema-valid with deterministic ids.\n- Dual-form conformance green; replay idempotent.\n- Pattern conformance: the structure of this actor (module layout, manifest, fakes, docs) is written up in `docs/netbios-recon.org` as the template for NET-005..NET-012.\n\n## Dependencies\n\n- NET-002 (limits, evidence, builders, fake harness).\n\n## Non-goals\n\n- NBNS broadcast/sweep; name-conflict probing; any authenticated protocol.\n"
+  },
+  {
+    "id": "NET-004",
+    "title": "Shared SMB client library (SmbTransportPort)",
+    "labels": [
+      "recon",
+      "actor",
+      "windows"
+    ],
+    "depends_on": [
+      "NET-002"
+    ],
+    "body_md": "<!-- starintel-adard-source: operator chat instruction 2026-09-19 + design.md -->\n\n## Context\n\nsmb-recon, ntlm-fingerprint, msrpc-probe (ncacn_np path), and share-scraper all speak SMB to the same host. One typed client port with deterministic fakes prevents four divergent SMB stacks and four duplicated test harnesses.\n\n## Scope\n\n- `probes/smb/`: `SmbTransportPort` protocol \u2014 `connect(host, timeout)`, `negotiate(allow_smb1)` returning dialect/capabilities/signing-required, `anonymous_session_setup()` returning allowed/guest/challenge(type2 bytes)/denied, `tree_connect_readonly(share)`, `query_directory(handle, max_entries)` \u2014 plus per-op response-byte hashing hooks into evidence.py.\n- Backing adapters: `smbprotocol` (primary SMB2/3), `impacket.smbconnection` (SMB1 negotiate fallback and named-pipe transport). One connection per target reused across operations; no write opcodes exist on the port.\n- **No file-content read operation exists on the port by construction** (structural test: the port type and adapters expose no read/openfile-content method) \u2014 this is the mechanical foundation for share-scraper's no-download rule.\n- Null-session guest handling: guest elevation flagged distinctly from full anonymous; anonymous-setup failure surfaces the raw Type-2 challenge bytes for ntlm-fingerprint.\n- Fakes: SMB2 scripted responder built against `smbprotocol` codec expectations (negotiate response, session-setup guest-OK / challenge / denied, share-enum), impacket `SimpleSMBServer` fixture for the SMB1/pipe path; recorded-frame corpus.\n- Rate/budget integration: all exchanges flow through limits.py; per-connection attempt accounting.\n\n## Acceptance criteria\n\n- Port adapters pass the shared fake matrix (negotiate SMB2/SMB1, anonymous-allowed/guest/denied, tree-connect deny).\n- Structural no-content-read test green; no write opcodes present (byte-level opcode allowlist test on the adapters).\n- All exchanges emit evidence records (response hash) via evidence.py.\n\n## Dependencies\n\n- NET-002.\n\n## Non-goals\n\n- No enumeration logic (shares/sessions live in smb-recon); no NTLM parsing (NET-006 owns the parser); no SMB3 encryption negotiation beyond dialect/signing telemetry.\n"
+  },
+  {
+    "id": "NET-005",
+    "title": "smb-recon actor (null-session enumeration)",
+    "labels": [
+      "recon",
+      "actor",
+      "windows"
+    ],
+    "depends_on": [
+      "NET-004"
+    ],
+    "body_md": "<!-- starintel-adard-source: operator chat instruction 2026-09-19 + design.md -->\n\n## Context\n\nThe workhorse Windows fingerprinter: SMB null-session + guest enumeration of shares, sessions, logged-on users, and domain info \u2014 enum4linux-ng logic reimplemented in-process (no shelling out), on the shared SMB client port.\n\n## Scope\n\n- Actor id `smb-recon`; operations: `negotiate`, `null-session`, `shares`, `sessions`, `domain-info`.\n- Backing: `smbprotocol` via SmbTransportPort for negotiate/anonymous setup/SMB2 share enum; `impacket.dcerpc.v5` (samr/lsad/wkssvc/srvsvc over the null session) for NetShareEnumAll, NetSessionEnum, NetWkstaUserEnum, LSA QueryInfoPolicy2 (domain NetBIOS name, domain SID, DC name).\n- Outputs: host `service_records[] += {port:445, proto:tcp, product: Windows SMB, version: SMB <dialect>}`; `os` from SMB1 native_os/native_lm only when `--allow-smb1`; `data.netbios_domain/domain_sid`; relation `member_of` host to domain endpoint (LSA) and `communicates_with` client-endpoint to target-host (NetSessionEnum clients); observations (share names/types/remarks, session clients, logged-on user names \u2014 names only); source per exchange.\n- Ops limits in manifest: budget 60s, max 25 exchanges, one TCP connection reused; `shares|sessions|domain-info` gated on null-session success; target_options: allow_smb1 (default false).\n- Dual forms: daemon + `starnet smb negotiate|null-session|shares|sessions|domain-info <host>` via the shared runner.\n- Opsec gates: null/guest session setup only \u2014 a runtime guard fails the run if any authenticated session setup is attempted (tested); no tree connect with write intents; no share mounting.\n- Tests: scripted SMB2 fakes + impacket server fixtures; opsec guard negative tests; deterministic golden docs; dual-form byte-identity.\n- Docker target + compose service; docs/smb-recon.org.\n\n## Acceptance criteria\n\n- Enumerates shares/sessions/domain info against fakes; every op emits schema-valid docs with deterministic ids.\n- Authenticated-setup guard proves null-only posture; single-connection assertion (one TCP session per target run) via fake connection counter.\n- Container coverage green.\n\n## Dependencies\n\n- NET-004 (SmbTransportPort + fakes).\n\n## Non-goals\n\n- No credential use, no relay, no write operations, no file content access (share listing depth is share-scraper's, names-only here).\n"
+  },
+  {
+    "id": "NET-006",
+    "title": "ntlm-fingerprint actor (shared NTLM parser)",
+    "labels": [
+      "recon",
+      "actor",
+      "windows"
+    ],
+    "depends_on": [
+      "NET-004"
+    ],
+    "body_md": "<!-- starintel-adard-source: operator chat instruction 2026-09-19 + design.md -->\n\n## Context\n\nThe NTLM challenge carried by anonymous SMB session setup and HTTP 401 Negotiate responses is the highest-signal unauthenticated Windows fingerprint: NetBIOS/DNS domain and computer names, NTLM version to Windows build, and signing posture. One parser shared by smb/http/winrm surfaces prevents three decoders.\n\n## Scope\n\n- `probes/ntlm_parse.py`: single NTLM Type-1/Type-2 codec module backed by `impacket.ntlm` structs (or smbprotocol's, one only); parses NTLM version, AV pairs (MsvAvNbDomainName, MsvAvNbComputerName, MsvAvDnsComputerName, MsvAvDnsDomainName), challenge flags (signing/seal/target-info); in-repo build-map table (ntlm build number to Windows version string).\n- Actor id `ntlm-fingerprint`; operations: `smb-challenge` (anonymous session setup via SmbTransportPort; the denial challenge IS the product), `http-challenge` (target-supplied URL, one GET to 401, one Negotiate Type-1 via `httpx`, parse Type-2). Sends no credentials, ever.\n- Outputs: host `os = {name: Windows, version: mapped, build: ntlm-build, fingerprint_source: ntlm}`; `data.netbios_domain/netbios_computer_name/dns_domain/fqdn/ntlm_version/smb_signing_required`; relation `member_of` host to domain endpoint; `service_records[] += {port: 445|80, product: NTLM over SMB|NTLM over HTTP}`; observation (surface, ntlm_version, flags); source (challenge bytes hash).\n- Structural test forbidding a second NTLM decoder anywhere in the package; parity tests: smb surface, http surface, and winrm-probe (NET-009) all import the same parser.\n- Tests: recorded Type-2 blob corpus across Windows versions; build-map coverage for every version value in corpus; malformed-blob handling; dual-form byte-identity.\n- Dual forms: daemon + `starnet ntlm smb-challenge <host> | http-challenge <host> --url URL`.\n\n## Acceptance criteria\n\n- Parser + build-map matrix green on the corpus; single-decoder structural test green.\n- Documents schema-valid, deterministic ids; one exchange per surface (opsec counter on fakes).\n\n## Dependencies\n\n- NET-004 (SMB challenge path), NET-002.\n\n## Non-goals\n\n- No NTLM relay, no authentication attempts, no hash capture beyond the server's own challenge.\n"
+  },
+  {
+    "id": "NET-007",
+    "title": "msrpc-probe actor (endpoint mapper enumeration)",
+    "labels": [
+      "recon",
+      "actor",
+      "windows"
+    ],
+    "depends_on": [
+      "NET-004"
+    ],
+    "body_md": "<!-- starintel-adard-source: operator chat instruction 2026-09-19 + design.md -->\n\n## Context\n\nThe RPC endpoint mapper on TCP 135 enumerates which MSRPC interfaces a host serves (UUID, version, annotation, dynamic TCP endpoint) \u2014 the strongest single hint of Windows roles (DC, member server, print server) available without authentication.\n\n## Scope\n\n- Actor id `msrpc-probe`; operation `epm`: bind EPM over ncacn_ip_tcp (impacket `dcerpc.v5.epm`), ept_lookup tower enumeration to exhaustion (max 200 towers, budget 60s). Optional ncacn_np via SmbTransportPort when 135 is filtered and 445 open (`--via-smb`).\n- `msrpc_uuids.py`: in-repo known-UUID table (EPM, RPCMGMT, LSARPC, SAMR, WKSSVC, SRVSVC, ATSVC, EventLog, SpoolSS, DRSUAPI, WMI, DHCP-Server, DNSR, IObjectExporter) with role annotations.\n- Outputs: host `service_records[] += {port:135, product: RPC Endpoint Mapper}` plus per-tower `{port: <dyn>, proto: tcp, product: MSRPC <annotation>, version: <uuid>/<ifver>}`; `device_class` inference (domain-controller if DRSUAPI or DNSR; print-server if SpoolSS-only; else server); relation `managed_by` member-host to DC endpoint \u2014 emitted ONLY when a DC object is resolvable from prior docs (else deferred; negative test covers the unresolvable case); observation (interface map); source per EPM call.\n- Opsec: EPM read-only; no interface binds beyond EPM itself (UUID list comes from the mapper, not from probing each interface).\n- Tests: bytes-level EPM fake speaking impacket's DCERPC codec (bind-ack + canned towers); UUID-map table tests; role-inference matrix; dual-form byte-identity.\n- Dual forms: daemon + `starnet msrpc epm <host> [--via-smb]`.\n\n## Acceptance criteria\n\n- Tower enumeration exact against fakes (ordered interface list); role matrix green; managed_by negative test green; schema-valid deterministic docs.\n\n## Dependencies\n\n- NET-004 (ncacn_np path + SMB fakes).\n\n## Non-goals\n\n- No SAMR/LSARPC calls (those belong to smb-recon over null sessions); no interface exploitation; no authenticated RPC.\n"
+  },
+  {
+    "id": "NET-008",
+    "title": "dns-recon actor (AXFR, SRV, reverse sweeps)",
+    "labels": [
+      "recon",
+      "actor",
+      "windows"
+    ],
+    "depends_on": [
+      "NET-002"
+    ],
+    "body_md": "<!-- starintel-adard-source: operator chat instruction 2026-09-19 + design.md -->\n\n## Context\n\nAD DNS leaks topology cheaply: zone-transfer attempts against the domain's NS, SRV records enumerate DC services, bounded PTR sweeps map address space \u2014 all unauthenticated reads.\n\n## Scope\n\n- Actor id `dns-recon`; operations: `axfr` (SOA to NS discovery for a domain, then AXFR attempt per NS; success recorded as a finding \u2014 observation `axfr-allowed`), `srv` (query _ldap._tcp, _kerberos._tcp, _kerberos._udp, _gc._tcp, _kpasswd._tcp, _ldap._tcp.dc._msdcs, _ldap._tcp.pdc._msdcs + `--extra-srv` additions), `reverse-sweep` (bounded PTR sweep of an explicit CIDR). Backing: `dnspython`.\n- Outputs: relation `resolves_to` name-endpoint to ip-endpoint for A/AAAA/PTR hits; `hosted_on` zone-endpoint to NS-host; host docs for discovered targets (device_class unknown pending other actors); host `service_records[]` on DC hosts from SRV targets (_ldap to 389/LDAP, _kerberos to 88/Kerberos, _gc to 3268/AD Global Catalog, _kpasswd to 464/kpasswd); NS host `data.dns_zone`; network-device doc when NS infra shows non-Windows product (BIND banner) with `{port:53, product: DNS}`; observations (axfr verdicts per NS, SRV answer sets, sweep summaries); source per query (qname/qtype + response hash).\n- Sweep caps: reverse-sweep default max /24, hard max /20 with explicit `--allow-large-sweep`; resolver defaults to the target's own NS; 1 query/second/NS default.\n- Tests: `dnslib` in-process DNS server with canned zones (axfr-allowed, axfr-refused, SRV sets, PTR ranges); cap negative tests; dual-form byte-identity.\n- Dual forms: daemon + `starnet dns axfr|srv|reverse-sweep <domain|cidr> [--resolver IP] [--extra-srv NAME]`.\n\n## Acceptance criteria\n\n- axfr-allowed path yields resolves_to relations + hashed source; SRV to service_records mapping exact; caps unbypassable; schema-valid deterministic docs.\n\n## Dependencies\n\n- NET-002.\n\n## Non-goals\n\n- No DNS dynamic updates / any writes; no cache-snooping or NSEC walking; no subdomain brute-force wordlists (bounded sweeps and SRV only).\n"
+  },
+  {
+    "id": "NET-009",
+    "title": "winrm-probe actor (5985/5986 auth-negotiation fingerprint)",
+    "labels": [
+      "recon",
+      "actor",
+      "windows"
+    ],
+    "depends_on": [
+      "NET-002"
+    ],
+    "body_md": "<!-- starintel-adard-source: operator chat instruction 2026-09-19 + design.md -->\n\n## Context\n\nWinRM on 5985/5986 fingerprints cheaply: the 401 negotiation exposes offered auth mechanisms, the server banner (Microsoft-HTTPAPI), and \u2014 when Negotiate carries NTLM \u2014 a Type-2 challenge full of identity telemetry. Shares the NTLM parser minted in NET-006.\n\n## Scope\n\n- Actor id `winrm-probe`; operation `probe`: GET/POST /wsman expecting 401; then a POST with `Authorization: Negotiate <base64 type1>` (no credentials \u2014 Type-1 carries no secret); parse `WWW-Authenticate: Negotiate <type2>` or `Basic realm`; TLS on 5986 with verification disabled for fingerprint-only (recorded as `tls_verify: false` in source data), capturing cert subject/issuer. Backing: `httpx` + the shared `probes/ntlm_parse.py` Type-1 builder.\n- Outputs: host `service_records[] += {port: 5985|5986, proto: tcp, product: WinRM|Microsoft HTTPAPI, version, auth: [mechanisms]}`; service-record ext `data.tls_cert_subject/tls_cert_issuer`; via shared parser: host `os = {name: Windows, build: ntlm-build, fingerprint_source: ntlm}`, `data.netbios_domain/dns_domain/fqdn`, relation `member_of` host to domain; observation (port, auth mechanisms, server banner); source per probe.\n- Ops limits: 5 exchanges max per port; one probe pair per port.\n- Tests: socket/ASGI fakes returning canned 401 + Type-2 sequences (Negotiate, Basic-only, connection-refused); self-signed TLS fixture; parser parity test with NET-006; dual-form byte-identity.\n- Dual forms: daemon + `starnet winrm probe <host> [--ports 5985,5986]`.\n\n## Acceptance criteria\n\n- Auth-mechanism matrix green; TLS cert capture recorded; shared-parser import proven (structural test); schema-valid deterministic docs.\n\n## Dependencies\n\n- NET-002; parser parity with NET-006 (NET-006 must merge first for the shared module; if scheduled before it, this slice moves the parser into probes/ itself and NET-006 reuses it).\n\n## Non-goals\n\n- No WinRM authentication, no shell/command protocols, no /wsman payload beyond the negotiation exchange.\n"
+  },
+  {
+    "id": "NET-010",
+    "title": "ad-ldap-recon actor (rootDSE anonymous + enumerated authed-path ports)",
+    "labels": [
+      "recon",
+      "actor",
+      "windows"
+    ],
+    "depends_on": [
+      "NET-002"
+    ],
+    "body_md": "<!-- starintel-adard-source: operator chat instruction 2026-09-19 + design.md -->\n\n## Context\n\nAD LDAP gives the authoritative directory view: rootDSE capabilities anonymously, and users/groups/computers/SPNs with pagination once a bind exists. Credentials are explicitly out of scope for this slice set, so the enumerated path ships behind a typed CredentialProviderPort with fakes only \u2014 the anonymous rootDSE path is the only live surface in v1.\n\n## Scope\n\n- Actor id `ad-ldap-recon`; operations: `rootdse` (anonymous bind, one read: namingContexts, defaultNamingContext, rootDomainNamingContext, supportedCapabilities, supportedControl, supportedSASLMechanisms, domainFunctionality), `enumerate` (paged searches under defaultNamingContext for objectClass user/group/computer with SPN attribute servicePrincipalName and member/memberOf expansion \u2014 gated on a supplied CredentialProviderPort implementation).\n- Backing: `ldap3` (paged control, SID/UUID decode helpers). Anonymous path performs exactly one search and nothing else (opsec counter on fakes).\n- `probes/credentials.py`: `CredentialProviderPort` type ONLY \u2014 no implementation, no storage; live bind support is deferred to separate approved work (tracked as a follow-up issue referenced here).\n- Outputs (authed path against fakes): host per computer with `os` from operatingSystem/operatingSystemVersion, `device_class` (domain-controller/server/workstation via userAccountControl bits + primaryGroupID 516/521), `service_records[]` from SPNs (MSSQLSvc/host:1433 to {port:1433, product: MSSQL}, etc.), `data.distinguished_name/sam_account_name`; relations `member_of` computer to domain and user to group; `hosted_on` service-endpoint to host per SPN with resolvable host; `employed_by` reserved \u2014 v1 emits none. Anonymous path outputs: observation (rootDSE capability record, anonymous allowed/denied) + source.\n- Ops limits: page size 500, max 5000 entries per object-class (explicit `--max-entries` to raise), budget 120s.\n- Tests: `ldaptor` in-process server with a fixture DIT (2 DCs, 3 computers with OS attrs, groups, SPNs); anonymous-deny fake; page-boundary fixtures; credential-port fake; dual-form byte-identity.\n- Dual forms: daemon + `starnet ad-ldap rootdse|enumerate <dc-or-domain> [--page-size N]`.\n\n## Acceptance criteria\n\n- rootDse anonymous read works against fake + live-lab opt-in; enumerate path proven against ldaptor with a fake credential provider; no live authenticated mode ships.\n- Schema-valid deterministic docs; SPN to service_records mapping green.\n\n## Dependencies\n\n- NET-002. Feeds NET-014 (SPN to kerberos chain).\n\n## Non-goals\n\n- No credential storage or live credential flows; no LDAP writes; no full-domain dumps without explicit raised caps.\n"
+  },
+  {
+    "id": "NET-011",
+    "title": "kerberos-recon actor (user enumeration + SPN scan, no preauth)",
+    "labels": [
+      "recon",
+      "actor",
+      "windows"
+    ],
+    "depends_on": [
+      "NET-002"
+    ],
+    "body_md": "<!-- starintel-adard-source: operator chat instruction 2026-09-19 + design.md -->\n\n## Context\n\nKDC error oracles enumerate valid principals without ever sending credentials: AS-REQs WITHOUT preauth distinguish PRINCIPAL_UNKNOWN from PREAUTH_REQUIRED, and SPN-form requests discover service principals. Sending no encrypted timestamp means failed-preauth lockout counters are never incremented.\n\n## Scope\n\n- Actor id `kerberos-recon`; operations: `user-enum` (AS-REQ per candidate user@REALM without preauth PA; verdicts: exists-preauth-required / exists-no-preauth (a finding \u2014 recordable) / unknown / kdc-unreachable), `spn-scan` (AS-REQ for svc/fqdn@REALM forms; candidates from ad-ldap-recon SPN observations or a file), `etype-probe` (PA-ETYPE-INFO2 from the KRB-ERROR). Backing: `impacket.krb5` asn1 codecs following the GetNPUsers request shape.\n- Outputs: observation per candidate (username, verdict, etypes); host `service_records[] += {port:88, proto:tcp, product: Kerberos KDC}` on the KDC host; relation `hosted_on` service-endpoint to host for SPN hits with known hosts; source per exchange.\n- Ops limits: default rate 1 req/s (KDCs log), max 200 candidates per run, budget 300s.\n- Opsec gates: no preauth PA-ENC-TIMESTAMP is ever sent by default (structural test on the request builder); a `--preauth-probe` flag exists but is disabled at configuration level for this slice and documented as out-of-scope until approved credential work; no AS-REP decryption attempts (no ticket harvesting).\n- Tests: scripted KDC fakes returning canned KRB-ERROR blobs encoded via impacket.krb5.asn1 (PREAUTH_REQUIRED, PRINCIPAL_UNKNOWN, NOPREAUTH, ETYPE-INFO2 variants); verdict-table tests; rate-limiter inter-arrival assertions; dual-form byte-identity.\n- Dual forms: daemon + `starnet kerberos user-enum|spn-scan|etype-probe <kdc> --realm REALM [--candidates FILE]`.\n\n## Acceptance criteria\n\n- Verdict mapping exact against fakes; no-preauth structural gate green; rate ceiling observable; schema-valid deterministic docs.\n\n## Dependencies\n\n- NET-002; runtime integration with NET-010 outputs happens in NET-014.\n\n## Non-goals\n\n- No credential guessing, no preauth requests, no ticket harvesting/decryption, no Kerberoasting.\n"
+  },
+  {
+    "id": "NET-012",
+    "title": "share-scraper actor (bounded sizes-only listing, no content)",
+    "labels": [
+      "recon",
+      "actor",
+      "windows"
+    ],
+    "depends_on": [
+      "NET-005"
+    ],
+    "body_md": "<!-- starintel-adard-source: operator chat instruction 2026-09-19 + design.md -->\n\n## Context\n\nReadable-share discovery is valuable recon, but data minimization is a hard operator rule: names and aggregate sizes only, never content. The SmbTransportPort from NET-004 already has no content-read operation, so this actor is safe by construction \u2014 the slice adds the bounded listing policy on top.\n\n## Scope\n\n- Actor id `share-scraper`; operation `list-shares`: consume smb-recon share observations (or fresh null-session enum): per candidate share, tree-connect read-only; if accessible, list to depth <= 2, <= 500 entries/share, recording per-share `{name, type, entry_count, total_bytes_aggregate, largest_file_bytes, top_level_names[]}` (top-level directory names only \u2014 no recursive name dump). Sizes via directory FileStandardInformation only; no file opens for read.\n- Outputs: observation per share summary; host `service_records[] += {port:445, product: SMB shares readable, version: <share-count>}`; source per listing (response hash). No relations.\n- Ops limits: max 20 shares, depth 2, 500 entries/share, budget 300s; audit log line per tree-connect.\n- Tests: SMB fake exposing IPC$ (deny) and a readable share with N entries; entry-cap and depth-cap negative tests; structural no-download test (SmbTransportPort exposes no content-read \u2014 re-asserted here); observation shape test proving summary-only output; dual-form byte-identity.\n- Dual forms: daemon + `starnet share-scraper list-shares <host> [--max-shares N]`.\n\n## Acceptance criteria\n\n- Summary-only observations (no file contents, no recursive name dumps) verified by output-shape tests; caps enforced; tree-connect audit lines present.\n\n## Dependencies\n\n- NET-005 (smb-recon share observation shape), NET-004 (port).\n\n## Non-goals\n\n- No file content download ever (hard rule); no write/creation; no permission-change probing.\n"
+  },
+  {
+    "id": "NET-013",
+    "title": "host-targets router (CIDR fan-out with rate ceiling)",
+    "labels": [
+      "recon",
+      "actor",
+      "windows"
+    ],
+    "depends_on": [
+      "NET-002"
+    ],
+    "body_md": "<!-- starintel-adard-source: operator chat instruction 2026-09-19 + design.md -->\n\n## Context\n\nProbe actors take single-host targets; operators think in ranges. The host-targets router is the network analogue of pro-actors' username-targets: expand CIDR targets into per-host target documents fanned out to the requested probe actors, with a hard rate ceiling.\n\n## Scope\n\n- Actor id `host-targets` (type router); operation `fan-out`: expand a CIDR target (stdlib `ipaddress`; skip network/broadcast/multicast addresses), emit `target` docs routed to `documents.target.dispatch.<probe>` for each actor in `target_options.probes` (default set: netbios-recon, smb-recon, msrpc-probe, winrm-probe, ntlm-fingerprint).\n- Caps: default max /24 expansion; /20 hard max without explicit `--allow-large-sweep`; `max_hosts_per_second` default 10 \u2014 enforced by the shared limiter, observable on fakes.\n- Outputs: target docs + one observation (hosts_fanned, rate_limited) + source. Emits nothing else; never probes itself.\n- Binding: consumes `documents.new.#`-style dispatch of network-range targets (manifest-declared routing keys), same transport semantics (ACK after fan-out publishes confirmed).\n- Tests: expansion unit tests (boundary skips, caps), fake broker asserting routing keys + inter-arrival rate, dedupe on replay (deterministic target ids); dual-form byte-identity.\n- Dual forms: daemon + `starnet host-targets fan-out <cidr> [--probes a,b] [--max-rate N]`.\n\n## Acceptance criteria\n\n- Rate ceiling and caps unbypassable; correct routing keys per probe actor; replay idempotent; container coverage green.\n\n## Dependencies\n\n- NET-002.\n\n## Non-goals\n- No probing of its own; no host-liveness pre-scan (that is a probe actor's job); no persistent scheduling state.\n"
+  },
+  {
+    "id": "NET-014",
+    "title": "Fleet integration: ad-ldap to kerberos SPN enrichment chain + end-to-end gates",
+    "labels": [
+      "recon",
+      "actor",
+      "windows"
+    ],
+    "depends_on": [
+      "NET-003",
+      "NET-005",
+      "NET-006",
+      "NET-007",
+      "NET-008",
+      "NET-009",
+      "NET-010",
+      "NET-011",
+      "NET-012",
+      "NET-013"
+    ],
+    "body_md": "<!-- starintel-adard-source: operator chat instruction 2026-09-19 + design.md -->\n\n## Context\n\nThe actors are independently useful; the fleet is more than the sum when documents chain: dns-recon SRV finds the KDCs, ad-ldap-recon enumerates SPNs, kerberos-recon confirms them against the realm, and relation/observation joins land on shared host documents. This slice wires the runtime composition (via published documents and routing options \u2014 no actor imports another) and locks the fleet-level gates.\n\n## Scope\n\n- Chain wiring: ad-ldap-recon SPN observations dispatch kerberos-recon `spn-scan` targets against realm KDCs discovered via dns-recon `_kerberos._tcp` SRV records; kerberos SPN hits emit `hosted_on` relations joined to hosts minted by dns/ldap. Implemented as router-style target_options configuration + document-shape contracts, not actor-to-actor imports.\n- End-to-end integration test (hermetic): three families in sequence against fakes (dns fake with SRV zone, ldaptor DIT with SPNs, KDC fake) asserting the joined relation set and host enrichment converge with deterministic ids.\n- Manifests publication: `starnet manifests [--rabbit-url]` emitting every family's actor-manifest doc; fleet smoke via compose (`docker compose up`) against a per-run broker, clean SIGTERM shutdown verified.\n- compose profiles: `fleet` (all daemons), `batch` (CLI one-shots), `router` (host-targets); container coverage complete.\n- docs/: fleet guide (org) covering scheduling/limits, evidence rules, opsec rules, and the dual-form invariant; operator quickstart.\n- Cross-cutting gate review: dual-form byte-identity green for every family; opsec guards (no authenticated setups, no preauth, no content reads) all present and tested; evidence redaction canary suite green.\n- Live lab (opt-in env STARINTEL_NET_LIVE_TEST=1): compose-provided Samba + BIND + KDC containers on an isolated network with per-run ports; documented, not part of default CI.\n\n## Acceptance criteria\n\n- Chain integration test green hermetically; every family's dual-form test green; full gates (pytest, ruff, mypy, container coverage) at candidate HEAD recorded via prolog-verify.\n- Fleet smoke: all daemons up with broker healthcheck gating, manifest docs confirmed on `documents.ingest.actor-manifest`, clean shutdown.\n- No cross-actor imports (structural test on the package graph: family modules may import probes/ and docs/ only).\n\n## Dependencies\n\n- NET-003, NET-005, NET-006, NET-007, NET-008, NET-009, NET-010, NET-011, NET-012, NET-013 (all actors + router).\n\n## Non-goals\n\n- No new actors; no credential work; no cross-fleet orchestration beyond document routing.\n"
+  }
+]

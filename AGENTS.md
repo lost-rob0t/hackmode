@@ -37,6 +37,14 @@ Similar regression classes are also banned:
 - declaring work complete while the requested behavior exists only in prose, a stub, or a placeholder;
 - weakening an explicit operator requirement because an agent considers a different default more prudent.
 
+# StarIntel schema lock discipline
+
+This tree consumes the StarIntel document contract as an integration target. The consumer lock is `schema/starintel-schema.lock.json`.
+
+- Never hand-edit a StarIntel release/version value or fabricate a lock. Release authority is resolved only with the canonical schema repository's `scripts/schema-release.py` (`current`/`check`), never from filenames, prose, or memory.
+- While the lock holds a pending status, supplemental validators inside `tools/wireless` carry the gap and its tests skip loudly. When the lock goes concrete, the validation-pin checks must be restored in the same change.
+- Existing v0.9 projection/export surfaces remain valid: the 0.10.1 line is additive and accepts v0.9.0 documents. Do not fork a second document shape.
+
 # Agent-caused regression ledger
 
 When the operator identifies an agent-caused regression, bad assumption, or unacceptable behavior, the agent handling the correction must do all of the following in the same change:
