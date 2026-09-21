@@ -68,7 +68,7 @@
                :nmap
                (make-instance 'hackmode:host
                               :hostname value
-                              :ip value
+                              :ip ""
                               :tool "nmap")))
       (t
        (error "Unsupported BBP actor ~s." (bbp-target-actor target))))))
