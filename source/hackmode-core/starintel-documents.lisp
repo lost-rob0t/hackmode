@@ -31,6 +31,13 @@ the projection happened at a later wall-clock time."
         :date-updated (unix-seconds->starintel-timestring (doc-date-updated asset))
         :provenance (asset-starintel-provenance asset)))
 
+(defun asset-service->starintel-service (service)
+  "Project one Hackmode service plist to StarIntel's host service shape."
+  (make-instance 'starintel:service
+                 :number (getf service :port)
+                 :services (or (getf service :name) "")
+                 :version (or (getf service :version) "")))
+
 (defmethod asset->starintel-document ((asset domain) &key (dataset *starintel-dataset*))
   (normalize-asset asset)
   (apply #'starintel:new-domain
@@ -50,6 +57,8 @@ the projection happened at a later wall-clock time."
            dataset
            :hostname (doc-host asset)
            :ip (doc-ip asset)
+           :ports (mapcar #'asset-service->starintel-service
+                          (doc-services asset))
            (asset-starintel-common-initargs asset))))
 
 (defmethod asset->starintel-document ((asset url) &key (dataset *starintel-dataset*))
