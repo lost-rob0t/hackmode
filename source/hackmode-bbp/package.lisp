@@ -9,6 +9,7 @@
    :bbp-target-dataset
    :bbp-target-sources
    :bbp-target-options
+   :bbp-target-extensions
    :bbp-scan-result
    :bbp-scan-result-target
    :bbp-scan-result-state
@@ -17,6 +18,8 @@
    :bbp-scan-result-documents
    :bbp-scan-result-relations
    :bbp-scan-result-error
+   :bbp-target-from-starintel-json
+   :make-bbp-event
    :bbp-target-plan
    :start-bbp-supervisor
    :stop-bbp-supervisor
