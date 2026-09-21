@@ -28,6 +28,18 @@
       (hackmode:normalize-asset input)
       (assert-equal "example.com" (hackmode:domain-name input) "domain input"))))
 
+
+(defun run-target-decode-test ()
+  (let ((payload
+          "{\"_id\":\"target-wire-1\",\"dataset\":\"dataset-wire\",\"dtype\":\"target\",\"schema_version\":\"0.9.0\",\"version\":1,\"date_added\":\"2026-09-20T00:00:00Z\",\"date_updated\":\"2026-09-20T00:00:00Z\",\"sources\":[{\"kind\":\"manual\",\"name\":\"operator\"}],\"evidence\":[],\"data\":{\"actor\":\"httpx\",\"target\":\"example.com\",\"delay\":0,\"recurring\":false,\"options\":[]},\"extensions\":{\"example.test\":{\"keep\":true}}}"))
+    (let ((target (hackmode-bbp:bbp-target-from-starintel-json payload)))
+      (assert-equal "target-wire-1" (hackmode-bbp:bbp-target-id target) "wire target id")
+      (assert-equal "httpx" (hackmode-bbp:bbp-target-actor target) "wire actor")
+      (assert-equal "example.com" (hackmode-bbp:bbp-target-value target) "wire target value")
+      (assert-equal "dataset-wire" (hackmode-bbp:bbp-target-dataset target) "wire dataset")
+      (assert (= 1 (length (hackmode-bbp:bbp-target-sources target))))
+      (assert (jsown:keyp (hackmode-bbp:bbp-target-extensions target) "example.test")))))
+
 (defun run-provider-parser-test ()
   (let ((http-assets
           (hackmode-provider-bbp:parse-httpx-output
@@ -117,6 +129,7 @@
 
 (defun run-tests ()
   (run-target-plan-test)
+  (run-target-decode-test)
   (run-provider-parser-test)
   (run-actor-dispatch-test)
   (format t "Hackmode BBP tests passed.~%")
