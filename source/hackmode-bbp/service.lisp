@@ -14,6 +14,7 @@
   job-id
   assets
   documents
+  relations
   error)
 
 (defvar *bbp-supervisor* nil
@@ -73,20 +74,137 @@
       (t
        (error "Unsupported BBP actor ~s." (bbp-target-actor target))))))
 
-(defun result-documents (target result)
-  (loop for asset in (hackmode:provider-job-result-assets result)
-        for json = (hackmode:asset->starintel-json
-                    asset :dataset (bbp-target-dataset target))
-        when json collect json))
+(defun tool-source (target)
+  (let ((source (jsown:empty-object)))
+    (setf (jsown:val source "kind") "tool"
+          (jsown:val source "name")
+          (canonical-actor-name (bbp-target-actor target)))
+    source))
+
+(defun derived-sources (target)
+  "Preserve inbound sources and append the BBP tool source."
+  (append (copy-list (bbp-target-sources target))
+          (list (tool-source target))))
+
+(defun project-asset-document (target asset)
+  (let ((document
+          (hackmode:asset->starintel-document
+           asset :dataset (bbp-target-dataset target))))
+    (when document
+      (setf (starintel:doc-sources document) (derived-sources target))
+      document)))
+
+(defun subfinder-root-document (target)
+  (when (string= "subfinder"
+                 (canonical-actor-name (bbp-target-actor target)))
+    (project-asset-document
+     target
+     (make-instance 'hackmode:domain
+                    :record (bbp-target-value target)
+                    :record-type "A"
+                    :tool "subfinder"))))
+
+(defun result-document-objects (target result)
+  (let ((documents
+          (remove nil
+                  (mapcar
+                   (lambda (asset)
+                     (project-asset-document target asset))
+                   (hackmode:provider-job-result-assets result)))))
+    (let ((root (subfinder-root-document target)))
+      (if (and root
+               (notany
+                (lambda (document)
+                  (string= (starintel:doc-id document)
+                           (starintel:doc-id root)))
+                documents))
+          (cons root documents)
+          documents))))
+
+(defun relation-document-id (dataset source predicate target)
+  "Return the legacy BBPD deterministic relation identity."
+  (let* ((fields (list dataset source predicate target))
+         (encoded
+           (format nil "~{~a~^|~}"
+                   (mapcar
+                    (lambda (field)
+                      (format nil "~d:~a"
+                              (length (babel:string-to-octets
+                                       field :encoding :utf-8))
+                              field))
+                    fields)))
+         (digest
+           (ironclad:digest-sequence
+            :sha256
+            (babel:string-to-octets encoded :encoding :utf-8))))
+    (format nil "relation:~a"
+            (string-downcase
+             (ironclad:byte-array-to-hex-string digest)))))
+
+(defun relation-spec (target)
+  (let ((actor (canonical-actor-name (bbp-target-actor target))))
+    (cond
+      ((string= actor "subfinder")
+       (values "related-to" "subfinder discovery"))
+      ((string= actor "httpx")
+       (values "related-to" "httpx"))
+      ((string= actor "katana")
+       (values "links-to" "crawl"))
+      ((string= actor "nmap")
+       (values "related-to" "host-discovery"))
+      (t
+       (values nil nil)))))
+
+(defun relation-source-id (target documents)
+  (if (string= "subfinder"
+               (canonical-actor-name (bbp-target-actor target)))
+      (let ((root (first documents)))
+        (and root (starintel:doc-id root)))
+      (bbp-target-id target)))
+
+(defun result-relation-objects (target documents)
+  (multiple-value-bind (predicate note) (relation-spec target)
+    (if (null predicate)
+        nil
+        (let ((source-id (relation-source-id target documents))
+              (root-id
+                (and (string= "subfinder"
+                              (canonical-actor-name
+                               (bbp-target-actor target)))
+                     (first documents)
+                     (starintel:doc-id (first documents)))))
+          (loop for document in documents
+                for target-id = (starintel:doc-id document)
+                unless (or (null source-id)
+                           (and root-id (string= target-id root-id)))
+                  collect
+                    (let ((relation
+                            (starintel:new-relation
+                             (bbp-target-dataset target)
+                             source-id
+                             target-id
+                             :predicate predicate
+                             :note note)))
+                      (setf (starintel:doc-id relation)
+                            (relation-document-id
+                             (bbp-target-dataset target)
+                             source-id predicate target-id)
+                            (starintel:doc-sources relation)
+                            (derived-sources target))
+                      relation))))))
 
 (defun provider-result->scan-result (target result)
-  (make-bbp-scan-result
-   :target target
-   :state (hackmode:provider-job-result-state result)
-   :job-id (hackmode:provider-job-result-id result)
-   :assets (hackmode:provider-job-result-assets result)
-   :documents (result-documents target result)
-   :error (hackmode:provider-job-result-error result)))
+  (let* ((document-objects (result-document-objects target result))
+         (relation-objects
+           (result-relation-objects target document-objects)))
+    (make-bbp-scan-result
+     :target target
+     :state (hackmode:provider-job-result-state result)
+     :job-id (hackmode:provider-job-result-id result)
+     :assets (hackmode:provider-job-result-assets result)
+     :documents (mapcar #'starintel:encode document-objects)
+     :relations (mapcar #'starintel:encode relation-objects)
+     :error (hackmode:provider-job-result-error result))))
 
 (defun bbp-job-handler (database)
   (lambda (message)
