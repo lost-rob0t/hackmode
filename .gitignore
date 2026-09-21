@@ -10,3 +10,13 @@
 # Generated/helper binaries must not be committed during hackmode-scripts migration.
 tools/legacy/**/ralp
 tools/legacy/**/.local/bin/
+
+# Prolog execution state (durable KB under .prolog/kb is tracked)
+.prolog/runs/
+
+# Prolog verification runtime state (task-local; durable KB under .prolog/kb is tracked)
+.prolog/facts.kb
+.prolog/verify.pl
+.prolog/result.json
+.prolog/.facts.lock
+.prolog/sessions/
