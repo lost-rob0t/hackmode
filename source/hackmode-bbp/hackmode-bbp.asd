@@ -8,6 +8,8 @@
   :depends-on (#:hackmode
                #:hackmode-provider-bbp
                #:sento
-               #:tek9)
+               #:tek9
+               #:babel
+               #:ironclad)
   :components ((:file "package")
                (:file "service")))
