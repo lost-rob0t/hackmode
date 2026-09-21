@@ -25,17 +25,25 @@ jobs:
       - name: Checkout pinned Tek9
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          repository: nsaspy/tek9
-          ref: 1cb978084da8b4f1d184b3ef2a1d30057f525608
+          repository: lost-rob0t/tek9
+          ref: e6d1cb86a2e268a894eae3acae9617238b2adcff
           path: deps/tek9-ci
           fetch-depth: 1
 
       - name: Checkout pinned StarIntel Common Lisp schema
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          repository: nsaspy/star-cl
+          repository: lost-rob0t/star-cl
           ref: b8dfbe2f9f56065ace8c3313b92ca748a115cdfa
           path: deps/star-cl-ci
+          fetch-depth: 1
+
+      - name: Checkout pinned Star-Lang compiler and runtime
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: lost-rob0t/star-lang
+          ref: 09f3b6dab15a9bcb9b5dd7866735d65301571211
+          path: deps/star-lang-ci
           fetch-depth: 1
 
       - name: Checkout pinned Sento actor runtime
@@ -94,6 +102,7 @@ jobs:
           sbcl --non-interactive \
             --load "$HOME/quicklisp/setup.lisp" \
             --eval '(push (truename "deps/cms-ulid-ci/") asdf:*central-registry*)' \
+            --eval '(push (truename "deps/star-lang-ci//") asdf:*central-registry*)' \
             --eval '(push (truename "deps/sento-ci/") asdf:*central-registry*)' \
             --eval '(asdf:load-asd (truename "deps/tek9-ci/src/tek9.asd"))' \
             --eval '(asdf:load-asd (truename "deps/star-cl-ci/src/starintel.asd"))' \
@@ -102,16 +111,20 @@ jobs:
             --eval '(asdf:load-asd (truename "source/hackmode-core/hackmode-tests.asd"))' \
             --eval '(asdf:load-asd (truename "source/hackmode-database/hackmode-database.asd"))' \
             --eval '(asdf:load-asd (truename "source/hackmode-database/hackmode-database-tests.asd"))' \
+            --eval '(asdf:load-asd (truename "source/hackmode-actors/hackmode-actors.asd"))' \
+            --eval '(asdf:load-asd (truename "source/hackmode-actors/tests/hackmode-actors-tests.asd"))' \
             --eval '(asdf:load-asd (truename "source/hackmode-providers/dns/hackmode-provider-dns.asd"))' \
             --eval '(asdf:load-asd (truename "source/hackmode-providers/dns/hackmode-provider-dns-tests.asd"))' \
             --eval '(asdf:load-asd (truename "source/hackmode-providers/recon/hackmode-provider-recon.asd"))' \
             --eval '(asdf:load-asd (truename "source/hackmode-providers/recon/hackmode-provider-recon-tests.asd"))' \
             --eval '(ql:quickload :hackmode-tests)' \
             --eval '(ql:quickload :hackmode-database-tests)' \
+            --eval '(ql:quickload :hackmode-actors-tests)' \
             --eval '(ql:quickload :hackmode-provider-dns-tests)' \
             --eval '(ql:quickload :hackmode-provider-recon-tests)' \
             --eval '(asdf:test-system :hackmode)' \
             --eval '(asdf:test-system :hackmode-database)' \
+            --eval '(asdf:test-system :hackmode-actors)' \
             --eval '(asdf:test-system :hackmode-provider-dns)' \
             --eval '(asdf:test-system :hackmode-provider-recon)' \
             2>&1 | tee "$RUNNER_TEMP/hackmode-core.log"
