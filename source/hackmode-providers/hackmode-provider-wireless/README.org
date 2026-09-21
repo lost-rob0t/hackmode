@@ -1,0 +1,197 @@
+#+TITLE: hackmode-provider-wireless — aircrack-ng capture/parse provider
+
+First-party wireless provider for Hackmode built on the aircrack-ng suite's
+*capture* side only:
+
+- =airmon-ng= — monitor-mode interface management (=status= / =start= / =stop=)
+- =airodump-ng= — bounded CSV captures parsed into StarIntel =wireless-network=
+  and =wireless-station= documents and enqueued into the local operation outbox
+
+* Out of scope (for now)
+
+=aireplay-ng= (packet injection / deauthentication / fake authentication) and
+=aircrack-ng= proper (PTK/WEP key recovery) are deliberately NOT wrapped by
+this provider. This is a v1 scope decision, not an oversight: v1 ships passive
+observation (monitor enable, beacon/probe capture, document projection) only.
+Anything that transmits frames at other peoples' networks is left to explicit
+future work with its own authorization model.
+
+* Usage (LISH-visible functions)
+
+All functions live in =:hackmode-provider-wireless=
+(nickname =:hackmode.providers.wireless=).
+
+#+begin_src lisp
+;; monitor mode
+(hackmode-provider-wireless:airmon-ng-status)          ; -> (values interfaces issues)
+(hackmode-provider-wireless:airmon-ng-start "wlan0")   ; -> plist :monitor-interface ...
+(hackmode-provider-wireless:airmon-ng-stop "wlan0mon") ; -> plist :stopped-p ...
+
+;; bounded capture (default runner requires duration; kills airodump-ng after)
+(hackmode-provider-wireless:run-airodump
+ "wlan0mon"
+ :channels '("1" "6" "11")            ; or "1,6"
+ :output-prefix #p"/tmp/capture"      ; airodump-ng writes capture-01.csv
+ :duration-seconds 120)
+
+;; parse + project + enqueue into the open operation database
+(let ((capture (hackmode-provider-wireless:parse-airodump-csv-path
+                #p"/tmp/capture-01.csv")))
+  (hackmode-provider-wireless:enqueue-airodump-observations
+   capture hackmode:*db*
+   :operation "wardrive-op"
+   :source-id "/tmp/capture-01.csv"))
+#+end_src
+
+Runner injection: =airmon-ng-status= / =airmon-ng-start= / =airmon-ng-stop=
+accept =&key (runner #'shell-runner)= called as
+=(funcall runner program args) → (values stdout stderr exit-code)=, and
+=run-airodump= accepts a runner called as
+=(funcall runner program argv :timeout-seconds duration)=. The default
+=shell-runner= / =airodump-process-runner= guard on binary presence
+(=aircrack-tool-unavailable=) and run through argv lists via UIOP — no shell
+string interpolation. Override program locations with
+=HACKMODE_AIRMON_NG_PROGRAM= / =HACKMODE_AIRODUMP_NG_PROGRAM=.
+
+* CSV parse rules (airodump-ng never quotes fields)
+
+The two sections (AP header / Station header) are detected from their header
+lines; blank lines between sections and CRLF terminators are tolerated, and a
+missing station section is fine.
+
+** AP rows — ESSID comma recovery
+
+An ESSID containing commas produces extra comma-separated fields. The parse
+rule, in order:
+
+1. Columns 0-12 (=BSSID= through =ID-length=) are fixed from the left.
+2. The final field is the (almost always empty) =Key=.
+3. Everything in between joins back onto the ESSID with literal commas
+   (=Net=, =Work=, =Inc= → =Net,Work,Inc=).
+4. When the row overflowed and =ID-length= is an integer, the join is verified
+   against that exact length and corrected when exactly one consistent split
+   exists (accumulated fields hit the length exactly and exactly one field —
+   the Key — remains). When no exact split exists, rule 3's join stands and
+   the raw row rides along as evidence.
+
+Known ambiguity: an ESSID that itself ends in a padded comma or a Key field
+containing commas cannot be distinguished by any local rule; the raw row is
+always retained (=airodump-ap-row-raw=, evidence =excerpt=) so nothing
+observed is lost.
+
+** Stations
+
+First six columns are fixed (=Station MAC= … =BSSID=); every remaining
+trimmed, non-empty field is one probed ESSID. Rows with fewer than six fields
+are recorded as parse issues (with raw text) rather than crashing.
+
+** Lossless evidence
+
+- Every parsed record carries the original row string (terminators stripped).
+- Every document embeds an evidence item with =excerpt= = raw row,
+  =content_hash= = SHA-256 of the raw row, and a deterministic =evidence_id=.
+- Malformed rows land in =airodump-capture-parse-issues= (=raw=, =section=,
+  =reason=) instead of being dropped.
+
+* Field mapping
+
+** Security (Privacy + Cipher + Authentication → enum)
+
+| Privacy tokens              | Authentication | security           |
+|-----------------------------+----------------+--------------------|
+| OPN                         |                | open               |
+| WEP                         |                | wep                |
+| WPA                         | PSK/other      | wpa-psk            |
+| WPA                         | MGT/802.1X/EAP | unknown (no enum)  |
+| WPA2 (incl. WPA2-PSK/-EAP)  | PSK/other      | wpa2-psk           |
+| WPA2                        | MGT/802.1X/EAP | wpa2-enterprise    |
+| WPA3 (incl. WPA3-SAE)       | SAE/PSK/other  | wpa3-psk           |
+| WPA3                        | MGT/802.1X/EAP | wpa3-enterprise    |
+| WPA2+WPA3 / WPA2WPA3        | PSK            | wpa2wpa3-psk       |
+| WPA2+WPA3                   | MGT/802.1X/EAP | unknown (no enum)  |
+| else                        |                | unknown            |
+
+=cipher_suite= / =auth_mode= keep the observed (trimmed) Cipher and
+Authentication strings. Enterprise detection accepts =MGT=, =802.1X=, =8021X=,
+=EAP=, =ENTERPRISE= in either the Authentication column or the Privacy tokens.
+
+** Other mappings
+
+- band: channel 1-14 → =2.4ghz=, 15-196 → =5ghz=, else =unknown=
+  (matches the WiGLE/Kismet mapping in =tools/wireless=).
+- frequency_mhz: derived from channel (2407+5·ch, ch14 → 2484,
+  5000+5·ch for 15-196) — derived, not observed; the CSV has no frequency
+  column.
+- signal_dbm: Power parsed as dBm; empty/junk or the =-1= unknown sentinel
+  omit the field.
+- observations (networks): =# beacons=; packets (stations): =# packets=.
+- client_count: station rows whose BSSID column is a real MAC (not
+  =(not associated)=), counted per normalized AP BSSID.
+- ssid: trimmed ESSID; hidden markers (=<length: N>= or ID-length 0) project
+  to the empty string while the marker stays in the raw evidence.
+- probe_ssids: probed ESSIDs minus hidden markers.
+- timestamps: =YYYY-MM-DD HH:MM:SS= → ISO-8601 with =Z=. airodump-ng logs
+  capture-host local time with no zone; the projection interprets them as UTC
+  for determinism. Captures spanning timezones should be reconciled from the
+  raw evidence when that matters.
+- date_added/date_updated: the row's own first/last seen (data-derived), so
+  re-enqueueing the same capture produces byte-identical payloads and no
+  duplicate outbox entries.
+
+* Identity contract (cross-language parity)
+
+Byte-identical with =tools/wireless='s Python implementation:
+
+- MACs: strip non-hex-digit characters; 12 remaining digits → lower-case
+  colon form (fallback =strip().lower()=, ASCII-equivalent in Lisp).
+- SSID normalization for identity: trim + squeeze internal whitespace runs
+  + full Unicode =casefold= (generated =casefold.txt= table, 1557 code
+  points, regenerated from CPython =str.casefold=).
+- identity key: fields joined with U+001F (unit separator), UTF-8, SHA-256.
+- =_id = "starintel:" dtype ":" hex(digest)=;
+  network key =(bssid, ssid-normalized, source_network_id)=,
+  station key =(mac, source_device_id)=.
+- =source_network_id = "airodump-ng:<capture-id>"= and
+  =source_device_id = <capture-id>= where capture-id is the CSV filename
+  stem (=capture-01= for =capture-01.csv=).
+
+The test suite pins golden ids computed by the real
+=hackmode_wireless.transport= code (Python 3.14 venv). To regenerate the
+table and goldens after a Unicode upgrade:
+
+#+begin_src sh
+/home/unseen/starintel/hackmode/tools/wireless/.venv/bin/python - <<'PY'
+import sys
+sys.path.insert(0, "/home/unseen/starintel/hackmode/tools/wireless/src")
+from pathlib import Path
+out = Path("source/hackmode-providers/hackmode-provider-wireless/casefold.txt")
+lines = [f"{cp:x} {','.join(f'{ord(c):x}' for c in chr(cp).casefold())}"
+         for cp in range(0x110000) if chr(cp).casefold() != chr(cp)]
+out.write_text("\n".join(lines) + "\n")
+PY
+#+end_src
+
+(then recompute the golden constants in =tests/wireless-tests.lisp= with
+=hackmode_wireless.transport.wireless_network_id= /
+=wireless_station_id= on the fixture keys).
+
+* Server repin caveat
+
+Documents are shaped for the StarIntel 0.10.1 line
+(=schema/starintel-schema.lock.json=: release 0.10.1 pending, base
+=schema_version= =0.9.0=) but =hackmode:enqueue-starintel-json= only
+persists them into the local operation outbox. A StarIntel server pinned to
+the 0.9 validation line will reject =wireless-network= / =wireless-station=
+dtypes on ingest until it repins 0.10.1 — do not flush wireless outbox
+entries to such a server.
+
+* Scope notes
+
+- =run-airodump= bounds the capture with UIOP:LAUNCH-PROGRAM + a polling
+  deadline + terminate (stdout/stderr accumulate in temp files because
+  airodump-ng's screen output would otherwise fill the pipe buffer). No other
+  Hackmode provider bounds shell commands; that is why the mechanism lives
+  here.
+- =registry/kali/seed.json= marks =airmon-ng= (active: interface
+  reconfiguration) and =airodump-ng= (passive capture) first-party; the
+  umbrella =aircrack-ng= entry is passive/first-party for the capture side.

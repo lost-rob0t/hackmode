@@ -1,0 +1,5 @@
+BSSID, First time seen, Last time seen, channel, Speed, Privacy, Cipher, Authentication, Power, # beacons, # IV, LAN IP, ID-length, ESSID, Key
+
+AA:BB:CC:DD:EE:FF, 2026-09-20 09:00:00, 2026-09-20 09:05:00,  6,  195, WPA2, CCMP, PSK, -50,  120,  0,   0.  0.  0.   0,   8, HomeNet,
+
+11:22:33:44:55:66, 2026-09-20 09:00:01, 2026-09-20 09:04:30,  1,  195, OPN, , , -72,   90,  0,   0.  0.  0.   0,   8, FreeWifi,

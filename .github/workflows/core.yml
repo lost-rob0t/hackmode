@@ -106,14 +106,18 @@ jobs:
             --eval '(asdf:load-asd (truename "source/hackmode-providers/dns/hackmode-provider-dns-tests.asd"))' \
             --eval '(asdf:load-asd (truename "source/hackmode-providers/recon/hackmode-provider-recon.asd"))' \
             --eval '(asdf:load-asd (truename "source/hackmode-providers/recon/hackmode-provider-recon-tests.asd"))' \
+            --eval '(asdf:load-asd (truename "source/hackmode-providers/hackmode-provider-wireless/hackmode-provider-wireless.asd"))' \
+            --eval '(asdf:load-asd (truename "source/hackmode-providers/hackmode-provider-wireless/hackmode-provider-wireless-tests.asd"))' \
             --eval '(ql:quickload :hackmode-tests)' \
             --eval '(ql:quickload :hackmode-database-tests)' \
             --eval '(ql:quickload :hackmode-provider-dns-tests)' \
             --eval '(ql:quickload :hackmode-provider-recon-tests)' \
+            --eval '(ql:quickload :hackmode-provider-wireless-tests)' \
             --eval '(asdf:test-system :hackmode)' \
             --eval '(asdf:test-system :hackmode-database)' \
             --eval '(asdf:test-system :hackmode-provider-dns)' \
             --eval '(asdf:test-system :hackmode-provider-recon)' \
+            --eval '(asdf:test-system :hackmode-provider-wireless)' \
             2>&1 | tee "$RUNNER_TEMP/hackmode-core.log"
 
       - name: Upload Common Lisp diagnostic log

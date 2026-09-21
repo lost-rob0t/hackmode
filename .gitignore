@@ -11,3 +11,6 @@
 tools/legacy/**/ralp
 tools/legacy/**/.local/bin/
 .prolog/
+
+# Local CI-mirror dependency checkouts (never commit these).
+deps/*-ci/

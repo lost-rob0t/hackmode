@@ -1,0 +1,11 @@
+BSSID, First time seen, Last time seen, channel, Speed, Privacy, Cipher, Authentication, Power, # beacons, # IV, LAN IP, ID-length, ESSID, Key
+
+00:11:22:33:44:55, 2026-09-20 09:00:00, 2026-09-20 09:05:00,  6,  195, WPA2, CCMP, PSK, -50,   10,  0,   0.  0.  0.   0,  12, Net,Work,Inc,
+
+0A:1B:2C:3D:4E:5F, 2026-09-20 09:00:00, 2026-09-20 09:05:00,  1,  195, OPN, , , -61,   10,  0,   0.  0.  0.   0,   3, a,b,
+
+66:12:34:56:78:9A, 2026-09-20 09:00:00, 2026-09-20 09:05:00,  6,  195, WPA2, CCMP, PSK, -62,   10,  0,   0.  0.  0.   0,   5, wrong,extra,
+
+Station MAC, First time seen, Last time seen, Power, # packets, BSSID, Probed ESSIDs
+
+AB:00:11:22:33:49, 2026-09-20 09:00:00, 2026-09-20 09:05:00,  -40,     10, 00:11:22:33:44:55,
