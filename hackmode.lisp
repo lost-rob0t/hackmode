@@ -7,7 +7,8 @@
    :expert-shell
    :scan-command
    :recon-command
-   :inventory-import-command)
+   :inventory-import-command
+   :android-bridge-command)
   (:documentation "Hackmode CLI and expert-shell entry points."))
 
 (in-package :hackmode-user)
@@ -64,6 +65,7 @@ Usage:~%
   hm scan TARGET [NMAP-ARG ...]~%
   hm recon DOMAIN~%
   hm inventory import FILE [auto|domain|host|url]~%
+  hm android-bridge  # bounded HACKMODE-ANDROID/1 JSON on stdin~%
 ~%
 Environment:~%
   HACKMODE_OPERATION   operation name for command-mode persistence~%
@@ -210,6 +212,70 @@ stdout so the complete observation can be retained in the active operation."
             path)
     0))
 
+(defparameter +android-bridge-max-chars+ (* 256 1024))
+
+(defparameter +android-bridge-kinds+
+  '("collector.observation"
+    "collector.observation_batch"
+    "collector.rules_evaluate"
+    "staratak.selection"
+    "prolog.mapping"
+    "media.transcription"
+    "media.sound_classification"))
+
+(defun read-bounded-stdin (&optional (limit +android-bridge-max-chars+))
+  "Read standard input without permitting an unbounded Android bridge payload."
+  (with-output-to-string (output)
+    (loop for character = (read-char *standard-input* nil nil)
+          while character
+          for count from 1
+          do (when (> count limit)
+               (error "Android bridge payload exceeds ~d characters." limit))
+             (write-char character output))))
+
+(defun json-required-string (object key &optional (maximum 240))
+  (let ((value (jsown:val-safe object key)))
+    (unless (and (stringp value)
+                 (plusp (length value))
+                 (<= (length value) maximum))
+      (error "Android bridge requires bounded string field ~a." key))
+    value))
+
+(defun json-object-p (value)
+  (and (consp value) (eq (car value) :obj)))
+
+(defun android-bridge-command ()
+  "Persist one typed StarIntel Android operation from bounded JSON stdin."
+  (initialize-runtime :interactive nil)
+  (ensure-cli-operation)
+  (let* ((raw (read-bounded-stdin))
+         (request (jsown:parse raw))
+         (protocol (json-required-string request "protocol" 64))
+         (kind (json-required-string request "kind" 128))
+         (request-id (json-required-string request "request_id" 240))
+         (payload (jsown:val-safe request "payload")))
+    (unless (string= protocol "HACKMODE-ANDROID/1")
+      (error "Unsupported Android bridge protocol ~s." protocol))
+    (unless (member kind +android-bridge-kinds+ :test #'string=)
+      (error "Unsupported Android bridge kind ~s." kind))
+    (unless (json-object-p payload)
+      (error "Android bridge payload must be a JSON object."))
+    (hackmode:record-recon-asset
+     (make-instance 'hackmode:finding
+                    :document-id request-id
+                    :finding-type kind
+                    :data raw
+                    :tool "starintel-android"
+                    :tags '("android" "typed-operation")))
+    (format t "~a~%"
+            (jsown:to-json
+             (jsown:new-js
+               ("status" "accepted")
+               ("protocol" protocol)
+               ("kind" kind)
+               ("request_id" request-id))))
+    0))
+
 (defun expert-shell ()
   "Start the interactive Hackmode expert shell backed by Lish."
   (initialize-runtime :interactive t)
@@ -247,6 +313,10 @@ stdout so the complete observation can be retained in the active operation."
        (inventory-import-command
         (second rest)
         (or (third rest) "auto")))
+      ((string= command "android-bridge")
+       (when rest
+         (error "Usage: hm android-bridge"))
+       (android-bridge-command))
       (t
        (format *error-output* "Unknown Hackmode command: ~a~%~%" command)
        (print-help *error-output*)
