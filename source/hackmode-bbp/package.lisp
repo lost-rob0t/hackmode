@@ -15,6 +15,7 @@
    :bbp-scan-result-job-id
    :bbp-scan-result-assets
    :bbp-scan-result-documents
+   :bbp-scan-result-relations
    :bbp-scan-result-error
    :bbp-target-plan
    :start-bbp-supervisor
