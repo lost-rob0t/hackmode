@@ -25,6 +25,11 @@
    #:make-ontology-wire-message
    #:ontology-wire-message-type
    #:ontology-wire-message-payload
+   ;; Canonical starintel spec consumption
+   #:*starintel-core-library-name*
+   #:*starintel-core-digest*
+   #:hackmode-starintel-graph
+   #:starintel-dtype-declared-p
    ;; StarIntel 0.10.1 projection
    #:*starintel-schema-version*
    #:*starintel-release*

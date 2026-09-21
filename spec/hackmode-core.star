@@ -1,6 +1,17 @@
 (spec-library "dev.hackmode/core@1"
   (:version "0.10.1")
 
+  ;; The canonical StarIntel vocabulary is consumed, not redefined. The
+  ;; vendored copy below is byte-identical to
+  ;; lost-rob0t/starintel-gpt-auto-dig spec/star/starintel-core-0.10.1.star
+  ;; (served at https://spec.starintel.actor/star/0.10.1) and is digest
+  ;; locked. Runtime dtype support is validated against the compiled
+  ;; starintel core graph.
+  (import "org.starintel/core@1"
+    :version "0.10.1"
+    :digest "sha256:0c6a50a12a9779a0e760cd48d6e4f3bf3fdadf04e61ec3cb67f8685fe64499a5"
+    :path "vendor/starintel-core-0.10.1.star")
+
   (scalar hackmode-id
     (:base string
      :pattern "^[A-Za-z0-9._~:/+-]{1,512}$"))

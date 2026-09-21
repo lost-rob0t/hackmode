@@ -23,10 +23,16 @@ sources, evidence, data}=.
 
 * Ontology layout
 
-The library is self-contained (=dev.hackmode/core@1=). It deliberately does
-not import a starintel document library: hackmode owns its typed vocabulary
-and maps it onto StarIntel dtypes only at the projection boundary, so no
-second StarIntel document schema is introduced inside Hackmode.
+The hackmode library (=dev.hackmode/core@1=) *imports* the canonical
+starintel core vocabulary (=org.starintel/core@1=, release 0.10.1) with a
+full SHA-256 digest lock over a vendored byte-identical copy in
+=spec/vendor/starintel-core-0.10.1.star=. The canonical library is generated
+from =starintel_doc/spec.py= in the schema repository and served at
+=https://spec.starintel.actor/star/0.10.1= (see docs/spec-serving.md there).
+Hackmode owns its typed runtime vocabulary and maps it onto StarIntel
+dtypes only at the projection boundary; dtype support is validated against
+the compiled imported graph, never a hardcoded list, so no second StarIntel
+document schema exists inside Hackmode.
 
 | Hackmode document  | Persistence | StarIntel 0.10.1 dtype |
 |--------------------+-------------+------------------------|

@@ -9,6 +9,7 @@
                #:hackmode-database
                #:starintel
                #:starlang-compiler
+               #:starlang-prototype
                #:star-sento-compat
                #:jsown
                #:local-time

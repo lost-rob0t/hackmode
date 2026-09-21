@@ -5,8 +5,10 @@
 
 :- module(hackmode_actor_ontology, [ontology_library/2, document/3, predicate_/3, message/1, message_field/4, actor/5, invariant/1, projectable/2, requires/2, consumes/2, evidence_path/1]).
 
-%% Ontology identity: self-contained spec library, one .star file.
+%% Ontology identity: hackmode library imports the canonical starintel core.
 ontology_library('dev.hackmode/core@1', 'spec/hackmode-core.star').
+ontology_imports('org.starintel/core@1', 'spec/vendor/starintel-core-0.10.1.star',
+                 'sha256:0c6a50a12a9779a0e760cd48d6e4f3bf3fdadf04e61ec3cb67f8685fe64499a5').
 
 %% document(Name, Persistence, ProjectsTo).
 %% ProjectsTo is a 0.10.1 dtype atom, local_only, or runtime_state.

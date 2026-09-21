@@ -58,3 +58,17 @@ absent_dtype(service).
 absent_dtype(scope).
 absent_dtype(asn).
 absent_dtype(cert).
+
+%% --- HTTP spec deployment (2026-09-21) --------------------------------------
+%% Canonical repo branch spec/http-deployment (commit 021e30ab) adds:
+%%   scripts/star-lang-export.py  -> spec/star/starintel-core-0.10.1.star
+%%   scripts/serve-spec.py        -> stdlib HTTP registry
+%%   routes: /releases /schema/<v> /manifest/<v> /star/<v> /sha256/<v> /lock/<v>
+%% Generated library: org.starintel/core@1, :version "0.10.1", 59 documents
+%% (58 dtypes + starintel-document base), enum scalars for enum wire fields.
+star_export(digest('sha256:0c6a50a12a9779a0e760cd48d6e4f3bf3fdadf04e61ec3cb67f8685fe64499a5')).
+spec_registry_service('scripts/serve-spec.py', stdlib_only).
+spec_registry_routes(['/releases','/schema/<v>','/manifest/<v>','/star/<v>','/sha256/<v>','/lock/<v>']).
+spec_registry_domain('spec.starintel.actor').   % matches SCHEMA_ID $id host
+%% Infra: modules/spec-registry-service.nix on host web, inventory service
+%% spec-registry, DNS "spec" CNAME -> ord-edge, loopback 8787 behind shared-web.

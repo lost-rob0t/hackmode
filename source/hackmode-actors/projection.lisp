@@ -26,8 +26,15 @@
 
 DATA is a jsown object holding the dtype payload with snake_case field names.
 The envelope shape is the starintel-core 0.10.1 authority: _id, dataset, dtype,
-schema_version, version, date_added, date_updated, sources, evidence, data."
+schema_version, version, date_added, date_updated, sources, evidence, data.
+DTYPE must exist in the canonical starintel core vocabulary (checked against
+the digest-locked imported spec graph, never a hardcoded list)."
   (declare (ignore tags-p provenance-p))
+  (unless (starintel-dtype-declared-p dtype)
+    (error 'ontology-error
+           :message (format nil
+                            "canonical starintel core does not declare dtype ~s"
+                            dtype)))
   (let ((envelope (jsown:empty-object)))
     (setf (jsown:val envelope "_id") id
           (jsown:val envelope "dataset") dataset

@@ -88,7 +88,39 @@
       (assert-equal '() (hackmode-actors:ontology-wire-message-payload wire)
                     "wire payload"))))
 
+(defun run-canonical-spec-consumption-test ()
+  ;; The ontology imports the canonical starintel core with a digest lock.
+  (let* ((graph (hackmode-actors:hackmode-starintel-graph :force t))
+         (libraries (mapcar #'star-lang.loader:library-node-name
+                            (star-lang.loader:loaded-graph-libraries graph)))
+         (core (hackmode-actors::starintel-core-node)))
+    (assert (member hackmode-actors:*starintel-core-library-name*
+                    libraries
+                    :test #'string=))
+    ;; Digest lock verified at load time and exposed by the loaded node.
+    (assert (string= hackmode-actors:*starintel-core-digest*
+                     (star-lang.loader:library-node-digest core))
+            ()
+            "canonical starintel core digest mismatch")
+    ;; Projection support derives from the canonical vocabulary.
+    (dolist (dtype '("domain" "host" "url" "operation" "research-node"
+                     "http-transaction" "web-capture"))
+      (assert (hackmode-actors:starintel-dtype-declared-p dtype) ()
+              "canonical core should declare ~a" dtype))
+    ;; The 0.10.1 vocabulary has no port/finding/cert dtypes; hackmode keeps
+    ;; them local-only and the projection must refuse them.
+    (dolist (dtype '("port" "finding" "cert"))
+      (assert (not (hackmode-actors:starintel-dtype-declared-p dtype)) ()
+              "canonical core should NOT declare ~a" dtype))
+    (assert
+     (signals-condition-p
+      'hackmode-actors:ontology-error
+      (lambda ()
+        (hackmode-actors:make-starintel-envelope
+         "x" "star-intel" "port" (jsown:empty-object)))))))
+
 (defun run-ontology-tests ()
   (run-ontology-load-test)
   (run-ontology-contract-test)
-  (run-message-validation-test))
+  (run-message-validation-test)
+  (run-canonical-spec-consumption-test))

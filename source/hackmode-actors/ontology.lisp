@@ -30,11 +30,6 @@ spec/ directory at the repository root next to this system's source tree.")
 (defvar *hackmode-ontology* nil
   "Memoized compiled ontology: (LIBRARY ACTOR-IRS . MANIFEST).")
 
-(defun clear-hackmode-ontology ()
-  "Forget the memoized compiled ontology so the next load recompiles."
-  (setf *hackmode-ontology* nil)
-  t)
-
 (defun load-hackmode-ontology (&key (force nil))
   "Compile hackmode-core.star plus every actor spec and return the manifest.
 
@@ -187,3 +182,55 @@ runtime data must not be silently destroyed by validation."
                   :message (format nil "field ~s of ~s is not a ~s: ~s"
                                    name message-type type value))))))
     t))
+
+;;; --- Canonical StarIntel spec consumption -----------------------------------
+;;;
+;;; The ontology imports the canonical starintel core library
+;;; (org.starintel/core@1) with a full SHA-256 lock over the vendored
+;;; byte-identical copy in spec/vendor/. The loader verifies the digest at
+;;; load time, so dtype support below is derived from the canonical
+;;; vocabulary rather than hardcoded assumptions.
+
+(defparameter *starintel-core-library-name* "org.starintel/core@1")
+
+(defparameter *starintel-core-digest*
+  "sha256:0c6a50a12a9779a0e760cd48d6e4f3bf3fdadf04e61ec3cb67f8685fe64499a5")
+
+(defvar *starintel-graph* nil
+  "Memoized loaded ontology graph including the imported starintel core.")
+
+(defun clear-hackmode-ontology ()
+  "Forget the memoized compiled ontology so the next load recompiles."
+  (setf *hackmode-ontology* nil
+        *starintel-graph* nil)
+  t)
+
+(defun hackmode-starintel-graph (&key (force nil))
+  "Load the digest-locked ontology graph (root + imported starintel core).
+
+Returns the loader graph; the root library node carries the Hackmode
+vocabulary, the imported node carries the canonical StarIntel vocabulary."
+  (when (or force (null *starintel-graph*))
+    (setf *starintel-graph*
+          (star-lang.loader:load-star-file (ontology-library-file)
+                                        :allow-network nil)))
+  *starintel-graph*)
+
+(defun starintel-core-node ()
+  "Return the loaded canonical starintel core library node."
+  (find *starintel-core-library-name*
+        (star-lang.loader:loaded-graph-libraries (hackmode-starintel-graph))
+        :key #'star-lang.loader:library-node-name
+        :test #'string=))
+
+(defun starintel-core-declarations ()
+  (let ((node (starintel-core-node)))
+    (and node
+         (getf (star-lang.loader:library-node-compiled node) :declarations))))
+
+(defun starintel-dtype-declared-p (dtype)
+  "Return true when the canonical starintel core vocabulary declares DTYPE."
+  (and (find dtype (starintel-core-declarations)
+             :key (lambda (declaration) (getf declaration :name))
+             :test #'string=)
+       t))
