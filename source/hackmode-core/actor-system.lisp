@@ -16,7 +16,8 @@
             (sento.actor-system:make-actor-system
              '(:dispatchers
                (:outbox (:workers 1 :strategy :random)
-                :providers (:workers 4 :strategy :random))
+                :providers (:workers 4 :strategy :random)
+                :bbp (:workers 4 :strategy :random))
                :timeout-timer
                (:resolution 100 :max-size 100))))))
 

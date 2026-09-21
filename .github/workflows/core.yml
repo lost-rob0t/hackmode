@@ -43,78 +43,38 @@ jobs:
         run: |
           set -euo pipefail
           rm -rf deps/sento-ci
-          git clone --filter=blob:none --no-checkout \
-            https://github.com/mdbergmann/cl-gserver.git \
-            deps/sento-ci
-          git -C deps/sento-ci fetch --depth=1 origin \
-            6a510c5b58469e72e6363bd3a6059d80b9a5c320
-          git -C deps/sento-ci checkout --detach \
-            6a510c5b58469e72e6363bd3a6059d80b9a5c320
+          git clone --filter=blob:none --no-checkout             https://github.com/mdbergmann/cl-gserver.git             deps/sento-ci
+          git -C deps/sento-ci fetch --depth=1 origin             6a510c5b58469e72e6363bd3a6059d80b9a5c320
+          git -C deps/sento-ci checkout --detach             6a510c5b58469e72e6363bd3a6059d80b9a5c320
           test -f deps/sento-ci/sento.asd
 
       - name: Checkout pinned cms-ulid
         shell: bash
         run: |
           set -euo pipefail
-          git clone --filter=blob:none --no-checkout \
-            https://gitlab.com/colinstrickland/cms-ulid.git \
-            deps/cms-ulid-ci
-          git -C deps/cms-ulid-ci fetch --depth=1 origin \
-            fff84302dee5db42fb90aafd834af3ffbfd6c2bb
-          git -C deps/cms-ulid-ci checkout --detach \
-            fff84302dee5db42fb90aafd834af3ffbfd6c2bb
+          git clone --filter=blob:none --no-checkout             https://gitlab.com/colinstrickland/cms-ulid.git             deps/cms-ulid-ci
+          git -C deps/cms-ulid-ci fetch --depth=1 origin             fff84302dee5db42fb90aafd834af3ffbfd6c2bb
+          git -C deps/cms-ulid-ci checkout --detach             fff84302dee5db42fb90aafd834af3ffbfd6c2bb
 
       - name: Install native dependencies
         shell: bash
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            sbcl \
-            swi-prolog-nox \
-            liblmdb-dev \
-            libffi-dev \
-            libssl-dev \
-            curl
+          sudo apt-get install -y --no-install-recommends             sbcl             swi-prolog-nox             liblmdb-dev             libffi-dev             libssl-dev             curl
 
       - name: Install Quicklisp
         shell: bash
         run: |
           set -euo pipefail
-          curl --retry 5 --retry-all-errors -fsSLo "$RUNNER_TEMP/quicklisp.lisp" \
-            https://beta.quicklisp.org/quicklisp.lisp
-          sbcl --non-interactive \
-            --load "$RUNNER_TEMP/quicklisp.lisp" \
-            --eval '(quicklisp-quickstart:install :path (merge-pathnames "quicklisp/" (user-homedir-pathname)))'
+          curl --retry 5 --retry-all-errors -fsSLo "$RUNNER_TEMP/quicklisp.lisp"             https://beta.quicklisp.org/quicklisp.lisp
+          sbcl --non-interactive             --load "$RUNNER_TEMP/quicklisp.lisp"             --eval '(quicklisp-quickstart:install :path (merge-pathnames "quicklisp/" (user-homedir-pathname)))'
 
       - name: Load Hackmode and run ASDF tests
         shell: bash
         run: |
           set -euo pipefail
-          sbcl --non-interactive \
-            --load "$HOME/quicklisp/setup.lisp" \
-            --eval '(push (truename "deps/cms-ulid-ci/") asdf:*central-registry*)' \
-            --eval '(push (truename "deps/sento-ci/") asdf:*central-registry*)' \
-            --eval '(asdf:load-asd (truename "deps/tek9-ci/src/tek9.asd"))' \
-            --eval '(asdf:load-asd (truename "deps/star-cl-ci/src/starintel.asd"))' \
-            --eval '(asdf:load-asd (truename "deps/sento-ci/sento.asd"))' \
-            --eval '(asdf:load-asd (truename "source/hackmode-core/hackmode.asd"))' \
-            --eval '(asdf:load-asd (truename "source/hackmode-core/hackmode-tests.asd"))' \
-            --eval '(asdf:load-asd (truename "source/hackmode-database/hackmode-database.asd"))' \
-            --eval '(asdf:load-asd (truename "source/hackmode-database/hackmode-database-tests.asd"))' \
-            --eval '(asdf:load-asd (truename "source/hackmode-providers/dns/hackmode-provider-dns.asd"))' \
-            --eval '(asdf:load-asd (truename "source/hackmode-providers/dns/hackmode-provider-dns-tests.asd"))' \
-            --eval '(asdf:load-asd (truename "source/hackmode-providers/recon/hackmode-provider-recon.asd"))' \
-            --eval '(asdf:load-asd (truename "source/hackmode-providers/recon/hackmode-provider-recon-tests.asd"))' \
-            --eval '(ql:quickload :hackmode-tests)' \
-            --eval '(ql:quickload :hackmode-database-tests)' \
-            --eval '(ql:quickload :hackmode-provider-dns-tests)' \
-            --eval '(ql:quickload :hackmode-provider-recon-tests)' \
-            --eval '(asdf:test-system :hackmode)' \
-            --eval '(asdf:test-system :hackmode-database)' \
-            --eval '(asdf:test-system :hackmode-provider-dns)' \
-            --eval '(asdf:test-system :hackmode-provider-recon)' \
-            2>&1 | tee "$RUNNER_TEMP/hackmode-core.log"
+          sbcl --non-interactive             --load "$HOME/quicklisp/setup.lisp"             --eval '(push (truename "deps/cms-ulid-ci/") asdf:*central-registry*)'             --eval '(push (truename "deps/sento-ci/") asdf:*central-registry*)'             --eval '(asdf:load-asd (truename "deps/tek9-ci/src/tek9.asd"))'             --eval '(asdf:load-asd (truename "deps/star-cl-ci/src/starintel.asd"))'             --eval '(asdf:load-asd (truename "deps/sento-ci/sento.asd"))'             --eval '(asdf:load-asd (truename "source/hackmode-core/hackmode.asd"))'             --eval '(asdf:load-asd (truename "source/hackmode-core/hackmode-tests.asd"))'             --eval '(asdf:load-asd (truename "source/hackmode-database/hackmode-database.asd"))'             --eval '(asdf:load-asd (truename "source/hackmode-database/hackmode-database-tests.asd"))'             --eval '(asdf:load-asd (truename "source/hackmode-providers/dns/hackmode-provider-dns.asd"))'             --eval '(asdf:load-asd (truename "source/hackmode-providers/dns/hackmode-provider-dns-tests.asd"))'             --eval '(asdf:load-asd (truename "source/hackmode-providers/recon/hackmode-provider-recon.asd"))'             --eval '(asdf:load-asd (truename "source/hackmode-providers/recon/hackmode-provider-recon-tests.asd"))'             --eval '(asdf:load-asd (truename "source/hackmode-providers/bbp/hackmode-provider-bbp.asd"))'             --eval '(asdf:load-asd (truename "source/hackmode-bbp/hackmode-bbp.asd"))'             --eval '(asdf:load-asd (truename "source/hackmode-bbp/hackmode-bbp-tests.asd"))'             --eval '(ql:quickload :hackmode-tests)'             --eval '(ql:quickload :hackmode-database-tests)'             --eval '(ql:quickload :hackmode-provider-dns-tests)'             --eval '(ql:quickload :hackmode-provider-recon-tests)'             --eval '(ql:quickload :hackmode-bbp-tests)'             --eval '(asdf:test-system :hackmode)'             --eval '(asdf:test-system :hackmode-database)'             --eval '(asdf:test-system :hackmode-provider-dns)'             --eval '(asdf:test-system :hackmode-provider-recon)'             --eval '(asdf:test-system :hackmode-bbp)'             2>&1 | tee "$RUNNER_TEMP/hackmode-core.log"
 
       - name: Upload Common Lisp diagnostic log
         if: always()
