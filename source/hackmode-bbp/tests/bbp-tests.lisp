@@ -47,30 +47,23 @@
 (defun run-actor-dispatch-test ()
   (let* ((root (fresh-test-path))
          (db (tek9:new-database "bbp" :path root))
+         (source (jsown:empty-object))
          (target
-           (hackmode-bbp:make-bbp-target
-            :id "target-2"
-            :actor "subfinder"
-            :value "example.com"
-            :dataset "dataset-2")))
+           (progn
+             (setf (jsown:val source "kind") "manual"
+                   (jsown:val source "name") "operator")
+             (hackmode-bbp:make-bbp-target
+              :id "target-2"
+              :actor "subfinder"
+              :value "example.com"
+              :dataset "dataset-2"
+              :sources (list source)))))
     (unwind-protect
          (progn
            (tek9:open-database db)
            (hackmode:clear-capability-providers)
-           (hackmode:register-capability-provider
-            :subdomain-enumerate :subfinder
-            (lambda (domain)
-              (declare (ignore domain))
-              (list
-               (make-instance 'hackmode:domain
-                              :record "a.example.com"
-                              :record-type "A"
-                              :tool "fixture")))
-            :input-type 'hackmode:domain
-            :output-types '(hackmode:domain)
-            :priority 1)
-           ;; Start after fixture registration, then replace the real registration
-           ;; deterministically so no external binary is required by this test.
+           ;; START-BBP-SUPERVISOR registers production providers. Replace the
+           ;; selected provider afterward so this test has no network/tool dependency.
            (hackmode-bbp:start-bbp-supervisor :database db)
            (hackmode:register-capability-provider
             :subdomain-enumerate :subfinder
@@ -80,7 +73,7 @@
                (make-instance 'hackmode:domain
                               :record "a.example.com"
                               :record-type "A"
-                              :tool "fixture")))
+                              :tool "subfinder")))
             :input-type 'hackmode:domain
             :output-types '(hackmode:domain)
             :priority 1)
@@ -91,9 +84,27 @@
                (assert result () "BBP future did not resolve.")
                (assert (eq :succeeded
                            (hackmode-bbp:bbp-scan-result-state result)))
+               ;; Legacy BBPD emits the Subfinder root plus each discovered child.
+               (assert (= 2
+                          (length
+                           (hackmode-bbp:bbp-scan-result-documents result))))
                (assert (= 1
                           (length
-                           (hackmode-bbp:bbp-scan-result-documents result)))))))
+                           (hackmode-bbp:bbp-scan-result-relations result))))
+               (let* ((child
+                        (second
+                         (hackmode-bbp:bbp-scan-result-documents result)))
+                      (sources (jsown:val child "sources")))
+                 (assert (= 2 (length sources)))
+                 (assert-equal "manual"
+                               (jsown:val (first sources) "kind")
+                               "inherited source kind")
+                 (assert-equal "tool"
+                               (jsown:val (second sources) "kind")
+                               "derived tool source kind")
+                 (assert-equal "subfinder"
+                               (jsown:val (second sources) "name")
+                               "derived tool source name")))))
       (ignore-errors (hackmode-bbp:stop-bbp-supervisor))
       (ignore-errors (hackmode:stop-hackmode-actor-system))
       (hackmode:clear-capability-providers)
