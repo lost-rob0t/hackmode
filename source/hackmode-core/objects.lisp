@@ -24,7 +24,8 @@
 
 (defclass host (meta)
   ((hostname :initarg :hostname :initform "" :type string :accessor doc-host)
-   (ip :initarg :ip :initform "" :type string :accessor doc-ip)))
+   (ip :initarg :ip :initform "" :type string :accessor doc-ip)
+   (services :initarg :services :initform nil :type list :accessor doc-services)))
 
 (defclass port (meta)
   ((number :initarg :number :initform 0 :type integer :accessor doc-port)
