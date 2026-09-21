@@ -6,7 +6,8 @@
   (value "" :type string)
   (dataset "star-intel" :type string)
   (sources nil :type list)
-  options)
+  options
+  extensions)
 
 (defstruct bbp-scan-result
   target
@@ -19,6 +20,30 @@
 
 (defvar *bbp-supervisor* nil
   "Current Hackmode BBP supervisor actor.")
+
+(defun bbp-target-from-starintel-json (payload)
+  "Decode one canonical StarIntel v0.9 target into the BBP execution contract."
+  (let* ((object (if (stringp payload) (jsown:parse payload) payload))
+         (document (starintel:decode object 'starintel:target)))
+    (make-bbp-target
+     :id (starintel:doc-id document)
+     :actor (starintel:target-actor document)
+     :value (starintel:target-target document)
+     :dataset (starintel:doc-dataset document)
+     :sources (copy-list (starintel:doc-sources document))
+     :options (copy-list (starintel:target-options document))
+     :extensions (starintel:doc-extensions document))))
+
+(defun make-bbp-event (actor-name event-type details source-id)
+  "Create the legacy BBPD actor-event wire object."
+  (let ((event (jsown:empty-object)))
+    (setf (jsown:val event "_id") (starintel:make-ulid)
+          (jsown:val event "timestamp") (hackmode:unix-now)
+          (jsown:val event "actorName") actor-name
+          (jsown:val event "eventType") event-type
+          (jsown:val event "details") details
+          (jsown:val event "sourceId") source-id)
+    event))
 
 (defun canonical-actor-name (actor)
   (substitute #\- #\_ (string-downcase (string actor))))
@@ -91,7 +116,9 @@
           (hackmode:asset->starintel-document
            asset :dataset (bbp-target-dataset target))))
     (when document
-      (setf (starintel:doc-sources document) (derived-sources target))
+      (setf (starintel:doc-sources document) (derived-sources target)
+            (starintel:doc-extensions document)
+            (or (bbp-target-extensions target) (jsown:empty-object)))
       document)))
 
 (defun subfinder-root-document (target)
@@ -190,7 +217,10 @@
                              (bbp-target-dataset target)
                              source-id predicate target-id)
                             (starintel:doc-sources relation)
-                            (derived-sources target))
+                            (derived-sources target)
+                            (starintel:doc-extensions relation)
+                            (or (bbp-target-extensions target)
+                                (jsown:empty-object)))
                       relation))))))
 
 (defun provider-result->scan-result (target result)
