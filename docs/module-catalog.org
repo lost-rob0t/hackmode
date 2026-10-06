@@ -1,0 +1,149 @@
+#+title: Module catalog protocol
+
+* Scope and loading
+
+The =hackmode/modules= ASDF secondary system provides dependency-free module
+metadata, registry, validated instance descriptions, and an in-process request /
+result protocol in the public =hackmode-modules= package. The main =hackmode=
+system depends on it and exposes =hackmode:start-module-catalog-actor= on the
+existing shared Sento runtime.
+
+This slice describes modules. Instantiation validates options and binds an
+operation identifier; it does not execute functions, exploits, payloads, provider
+calls, network activity, or session control. Provider, capability, session,
+compatibility, result-schema, and lifecycle fields remain descriptive metadata.
+The legacy exported exploit API is retained, including selection with =use=.
+
+* Descriptors and registry
+
+=make-module-descriptor= accepts =id=, =version=, =family=, =title=,
+=description=, =authors=, =tags=, =references=, =platforms=, =architectures=,
+=options=, =capability=, =provider=, =result-schema=, =session-types=,
+=compatible-payloads=, and =lifecycle= (=:current= by default or =:deprecated=). =module-info= returns those fields in a
+plist with =:schema-version 1=. Options are option-info plists in that projection.
+
+The first-class families are recon, scan, fingerprinting, exploit, post-exploit,
+and payload. Custom families are accepted without modifying the implementation.
+Names (IDs, option names, families, capability, provider, and compatible-payload
+IDs) accept strings or symbols,
+are lowercased, and may contain only ASCII letters, digits, and =-._/@+=.
+Tags, platforms, architectures, and session types are nonempty string lists that
+preserve spelling and content; matching is case-insensitive. A provider requires
+a capability. Versions are exact, nonempty strings; no ordering implies a latest
+version.
+
+=make-module-registry= returns an isolated registry. All registry functions take
+=:registry=, defaulting to =*module-registry*=. =register-module= stores a
+snapshot and rejects duplicate exact id/version pairs. =find-module= and =unregister-module= require both id and version.
+=list-modules= returns detached descriptor objects sorted by ID then version
+string. Optional family/capability and all requested tags must match. Query is
+a case-insensitive literal substring over descriptive text. =list-module-families=
+returns sorted built-ins and the registry's custom families.
+
+=module-payload-compatible-p= checks a candidate descriptor in the payload family.
+If compatible-payload IDs are declared, its normalized ID must match. Platform,
+architecture, and session-type dimensions must intersect when both descriptors
+constrain that dimension. An empty dimension is unconstrained; this is metadata
+compatibility, not a claim about a running session.
+
+* Typed options and operation-scoped instances
+
+=make-module-option= takes =name=, =type=, =description=, =required= (or
+=required-p=), =choices=, =default=, and =default-present-p=. Types are =string=,
+=integer=, =boolean=, =enum=, =string-list=, =asset-reference=, =path=, and
+=credential-reference=. References and paths are nonempty opaque strings; no
+lookup or filesystem access occurs. Boolean values are exactly =t= or =nil=.
+Enum choices use local Lisp =equal= semantics and can include keywords and dotted
+list data. Only enum options accept choices.
+
+An omitted default and an explicit =nil= default remain distinct. Supplying
+=:default nil= marks the default present unless =default-present-p= explicitly
+overrides that presence. =module-option-info= exposes the presence bit. Defaults
+are type-checked at construction.
+
+=instantiate-module= takes a descriptor, nonempty operation ID, and optional
+=:options= name/value alist. For example, =(("enabled" . nil) ("count" . 2))=
+contains an explicit false boolean. Unknown names, duplicate names, missing
+required values, and wrong types signal =module-validation-error=. Required
+options can be satisfied by defaults. Absent optional options without defaults
+are omitted from the effective values.
+
+=module-instance-info= returns =:schema-version=, =:id=, =:version=, =:family=,
+=:operation-id=, =:module= (a detached full descriptor snapshot), and =:options=. Effective options are plists with =:name=,
+=:value=, and =:source= (=:default= or =:instance=). This retains the source of
+each effective value without confusing false with absence.
+
+* Ownership and local-data fidelity
+
+Constructors, registration, lookups, and info accessors defensively copy mutable
+strings and conses. Returned descriptors and results cannot mutate registry
+records through the public API. Result-schema and enum values retain
+keywords, dotted-list shape, and exact string content. Cycles, functions, opaque
+objects, and non-string arrays are rejected rather than coerced, serialized, or
+silently dropped. Registry writes require serialized access; the native actor
+provides serialized request handling, and direct callers must serialize mutation.
+
+* Catalog request and result API
+
+=make-module-catalog-request= accepts =request-id=, =operation-id=, =command=,
+=id=, =version=, =family=, =query=, =tags=, =capability=, and =options=.
+Every request needs a nonempty request ID. Operation ID is optional for discovery
+and required for instantiation. Describe and instantiate require exact id/version.
+
+- =:families=: value is a list of family strings.
+- =:list=: value is a list of descriptor-info plists, with optional filters.
+- =:describe=: value is one descriptor-info plist.
+- =:instantiate=: value is one instance-info plist.
+
+=handle-module-catalog-request= returns a =module-catalog-result=.
+=module-catalog-result-info= returns =:request-id=, =:operation-id=, =:status=,
+and =:value=. Status is =:ok=, =:not-found= (value =nil=), or =:invalid-request=
+(value is a =:field= / =:reason= error plist). Invalid constructor arguments
+signal =module-validation-error= immediately; a malformed non-request object sent
+to the handler becomes an invalid-request result without correlation identifiers.
+Validation during handling preserves the valid request's correlation IDs.
+
+=make-module-catalog-receiver= takes =:registry= and an optional =:reply=
+function of one result. It returns a function of one typed request. The callback
+receives a detached result, and the same call returns its own result synchronously.
+The native actor validates the receiver before creating any runtime. Its default
+owned dispatcher is =:providers=, and unnamed starts create independent actors.
+It preserves synchronous =sento.actor:ask-s= return values and explicitly replies through
+=sento.actor:*sender*= for asynchronous asks or tells with a sender.
+
+* Validation
+
+Run =asdf:test-system "hackmode/modules"= for the dependency-free suite. Run
+=asdf:test-system "hackmode"= for the existing core suite, which also includes
+the module suite, native Sento synchronous/asynchronous delivery smoke tests,
+invalid-registry no-runtime-start regression, and legacy exploit selection.
+
+The rebuilt candidate was statically inspected in an environment with no Common
+Lisp executable. No Lisp load, compile, core test, or actor smoke pass is claimed.
+
+* StarLang ontology summary adapter
+
+The composed adapter uses exact PR #205 head
+=7e4c6e0525904e18e3c8d93133fd8f800536aa86=. Its =module-catalog= actor uses the
+same registry, the existing =type=/=payload= envelope, and the shared Sento
+runtime through =star-sento-compat=. Native ontology declarations expose family
+discovery, filtered list and exact-version describe with correlated results.
+
+Responses are explicitly summary projections. They carry identity/version,
+family/title/description, authors/references/tags, platform/architecture,
+provider binding, session compatibility and lifecycle. Descriptor summaries
+report =options= and =resultSchema= in =omittedFields=. Those local values can
+contain Lisp keywords and dotted lists without an agreed lossless wire carrier.
+A =detail="full"= request receives =unsupported= and =projection="none"=;
+values are not stringified, removed from the source descriptor, or claimed to
+be fully represented. Full local metadata remains available through =module-info=.
+
+The canonical StarIntel 0.10.1 import and digest remain unchanged. The added
+transient =module-summary= is a Hackmode runtime contract, not a StarIntel dtype.
+Network transport/registration, wire configuration, a Lisp value codec, and
+session execution are deferred. PR #204's A2A proposal is not adopted.
+
+The exact pinned StarLang compiler is
+=09f3b6dab15a9bcb9b5dd7866735d65301571211=. Runtime verification must compile its
+portable manifest/schema IR; this older pin does not contain the later standalone
+JSON-schema generator. The rebuilt tests are supplied for a future runtime run.

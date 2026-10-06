@@ -48,6 +48,7 @@ document schema exists inside Hackmode.
 | capture-session    | transient   | runtime state          |
 | provider-job       | transient   | runtime state          |
 | outbox-entry       | transient   | runtime state          |
+| module-summary     | transient   | catalog projection only |
 
 =port= and =finding= stay local until the StarIntel spec grows dtypes for
 them; the 0.10.1 authority has neither.
@@ -62,11 +63,43 @@ them; the 0.10.1 authority has neither.
 | capture-supervisor   | start-capture, stop-capture            | capture-state                     | manage IPX capture    |
 | replay               | replay-spool                           | enqueue-document                  | fold spool evidence   |
 | expert-advisor       | classify-target, recommend-capabilities| expert-recommendation             | advisory reasoning    |
+| module-catalog       | module-families/list/describe-request | module-catalog-result              | catalog summaries     |
 
 Actors are compiled from the =.star= files with =starlangcompiler=, compared
 against the compiled portable manifest, and spawned onto the shared Hackmode
 Sento system through =starsentocompat= (the star-lang runtime port). Host
 handler functions own all effects; the actor specs own all contracts.
+
+The current spawning adapter forwards handler and dispatcher selection. Restart
+and mailbox values remain declarations; this slice does not claim their runtime
+enforcement.
+
+* Module summary contracts
+
+The =module-catalog= actor uses these versioned native declarations:
+
+- =hackmode/module-families-request@1=
+- =hackmode/module-list-request@1=
+- =hackmode/module-describe-request@1=
+- =hackmode/module-catalog-result@1=
+
+Requests carry =requestId= and optional =operationId=. List supports
+family/text/tag/capability filters. Describe requires exact =moduleId= and
+=moduleVersion=. Family names are extensible strings. Results echo correlation
+fields and declare status/projection; the handler validates accepts/produces and
+nested =module-summary= fields.
+
+Every descriptor-summary result explicitly identifies =options= and
+=resultSchema= as omitted. Their authoritative Lisp values remain unchanged in
+the local catalog. =detail="full"= is unsupported until a lossless value carrier
+is agreed. Catalog queries never dispatch providers or write operation state.
+The StarIntel import and its digest are unchanged; no new StarIntel dtype or
+network transport is introduced.
+
+The rebuilt candidate has fresh static source/schema checks only. Common Lisp,
+StarLang compilation and real actor tests must be rerun in a runtime-equipped
+environment; prior results from the lost workspace are not verification of this
+new candidate.
 
 * Invariants
 

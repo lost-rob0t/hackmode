@@ -25,6 +25,7 @@ document(research-node,   persistent, research-node).     %% expert objective st
 document(capture-session, transient,   runtime_state).
 document(provider-job,    transient,   runtime_state).
 document(outbox-entry,    transient,   runtime_state).
+document(module-summary,  transient,   runtime_state).
 
 %% predicate_(Name, Source, Destination) — ontology relations.
 predicate_(resolves-to,    domain, host).
@@ -73,6 +74,35 @@ message_field(recommend-capabilities, target, string, required).
 message(expert-recommendation).
 message_field(expert-recommendation, capability, string, required).
 message_field(expert-recommendation, reason, string, optional).
+message(module-families-request).
+message_field(module-families-request, requestId, string, required).
+message_field(module-families-request, operationId, string, optional).
+message(module-list-request).
+message_field(module-list-request, requestId, string, required).
+message_field(module-list-request, operationId, string, optional).
+message_field(module-list-request, family, string, optional).
+message_field(module-list-request, query, string, optional).
+message_field(module-list-request, tags, list_of_string, optional).
+message_field(module-list-request, capability, string, optional).
+message_field(module-list-request, detail, module_catalog_detail_kind, optional).
+message(module-describe-request).
+message_field(module-describe-request, requestId, string, required).
+message_field(module-describe-request, operationId, string, optional).
+message_field(module-describe-request, moduleId, string, required).
+message_field(module-describe-request, moduleVersion, string, required).
+message_field(module-describe-request, detail, module_catalog_detail_kind, optional).
+message(module-catalog-result).
+message_field(module-catalog-result, requestId, string, required).
+message_field(module-catalog-result, operationId, string, optional).
+message_field(module-catalog-result, command, module_catalog_command_kind, required).
+message_field(module-catalog-result, status, module_catalog_status_kind, required).
+message_field(module-catalog-result, projection, module_catalog_projection_kind, required).
+message_field(module-catalog-result, omittedFields, list_of_string, required).
+message_field(module-catalog-result, families, list_of_string, optional).
+message_field(module-catalog-result, modules, list_of_module_summary, optional).
+message_field(module-catalog-result, module, module_summary, optional).
+message_field(module-catalog-result, errorField, string, optional).
+message_field(module-catalog-result, errorReason, string, optional).
 
 %% actor(Name, File, Accepts, Produces, Role).
 actor(asset-monitor,       'spec/actors/asset-monitor.star',
@@ -87,12 +117,17 @@ actor(replay,              'spec/actors/replay.star',
       [replay-spool],                        [enqueue-document], fold_spool_evidence).
 actor(expert-advisor,      'spec/actors/expert-advisor.star',
       [classify-target, recommend-capabilities], [expert-recommendation], advisory_reasoning).
+actor(module-catalog,      'spec/actors/module-catalog.star',
+      [module-families-request, module-list-request, module-describe-request],
+      [module-catalog-result], catalog_summaries).
 
 %% Invariants the implementation must uphold.
 invariant(lossless_evidence).        %% http-exchange keeps exact observed headers
 invariant(advisory_expert).          %% expert actor never mutates; producers are CL effects
 invariant(projection_from_authority).%% emitted schema_version must equal starintel_spec:emitted_schema_version
 invariant(one_starintel_schema).     %% no second document schema; 0.10.1 envelope only at the projection boundary
+invariant(module_catalog_summary).   %% omissions explicit; full local descriptors remain intact
+invariant(catalog_has_no_dispatch).  %% catalog queries do not execute providers
 
 %% --- Expert rules ----------------------------------------------------------
 

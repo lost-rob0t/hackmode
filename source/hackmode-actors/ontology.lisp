@@ -85,11 +85,15 @@ pass FORCE to recompile from source."
         #'string<))
 
 (defun ontology-message-declaration (message-type)
-  (or (find message-type (ontology-declarations)
-            :test #'string=
-            :key (lambda (d) (getf d :name)))
-      (error 'ontology-message-error
-             :message (format nil "unknown ontology message type ~s" message-type))))
+  (let ((*print-circle* t))
+    (or (and (stringp message-type)
+             (find-if (lambda (declaration)
+                        (and (eq :message (getf declaration :kind))
+                             (or (equal message-type (getf declaration :name))
+                                 (equal message-type (getf declaration :qualified-name)))))
+                      (ontology-declarations)))
+        (error 'ontology-message-error
+               :message (format nil "unknown ontology message type ~s" message-type)))))
 
 (defun ontology-actor-names ()
   (mapcar (lambda (ir) (getf ir :name)) (hackmode-ontology-actors)))
@@ -136,24 +140,59 @@ pass FORCE to recompile from source."
     (when (eq (getf declaration :kind) :enum)
       (getf declaration :values))))
 
+(defun %wire-proper-list-p (value)
+  (and (listp value) (ignore-errors (list-length value)) t))
+
+(defun %wire-map-p (value)
+  (and (%wire-proper-list-p value)
+       (every (lambda (pair) (and (consp pair) (stringp (car pair)))) value)))
+
+(defun %wire-declaration (name)
+  (find-if (lambda (declaration)
+             (or (equal name (getf declaration :name))
+                 (equal name (getf declaration :qualified-name))))
+           (ontology-declarations)))
+
+(defun %wire-document-fields (declaration)
+  (append (when (getf declaration :extends)
+            (%wire-document-fields (%wire-declaration (getf declaration :extends))))
+          (getf declaration :fields)))
+
+(defun %wire-fields-match-p (fields value)
+  (and (%wire-map-p value)
+       (every (lambda (field)
+                (let ((entry (assoc (getf field :name) value :test #'string=)))
+                  (if entry
+                      (%wire-type-matches-p (getf field :type) (cdr entry))
+                      (not (getf field :required)))))
+              fields)))
+
 (defun %wire-type-matches-p (type value)
-  (let ((enum-values (%enum-values type)))
-    (cond
-      (enum-values
-       (and (stringp value) (member value enum-values :test #'string=)))
-      ((string= type "string") (stringp value))
-      ((string= type "integer") (integerp value))
-      ((string= type "decimal") (realp value))
-      ((string= type "boolean") (booleanp value))
-      ((string= type "map")
-       (and (listp value)
-            (every (lambda (pair) (and (consp pair) (stringp (car pair)))) value)))
-      ((string= type "reference") (stringp value))
-      ((string= type "any") t)
-      ((string= type "symbol") (symbolp value))
-      (t
-       ;; List constructors and unknown refinements pass structural checks only.
-       t))))
+  (cond
+    ((consp type)
+     (and (%wire-proper-list-p type) (= 2 (length type))
+          (case (first type)
+            (:list (and (%wire-proper-list-p value)
+                        (every (lambda (item) (%wire-type-matches-p (second type) item)) value)))
+            (:optional (or (null value) (%wire-type-matches-p (second type) value))))))
+    ((not (stringp type)) nil)
+    (t
+     (let ((enum-values (%enum-values type))
+           (declaration (%wire-declaration type)))
+       (cond
+         (enum-values (and (stringp value) (member value enum-values :test #'string=)))
+         ((eq :document (getf declaration :kind))
+          (%wire-fields-match-p (%wire-document-fields declaration) value))
+         ((string= type "string") (stringp value))
+         ((string= type "integer") (integerp value))
+         ((string= type "decimal") (realp value))
+         ((string= type "boolean") (or (eq value t) (null value)))
+         ((string= type "map") (%wire-map-p value))
+         ((string= type "reference") (stringp value))
+         ((string= type "any") t)
+         ((string= type "symbol") (symbolp value))
+         ;; Preserve the existing treatment of other named scalar refinements.
+         (t t))))))
 
 (defun validate-ontology-message (message-type payload)
   "Validate PAYLOAD (jsown-style alist) against the compiled MESSAGE-TYPE.
@@ -162,14 +201,19 @@ Signals ONTOLOGY-MESSAGE-ERROR when a required field is missing or a field
 value does not match its declared wire type. Unknown payload keys are left to
 the projection layer; the ontology is a contract for producers, and extra
 runtime data must not be silently destroyed by validation."
-  (let ((declaration (ontology-message-declaration message-type)))
+  (let* ((*print-circle* t)
+         (declaration (ontology-message-declaration message-type)))
+    (unless (%wire-map-p payload)
+      (error 'ontology-message-error
+             :message "message payload must be a proper string-keyed alist"))
     (dolist (field (getf declaration :fields))
       (let* ((name (getf field :name))
              (type (getf field :type))
-             (value (%payload-value payload name)))
+             (entry (assoc name payload :test #'string=))
+             (value (cdr entry)))
         (cond
           ((getf field :required)
-           (unless value
+           (unless entry
              (error 'ontology-message-error
                     :message (format nil "message ~s requires field ~s"
                                      message-type name)))
@@ -177,7 +221,7 @@ runtime data must not be silently destroyed by validation."
              (error 'ontology-message-error
                     :message (format nil "field ~s of ~s is not a ~s: ~s"
                                      name message-type type value))))
-          ((and value (not (%wire-type-matches-p type value)))
+          ((and entry (not (%wire-type-matches-p type value)))
            (error 'ontology-message-error
                   :message (format nil "field ~s of ~s is not a ~s: ~s"
                                    name message-type type value))))))

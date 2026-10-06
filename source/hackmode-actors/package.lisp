@@ -25,6 +25,7 @@
    #:make-ontology-wire-message
    #:ontology-wire-message-type
    #:ontology-wire-message-payload
+   #:handle-module-catalog-message
    ;; Canonical starintel spec consumption
    #:*starintel-core-library-name*
    #:*starintel-core-digest*

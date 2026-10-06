@@ -191,6 +191,8 @@
    :*provider-supervisor*
    :ensure-hackmode-actor-system
    :stop-hackmode-actor-system
+   ;; Module catalog actor
+   :start-module-catalog-actor
    ;; Outbox actor
    :start-outbox-actor
    :drain-outbox-async

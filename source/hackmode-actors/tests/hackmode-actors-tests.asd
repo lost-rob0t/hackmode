@@ -7,6 +7,7 @@
   :depends-on (#:hackmode-actors)
   :components ((:file "ontology-tests")
                (:file "projection-tests")
-               (:file "actor-tests"))
+               (:file "actor-tests")
+               (:file "module-catalog-tests"))
   :perform (test-op (operation component)
              (uiop:symbol-call :hackmode-actors-tests :run-all-tests)))

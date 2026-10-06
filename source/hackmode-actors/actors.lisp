@@ -25,7 +25,8 @@ The default resolver uses the current operation database.")
     (:provider-dispatcher . :providers)
     (:capture-supervisor . :shared)
     (:replay . :providers)
-    (:expert-advisor . :shared))
+    (:expert-advisor . :shared)
+    (:module-catalog . :shared))
   "Dispatcher per ontology actor on the shared Hackmode Sento system.")
 
 (defun %dispatch-for-actor (name)
@@ -201,6 +202,10 @@ The default resolver uses the current operation database.")
              recommendations))))
         (t (error "Expert advisor cannot handle ~s" type))))))
 
+(defun module-catalog-receive (message)
+  "Answer catalog summary queries without dispatch or persistence."
+  (%wire-reply (handle-module-catalog-message message)))
+
 (defun %handler-for-actor (name)
   "Return the host handler function declared by the actor spec."
   (let ((handler-id (ontology-actor-handler name)))
@@ -217,6 +222,8 @@ The default resolver uses the current operation database.")
        #'replay-receive)
       ((string= handler-id "hackmode-actor-expert-advisor")
        #'expert-advisor-receive)
+      ((string= handler-id "hackmode-actor-module-catalog")
+       #'module-catalog-receive)
       (t
        (error 'ontology-error
               :message (format nil "no host handler registered for ~s"
