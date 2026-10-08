@@ -15,24 +15,23 @@ the single authority for:
 - the actor topology (actors: service identity, accepts/produces, restart
   policy, mailbox bounds, host handler).
 
-The StarIntel projection layer in the same system emits documents under the
-current starintel-core release ([[https://github.com/lost-rob0t/starintel-gpt-auto-dig][canonical schema repo]]): release 0.10.1,
-=schema_version= = =0.10.1=, with the data-wrapped snake_case envelope
-={_id, dataset, dtype, schema_version, version, date_added, date_updated,
-sources, evidence, data}=.
+The StarIntel projection layer targets the canonical Star Language generated
+0.10.1 contract: flat lowerCamelCase fields with =id=, =dataset=, =dtype=,
+=schemaVersion= and Unix-second =createdAt=/=updatedAt=. Dtype fields live at
+that same level; there is no =data= wrapper.
 
 * Ontology layout
 
-The hackmode library (=dev.hackmode/core@1=) *imports* the canonical
-starintel core vocabulary (=org.starintel/core@1=, release 0.10.1) with a
-full SHA-256 digest lock over a vendored byte-identical copy in
-=spec/vendor/starintel-core-0.10.1.star=. The canonical library is generated
-from =starintel_doc/spec.py= in the schema repository and served at
-=https://spec.starintel.actor/star/0.10.1= (see docs/spec-serving.md there).
-Hackmode owns its typed runtime vocabulary and maps it onto StarIntel
-dtypes only at the projection boundary; dtype support is validated against
-the compiled imported graph, never a hardcoded list, so no second StarIntel
-document schema exists inside Hackmode.
+The immutable authority is =lost-rob0t/star-lang= at
+=fa1c8f4fb0590526c39aa3e9bc4a7e6eac30bea7=, authored in
+=specs/starintel/0.10.1/core.star=. =schema/starintel-schema.lock.json= pins the
+complete vendored release under =spec/vendor/starintel-0.10.1/=; the upstream
+consumer sync tool verifies every source/artifact digest. The ontology imports
+this core with its SHA-256 lock. CI checks the copy against that exact upstream
+commit. Tests validate actual Lisp projections against =generated/schema.json=.
+Hackmode retains its own ontology and maps it into canonical dtypes at the
+projection boundary. Historical core export APIs remain compatibility APIs;
+the ontology projection and its outbox path use the 0.10.1 contract.
 
 | Hackmode document  | Persistence | StarIntel 0.10.1 dtype |
 |--------------------+-------------+------------------------|
@@ -50,8 +49,8 @@ document schema exists inside Hackmode.
 | outbox-entry       | transient   | runtime state          |
 | module-summary     | transient   | catalog projection only |
 
-=port= and =finding= stay local until the StarIntel spec grows dtypes for
-them; the 0.10.1 authority has neither.
+=port= and =finding= have canonical dtypes. Their Hackmode asset adapters
+remain local in this bounded projection repair; =cert= is not a canonical dtype.
 
 * Actor topology
 
@@ -111,9 +110,9 @@ new candidate.
 - *One StarIntel schema*: the 0.10.1 envelope is produced only by
   =source/hackmode-actors/projection.lisp=; nothing else invents StarIntel
   shapes.
-- *Projection from authority*: the emitted =schema_version= must track the
+- *Projection from authority*: the emitted =schemaVersion= must track the
   resolved starintel-core release; updates go through the canonical schema
-  repository lock chain, not hand edits.
+  release lock, never a downstream handwritten schema.
 
 * Wiring
 

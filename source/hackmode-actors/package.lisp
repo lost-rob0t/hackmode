@@ -35,6 +35,7 @@
    #:*starintel-schema-version*
    #:*starintel-release*
    #:*starintel-dataset*
+   #:validate-starintel-envelope
    #:make-starintel-envelope
    #:asset->starintel-json
    #:asset-starintel-supported-p

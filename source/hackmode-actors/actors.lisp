@@ -66,7 +66,7 @@ The default resolver uses the current operation database.")
           (make-ontology-wire-message
            "hackmode/enqueue-document@1"
            (list (cons "json" json)
-                 (cons "dtype" (getf (jsown:parse json) "dtype")))))
+                 (cons "dtype" (jsown:val (jsown:parse json) "dtype")))))
          (%wire-reply '((:ok . t))))
         (t
          (%wire-reply '((:ok . nil)
@@ -81,8 +81,9 @@ The default resolver uses the current operation database.")
       ((string= type "hackmode/enqueue-document@1")
        ;; The core outbox consumes parsed jsown objects; the wire contract is
        ;; the canonical JSON string.
-       (hackmode:enqueue-starintel-json
-        hackmode:*db* (jsown:parse (%payload-value payload "json")))
+       (enqueue-starintel-document
+        (%payload-value payload "json") (%payload-value payload "dtype")
+        :database hackmode:*db*)
        (%wire-reply '((:queued . t))))
       ((string= type "hackmode/drain-outbox@1")
        (hackmode:drain-outbox hackmode:*db*
@@ -237,6 +238,8 @@ The default resolver uses the current operation database.")
 Each actor is validated against the compiled ontology: the spec declares the
 service identity, accepted/produced message types, restart policy, mailbox
 bounds, and the host handler identifier. Returns an alist of name to actor."
+  (unless *asset-resolver*
+    (setf *asset-resolver* #'%default-asset-resolver))
   (let ((context (or system (hackmode:ensure-hackmode-actor-system))))
     (dolist (name (ontology-actor-names))
       (unless (assoc name *ontology-actors* :test #'string=)

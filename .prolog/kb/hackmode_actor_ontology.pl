@@ -7,8 +7,8 @@
 
 %% Ontology identity: hackmode library imports the canonical starintel core.
 ontology_library('dev.hackmode/core@1', 'spec/hackmode-core.star').
-ontology_imports('org.starintel/core@1', 'spec/vendor/starintel-core-0.10.1.star',
-                 'sha256:0c6a50a12a9779a0e760cd48d6e4f3bf3fdadf04e61ec3cb67f8685fe64499a5').
+ontology_imports('org.starintel/core@1', 'spec/vendor/starintel-0.10.1/core.star',
+                 'sha256:e09205e71fcd0f2bf87ff7d104c5ccff298d0054764def81e00f81a6bd8639fc').
 
 %% document(Name, Persistence, ProjectsTo).
 %% ProjectsTo is a 0.10.1 dtype atom, local_only, or runtime_state.
@@ -17,7 +17,7 @@ document(operation,       persistent, operation).
 document(domain,          persistent, domain).
 document(host,            persistent, host).
 document(url,             persistent, url).
-document(port,            persistent, local_only).        %% 0.10.1 has no port dtype
+document(port,            persistent, local_only).        %% adapter not implemented
 document(finding,         persistent, local_only).        %% future: observation/analysis
 document(http-exchange,   persistent, http-transaction).  %% lossless headers retained
 document(visual-evidence, persistent, web-capture).
@@ -124,7 +124,7 @@ actor(module-catalog,      'spec/actors/module-catalog.star',
 %% Invariants the implementation must uphold.
 invariant(lossless_evidence).        %% http-exchange keeps exact observed headers
 invariant(advisory_expert).          %% expert actor never mutates; producers are CL effects
-invariant(projection_from_authority).%% emitted schema_version must equal starintel_spec:emitted_schema_version
+invariant(projection_from_authority).%% emitted schemaVersion must equal starintel_spec:emitted_schema_version
 invariant(one_starintel_schema).     %% no second document schema; 0.10.1 envelope only at the projection boundary
 invariant(module_catalog_summary).   %% omissions explicit; full local descriptors remain intact
 invariant(catalog_has_no_dispatch).  %% catalog queries do not execute providers
