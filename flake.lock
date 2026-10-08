@@ -1,5 +1,39 @@
 {
   "nodes": {
+    "cl-gserver": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1738698022,
+        "narHash": "sha256-eoFh4AusY1T00jWo4C2ID+0uJoTDIhdNf67WGVrSKPA=",
+        "owner": "mdbergmann",
+        "repo": "cl-gserver",
+        "rev": "6a510c5b58469e72e6363bd3a6059d80b9a5c320",
+        "type": "github"
+      },
+      "original": {
+        "owner": "mdbergmann",
+        "repo": "cl-gserver",
+        "rev": "6a510c5b58469e72e6363bd3a6059d80b9a5c320",
+        "type": "github"
+      }
+    },
+    "cms-ulid": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1716754985,
+        "narHash": "sha256-B5rekME60bWHk47kDepQpOr9drjgXjZBiRpA+Ob1CuU=",
+        "owner": "colinstrickland",
+        "repo": "cms-ulid",
+        "rev": "fff84302dee5db42fb90aafd834af3ffbfd6c2bb",
+        "type": "gitlab"
+      },
+      "original": {
+        "owner": "colinstrickland",
+        "repo": "cms-ulid",
+        "rev": "fff84302dee5db42fb90aafd834af3ffbfd6c2bb",
+        "type": "gitlab"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1699580828,
@@ -17,7 +51,63 @@
     },
     "root": {
       "inputs": {
-        "nixpkgs": "nixpkgs"
+        "cl-gserver": "cl-gserver",
+        "cms-ulid": "cms-ulid",
+        "nixpkgs": "nixpkgs",
+        "star-cl": "star-cl",
+        "star-lang": "star-lang",
+        "tek9": "tek9"
+      }
+    },
+    "star-cl": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1786244418,
+        "narHash": "sha256-WO/qeIgw7nvRDYeM21Iuwb5HUGttVPMOXj69Ghfmlj4=",
+        "owner": "lost-rob0t",
+        "repo": "star-cl",
+        "rev": "b8dfbe2f9f56065ace8c3313b92ca748a115cdfa",
+        "type": "github"
+      },
+      "original": {
+        "owner": "lost-rob0t",
+        "repo": "star-cl",
+        "rev": "b8dfbe2f9f56065ace8c3313b92ca748a115cdfa",
+        "type": "github"
+      }
+    },
+    "star-lang": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1789793947,
+        "narHash": "sha256-+rI4DWQhZx1WcNNtZRNHWsJKhOotNLkBDc40kL11yDQ=",
+        "owner": "lost-rob0t",
+        "repo": "star-lang",
+        "rev": "09f3b6dab15a9bcb9b5dd7866735d65301571211",
+        "type": "github"
+      },
+      "original": {
+        "owner": "lost-rob0t",
+        "repo": "star-lang",
+        "rev": "09f3b6dab15a9bcb9b5dd7866735d65301571211",
+        "type": "github"
+      }
+    },
+    "tek9": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1789848431,
+        "narHash": "sha256-wcv7CWsSQ0GCSkCnNiWNzPPYFtqcoVqSAK3O3XbzkD4=",
+        "owner": "lost-rob0t",
+        "repo": "tek9",
+        "rev": "e6d1cb86a2e268a894eae3acae9617238b2adcff",
+        "type": "github"
+      },
+      "original": {
+        "owner": "lost-rob0t",
+        "repo": "tek9",
+        "rev": "e6d1cb86a2e268a894eae3acae9617238b2adcff",
+        "type": "github"
       }
     }
   },

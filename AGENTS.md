@@ -52,3 +52,15 @@ When the operator identifies an agent-caused regression, bad assumption, or unac
 Regression: the IPX HTTP design introduced redacted headers, canonical stripping of authorization/cookie/API-key fields before expert/StarIntel projection, and an acceptance criterion requiring secret-bearing fields to be absent. That made passive evidence lossy and would have prevented later authorized analysis from recovering the exact observed traffic.
 
 Prevention rule: operation-scoped capture evidence is lossless by default. Exact captured values remain canonical raw evidence; projections may reference them for boundedness but may not silently redact, sanitize, hash-away, omit, or mutate them. Scope/promotion policy must be enforced by access and export boundaries rather than destruction of source evidence.
+
+## 2026-10-08 — StarIntel projection authority
+
+Regression: the ontology projection labeled a handwritten nested snake_case
+payload as StarIntel 0.10.1, and its tests checked that same incorrect shape.
+
+Prevention rule: Star Language core.star and its digest-locked generated release
+are the sole authority for 0.10.1 documents. Emit flat lowerCamelCase fields with
+id and schemaVersion, Unix envelope timestamps, and canonical typed references.
+Validate actual emitted JSON against the pinned generated schema with negative
+controls. Preserve raw evidence and dataset overrides through projection and
+outbox persistence; green self-consistency tests are not canonical conformance.

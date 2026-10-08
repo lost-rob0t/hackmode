@@ -15,6 +15,8 @@ Hackmode product code, product documentation, tests, APIs, symbols, filenames, c
 
 * Monorepo layout
 - =source/= :: Common Lisp runtime, operation model, local storage, recon capabilities, and shell integration.
+- =source/hackmode-actors/= :: Star-Lang ontology actor system: loads =spec/hackmode-core.star=, spawns the ontology topology onto Sento, and projects operations/assets/evidence into the current StarIntel release.
+- =spec/= :: The Hackmode ontology: =hackmode-core.star= (documents, predicates, messages) and one actor declaration per file under =spec/actors/=.
 - =emacs/= :: Hackmode Emacs package. Migration from =lost-rob0t/emacs-hackmode= is tracked by issue #4.
 - =templates/= :: Operation templates migrated from =lost-rob0t/hackmode-templates=.
 - =tools/= :: Maintained helpers and explicitly temporary legacy script compatibility. Curated migration from =lost-rob0t/hackmode-scripts= is tracked separately; generated binaries/FASLs are not accepted.

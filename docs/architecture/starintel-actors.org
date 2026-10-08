@@ -1,0 +1,99 @@
+#+title: Hackmode StarIntel actor ontology
+#+PROPERTY: header-args :eval no
+
+* Scope
+
+The Hackmode actor system is now declared as a Star-Lang ontology
+(=spec/hackmode-core.star= plus one actor file per actor under
+=spec/actors/=) and executed on the shared Sento runtime through the
+star-lang compatibility port (=source/hackmode-actors/=). The ontology is
+the single authority for:
+
+- the typed entity vocabulary (documents),
+- the relation vocabulary (predicates),
+- the actor message contracts (messages), and
+- the actor topology (actors: service identity, accepts/produces, restart
+  policy, mailbox bounds, host handler).
+
+The StarIntel projection layer targets the canonical Star Language generated
+0.10.1 contract: flat lowerCamelCase fields with =id=, =dataset=, =dtype=,
+=schemaVersion= and Unix-second =createdAt=/=updatedAt=. Dtype fields live at
+that same level; there is no =data= wrapper.
+
+* Ontology layout
+
+The immutable authority is =lost-rob0t/star-lang= at
+=fa1c8f4fb0590526c39aa3e9bc4a7e6eac30bea7=, authored in
+=specs/starintel/0.10.1/core.star=. =schema/starintel-schema.lock.json= pins the
+complete vendored release under =spec/vendor/starintel-0.10.1/=; the upstream
+consumer sync tool verifies every source/artifact digest. The ontology imports
+this core with its SHA-256 lock. CI checks the copy against that exact upstream
+commit. Tests validate actual Lisp projections against =generated/schema.json=.
+Hackmode retains its own ontology and maps it into canonical dtypes at the
+projection boundary. Historical core export APIs remain compatibility APIs;
+the ontology projection and its outbox path use the 0.10.1 contract.
+
+| Hackmode document  | Persistence | StarIntel 0.10.1 dtype |
+|--------------------+-------------+------------------------|
+| operation          | persistent  | operation              |
+| domain             | persistent  | domain                 |
+| host               | persistent  | host                   |
+| url                | persistent  | url                    |
+| port               | persistent  | local only             |
+| finding            | persistent  | local only             |
+| http-exchange      | persistent  | http-transaction       |
+| visual-evidence    | persistent  | web-capture            |
+| research-node      | persistent  | research-node          |
+| capture-session    | transient   | runtime state          |
+| provider-job       | transient   | runtime state          |
+| outbox-entry       | transient   | runtime state          |
+
+=port= and =finding= have canonical dtypes. Their Hackmode asset adapters
+remain local in this bounded projection repair; =cert= is not a canonical dtype.
+
+* Actor topology
+
+| Actor                | Accepts                                | Produces                          | Role                  |
+|----------------------+----------------------------------------+-----------------------------------+-----------------------|
+| asset-monitor        | asset-discovered                       | enqueue-document                  | project assets        |
+| outbox               | enqueue-document, drain-outbox         | outbox-state                      | ingest to StarIntel   |
+| provider-dispatcher  | run-capability                         | provider-result, asset-discovered | run capabilities      |
+| capture-supervisor   | start-capture, stop-capture            | capture-state                     | manage IPX capture    |
+| replay               | replay-spool                           | enqueue-document                  | fold spool evidence   |
+| expert-advisor       | classify-target, recommend-capabilities| expert-recommendation             | advisory reasoning    |
+
+Actors are compiled from the =.star= files with =starlangcompiler=, compared
+against the compiled portable manifest, and spawned onto the shared Hackmode
+Sento system through =starsentocompat= (the star-lang runtime port). Host
+handler functions own all effects; the actor specs own all contracts.
+
+* Invariants
+
+- *Lossless evidence*: the =http-transaction= projection copies request and
+  response headers verbatim from the raw IPX spool. Redaction or sanitization
+  at this boundary is forbidden (see AGENTS.md).
+- *Advisory expert*: the expert-advisor actor answers queries; it never
+  mutates operation state.
+- *One StarIntel schema*: the 0.10.1 envelope is produced only by
+  =source/hackmode-actors/projection.lisp=; nothing else invents StarIntel
+  shapes.
+- *Projection from authority*: the emitted =schemaVersion= must track the
+  resolved starintel-core release; updates go through the canonical schema
+  release lock, never a downstream handwritten schema.
+
+* Wiring
+
+=ensure-hackmode-ontology-actors= spawns the topology;
+=start-asset-projection-loop= subscribes the asset event stream so every
+discovered projectable asset flows through asset-monitor into the durable
+outbox automatically. The outbox transport and StarIntel ingest endpoint are
+unchanged (=hackmode:make-starintel-http-transport=, POST
+=/new/document/<dtype>=).
+
+* Rebuilding the pins
+
+CI (=.github/workflows/core.yml=) and the Nix flake pin the same revisions:
+star-lang =09f3b6da=, tek9 =e6d1cb86=, star-cl =b8dfbe2=,
+cl-gserver =6a510c5b=, cms-ulid =fff84302=. Local verification should use
+=nix develop= so the =CL_SOURCE_REGISTRY= ordering keeps the repository and
+its pins ahead of any stale =~/common-lisp= clones.
