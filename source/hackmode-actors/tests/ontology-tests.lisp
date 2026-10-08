@@ -20,11 +20,11 @@
       (hackmode-actors:load-hackmode-ontology :force t)
     (assert (string= "dev.hackmode/core@1"
                      (getf library :name)))
-    (assert-equal 6 (length actors) "ontology actor count")
+    (assert-equal 7 (length actors) "ontology actor count")
     (assert-equal 1 (getf manifest :wire-version) "manifest wire version")
     (assert-equal
      '("asset-monitor" "capture-supervisor" "expert-advisor"
-       "outbox" "provider-dispatcher" "replay")
+       "module-catalog" "outbox" "provider-dispatcher" "replay")
      (sort (hackmode-actors:ontology-actor-names) #'string<)
      "actor names")
     (assert (member "http-exchange"

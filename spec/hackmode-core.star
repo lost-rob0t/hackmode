@@ -34,6 +34,31 @@
   (enum provider-status
     (pending running succeeded failed))
 
+  (enum module-catalog-detail-kind (summary full))
+  (enum module-catalog-status-kind (ok not-found invalid-request unsupported))
+  (enum module-catalog-command-kind (families list describe))
+  (enum module-catalog-projection-kind (summary none))
+
+  ;; A bounded projection of the local catalog, not a StarIntel dtype.
+  (document module-summary
+    (:persistence transient)
+    (schemaVersion integer :required)
+    (id string :required)
+    (version string :required)
+    (family string :required)
+    (title string :required)
+    (description string :required)
+    (authors (list string) :required)
+    (tags (list string) :required)
+    (references (list string) :required)
+    (platforms (list string) :required)
+    (architectures (list string) :required)
+    (capability string :optional)
+    (provider string :optional)
+    (sessionTypes (list string) :required)
+    (compatiblePayloads (list string) :required)
+    (lifecycle string :required))
+
   (document hackmode-document
     (:persistence persistent)
     (id hackmode-id :required)
@@ -191,6 +216,41 @@
   (message hackmode/discover-asset@1
     (:fields
      ((asset reference :required))))
+
+  (message hackmode/module-families-request@1
+    (:fields ((requestId string :required) (operationId string :optional))))
+
+  (message hackmode/module-list-request@1
+    (:fields
+     ((requestId string :required)
+      (operationId string :optional)
+      (family string :optional)
+      (query string :optional)
+      (tags (list string) :optional)
+      (capability string :optional)
+      (detail module-catalog-detail-kind :optional))))
+
+  (message hackmode/module-describe-request@1
+    (:fields
+     ((requestId string :required)
+      (operationId string :optional)
+      (moduleId string :required)
+      (moduleVersion string :required)
+      (detail module-catalog-detail-kind :optional))))
+
+  (message hackmode/module-catalog-result@1
+    (:fields
+     ((requestId string :required)
+      (operationId string :optional)
+      (command module-catalog-command-kind :required)
+      (status module-catalog-status-kind :required)
+      (projection module-catalog-projection-kind :required)
+      (omittedFields (list string) :required)
+      (families (list string) :optional)
+      (modules (list module-summary) :optional)
+      (module module-summary :optional)
+      (errorField string :optional)
+      (errorReason string :optional))))
 
   (message hackmode/asset-discovered@1
     (:fields

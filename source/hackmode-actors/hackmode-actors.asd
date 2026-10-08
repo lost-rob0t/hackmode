@@ -16,5 +16,6 @@
                #:ironclad)
   :components ((:file "package")
                (:file "ontology")
+               (:file "module-catalog")
                (:file "projection")
                (:file "actors")))

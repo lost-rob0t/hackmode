@@ -14,10 +14,10 @@
   (let ((actors (hackmode-actors:ensure-hackmode-ontology-actors)))
     (unwind-protect
          (progn
-           (assert (= 6 (length actors)) ()
-                   "expected six ontology actors, got ~a" (length actors))
+           (assert (= 7 (length actors)) ()
+                   "expected seven ontology actors, got ~a" (length actors))
            (dolist (name '("asset-monitor" "outbox" "provider-dispatcher"
-                           "capture-supervisor" "replay" "expert-advisor"))
+                           "capture-supervisor" "replay" "expert-advisor" "module-catalog"))
              (assert (hackmode-actors:hackmode-ontology-actor name) ()
                      "actor ~a should be live" name))
            (assert (hackmode-actors:hackmode-ontology-actor :outbox)
@@ -130,4 +130,5 @@
   (run-ontology-tests)
   (run-projection-tests)
   (run-actor-tests)
+  (run-module-catalog-tests)
   (format t "~&hackmode-actors tests passed~%"))

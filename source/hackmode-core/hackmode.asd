@@ -1,3 +1,20 @@
+(asdf:defsystem "hackmode/modules"
+  :description "Dependency-free module metadata, registry, and local catalog protocol"
+  :serial t
+  :in-order-to ((test-op (test-op "hackmode/module-tests")))
+  :components ((:file "modules-package")
+               (:file "modules")
+               (:file "module-catalog")))
+
+(asdf:defsystem "hackmode/module-tests"
+  :description "Dependency-free module catalog regression tests"
+  :depends-on ("hackmode/modules")
+  :serial t
+  :components ((:file "tests/modules"))
+  :perform (test-op (op system)
+             (declare (ignore op system))
+             (uiop:symbol-call :hackmode-module-tests :run-module-tests)))
+
 (asdf:defsystem :hackmode
   :description "Core Systems for hackmode"
   :author "nsaspy"
@@ -5,7 +22,8 @@
   :version "0.3.0"
   :serial t
   :in-order-to ((test-op (test-op "hackmode-tests")))
-  :depends-on (#:serapeum
+  :depends-on (#:hackmode/modules
+               #:serapeum
                :local-time
                :nfiles
                :nhooks
@@ -28,6 +46,7 @@
                (:file "assets")
                (:file "starintel-documents")
                (:file "actor-system")
+               (:file "module-actor")
                (:file "outbox")
                (:file "investigation-views")
                (:file "visual-evidence-outbox")
