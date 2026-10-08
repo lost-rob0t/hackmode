@@ -65,7 +65,7 @@
         src = pkgs.lib.cleanSource ./.;
 
         strictDeps = true;
-        nativeBuildInputs = [ sbcl pkgs.swi-prolog ];
+        nativeBuildInputs = [ sbcl pkgs.swi-prolog (pkgs.python3.withPackages (ps: [ ps.jsonschema ])) ];
 
         dontConfigure = true;
         dontBuild = true;
@@ -74,6 +74,7 @@
           runHook preCheck
           export HOME="$TMPDIR/home"
           mkdir -p "$HOME"
+          python3 tools/sync-starintel-consumer.py --offline
           export CL_SOURCE_REGISTRY="${sourceRegistry}:$CL_SOURCE_REGISTRY"
           sbcl --non-interactive \
             --eval '(require :asdf)' \
@@ -93,6 +94,7 @@
             sbcl
             sbclPackages.mcclim
             swiProlog
+            (python3.withPackages (ps: [ ps.jsonschema ]))
             glib
             openssl
             # Hacking tools used

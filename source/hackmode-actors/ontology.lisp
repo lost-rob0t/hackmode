@@ -194,7 +194,7 @@ runtime data must not be silently destroyed by validation."
 (defparameter *starintel-core-library-name* "org.starintel/core@1")
 
 (defparameter *starintel-core-digest*
-  "sha256:0c6a50a12a9779a0e760cd48d6e4f3bf3fdadf04e61ec3cb67f8685fe64499a5")
+  "sha256:e09205e71fcd0f2bf87ff7d104c5ccff298d0054764def81e00f81a6bd8639fc")
 
 (defvar *starintel-graph* nil
   "Memoized loaded ontology graph including the imported starintel core.")

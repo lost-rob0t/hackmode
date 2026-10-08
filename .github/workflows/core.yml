@@ -46,6 +46,17 @@ jobs:
           path: deps/star-lang-ci
           fetch-depth: 1
 
+      - name: Checkout canonical StarIntel 0.10.1 authority
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: lost-rob0t/star-lang
+          ref: fa1c8f4fb0590526c39aa3e9bc4a7e6eac30bea7
+          path: deps/star-lang-spec-ci
+          fetch-depth: 1
+
+      - name: Verify pinned generated StarIntel release
+        run: python3 tools/sync-starintel-consumer.py --source deps/star-lang-spec-ci
+
       - name: Checkout pinned Sento actor runtime
         shell: bash
         run: |
@@ -80,6 +91,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             sbcl \
             swi-prolog-nox \
+            python3-jsonschema \
             liblmdb-dev \
             libffi-dev \
             libssl-dev \
@@ -99,11 +111,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # ASDF source-registry // scans nested systems; central-registry does not.
+          export CL_SOURCE_REGISTRY="$PWD/deps/star-lang-ci//:${CL_SOURCE_REGISTRY:-}"
           sbcl --non-interactive \
             --load "$HOME/quicklisp/setup.lisp" \
             --eval '(push (truename "deps/cms-ulid-ci/") asdf:*central-registry*)' \
-            --eval '(push (truename "deps/star-lang-ci//") asdf:*central-registry*)' \
             --eval '(push (truename "deps/sento-ci/") asdf:*central-registry*)' \
+            --eval '(dolist (name (quote ("starlang-compiler" "starlang-prototype" "star-sento-compat"))) (let ((source (asdf:system-source-file (asdf:find-system name)))) (assert (uiop:subpathp source (truename "deps/star-lang-ci/"))) (format t "~&Resolved ~A from ~A~%" name source)))' \
             --eval '(asdf:load-asd (truename "deps/tek9-ci/src/tek9.asd"))' \
             --eval '(asdf:load-asd (truename "deps/star-cl-ci/src/starintel.asd"))' \
             --eval '(asdf:load-asd (truename "deps/sento-ci/sento.asd"))' \

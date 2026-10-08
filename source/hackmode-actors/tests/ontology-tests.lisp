@@ -107,17 +107,17 @@
                      "http-transaction" "web-capture"))
       (assert (hackmode-actors:starintel-dtype-declared-p dtype) ()
               "canonical core should declare ~a" dtype))
-    ;; The 0.10.1 vocabulary has no port/finding/cert dtypes; hackmode keeps
-    ;; them local-only and the projection must refuse them.
-    (dolist (dtype '("port" "finding" "cert"))
-      (assert (not (hackmode-actors:starintel-dtype-declared-p dtype)) ()
-              "canonical core should NOT declare ~a" dtype))
+    ;; The current authority declares ports and findings. This consumer's
+    ;; asset adapters remain bounded to domain/host/url in this change.
+    (dolist (dtype '("port" "finding"))
+      (assert (hackmode-actors:starintel-dtype-declared-p dtype)))
+    (assert (not (hackmode-actors:starintel-dtype-declared-p "cert")))
     (assert
      (signals-condition-p
       'hackmode-actors:ontology-error
       (lambda ()
         (hackmode-actors:make-starintel-envelope
-         "x" "star-intel" "port" (jsown:empty-object)))))))
+         "x" "star-intel" "not-a-document" (jsown:empty-object)))))))
 
 (defun run-ontology-tests ()
   (run-ontology-load-test)

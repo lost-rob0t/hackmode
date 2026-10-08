@@ -66,7 +66,37 @@
                   (assert (= 1 (length (hackmode:list-outbox-entries
                                         hackmode:*db*)))
                           ()
-                          "enqueued document should be durable"))
+                          "enqueued document should be durable")
+                  ;; Exercise asset-monitor -> outbox with a real stored asset,
+                  ;; then prove canonical identity survives a database reopen.
+                  (let* ((asset (make-instance 'hackmode:domain
+                                               :record "actor.example"
+                                               :record-type "A"
+                                               :date-added 100 :date-updated 200))
+                         (id (hackmode:asset-deterministic-id asset)))
+                    (hackmode:store-asset asset :database db)
+                    (let ((reply
+                            (hackmode-actors:ask-hackmode-actor
+                             :asset-monitor
+                             (hackmode-actors:make-ontology-wire-message
+                              "hackmode/asset-discovered@1"
+                              `(("assetId" . ,id) ("kind" . "domain")))
+                             :timeout 5)))
+                      (assert (member '(:ok . t) reply :test #'equal)))
+                    (loop repeat 100
+                          until (= 2 (length (hackmode:list-outbox-entries db)))
+                          do (sleep 0.01))
+                    (assert (= 2 (length (hackmode:list-outbox-entries db))))
+                    (tek9:close-database db)
+                    (tek9:open-database db)
+                    (let* ((entry (find id (hackmode:list-outbox-entries db)
+                                        :key #'hackmode:outbox-entry-document-id
+                                        :test #'string=))
+                           (document (jsown:parse (hackmode:outbox-entry-payload entry))))
+                      (assert-equal id (jsown:val document "id"))
+                      (assert-equal "0.10.1" (jsown:val document "schemaVersion"))
+                      (assert (not (member "data" (jsown:keywords document)
+                                           :test #'string=))))))
              (progn
                (setf hackmode:*db* previous-db)
                (ignore-errors (tek9:close-database db)))))

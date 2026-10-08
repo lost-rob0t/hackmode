@@ -53,4 +53,4 @@ import_remote(https_only, requires_explicit_allow_network).
 
 %% Decision: hackmode ontology is SELF-CONTAINED (no imports). Importing
 %% org.starintel/core@1 would require vendoring + digest pinning and would drag
-%% in a vocabulary (finding/port/service/scope/asn) that 0.10.1 rejects.
+%% in a vocabulary (finding/port/service/scope/asn) whose adapters require canonical 0.10.1 mapping.

@@ -17,44 +17,59 @@
    :format local-time:+iso-8601-format+
    :timezone local-time:+utc-zone+))
 
+(defun %runtime-value (value)
+  "Convert jsown objects to maps for the pinned StarLang contract validator."
+  (cond
+    ((and (consp value) (eq (car value) :obj))
+     (let ((map (make-hash-table :test 'equal)))
+       (dolist (pair (cdr value) map)
+         (setf (gethash (car pair) map) (%runtime-value (cdr pair))))))
+    ((and (vectorp value) (not (stringp value)))
+     (map 'list #'%runtime-value value))
+    ((listp value) (mapcar #'%runtime-value value))
+    (t value)))
+
+(defun validate-starintel-envelope (envelope)
+  "Validate a flat document against the digest-locked canonical StarLang graph."
+  (unless (equal *starintel-schema-version* (jsown:val-safe envelope "schemaVersion"))
+    (error 'ontology-error :message "StarIntel schemaVersion must be 0.10.1"))
+  (let* ((dtype (jsown:val-safe envelope "dtype"))
+         (graph (hackmode-starintel-graph))
+         (qualified (format nil "~a/~a" *starintel-core-library-name* dtype))
+         (contract (star-lang.document-runtime:compile-document-contract graph qualified))
+         ;; create-document in this pinned runtime adds historical dateAdded
+         ;; metadata. Validate the existing wire values without creating metadata.
+         (document (star-lang.document-runtime::%make-document-instance
+                    qualified
+                    (loop for (key . value) in (cdr envelope)
+                          collect (cons key (%runtime-value value))))))
+    (star-lang.document-runtime:validate-document graph document contract))
+  envelope)
+
 (defun make-starintel-envelope (id dataset dtype data &key
-                                                       (tags nil tags-p)
-                                                       (provenance nil provenance-p)
+                                                       (tags nil)
+                                                       (provenance nil)
                                                        (date-added nil)
                                                        (date-updated nil))
-  "Return a canonical StarIntel 0.10.1 envelope as a jsown object.
+  "Return canonical flat StarIntel 0.10.1 JSON with lowerCamelCase fields.
 
-DATA is a jsown object holding the dtype payload with snake_case field names.
-The envelope shape is the starintel-core 0.10.1 authority: _id, dataset, dtype,
-schema_version, version, date_added, date_updated, sources, evidence, data.
-DTYPE must exist in the canonical starintel core vocabulary (checked against
-the digest-locked imported spec graph, never a hardcoded list)."
-  (declare (ignore tags-p provenance-p))
+DATA supplies top-level dtype fields; timestamps are Unix seconds."
   (unless (starintel-dtype-declared-p dtype)
-    (error 'ontology-error
-           :message (format nil
-                            "canonical starintel core does not declare dtype ~s"
-                            dtype)))
+    (error 'ontology-error :message (format nil "unknown canonical dtype ~s" dtype)))
   (let ((envelope (jsown:empty-object)))
-    (setf (jsown:val envelope "_id") id
+    (setf (jsown:val envelope "id") id
           (jsown:val envelope "dataset") dataset
           (jsown:val envelope "dtype") dtype
-          (jsown:val envelope "schema_version") *starintel-schema-version*
-          (jsown:val envelope "version") 1
-          (jsown:val envelope "date_added")
-          (or (and date-added (starintel-timestring date-added))
-              (starintel-timestring (hackmode:unix-now)))
-          (jsown:val envelope "date_updated")
-          (or (and date-updated (starintel-timestring date-updated))
-              (starintel-timestring (hackmode:unix-now)))
-          (jsown:val envelope "sources") '()
-          (jsown:val envelope "evidence") '()
-          (jsown:val envelope "data") data)
-    (when tags
-      (setf (jsown:val envelope "tags") tags))
-    (when provenance
-      (setf (jsown:val envelope "provenance") provenance))
-    envelope))
+          (jsown:val envelope "schemaVersion") *starintel-schema-version*
+          (jsown:val envelope "createdAt") (or date-added (hackmode:unix-now))
+          (jsown:val envelope "updatedAt") (or date-updated date-added (hackmode:unix-now)))
+    (dolist (pair (cdr data))
+      (when (member (car pair) (jsown:keywords envelope) :test #'string=)
+        (error 'ontology-error :message "dtype fields must not override envelope identity"))
+      (setf (jsown:val envelope (car pair)) (cdr pair)))
+    (when tags (setf (jsown:val envelope "tags") tags))
+    (when provenance (setf (jsown:val envelope "provenance") provenance))
+    (validate-starintel-envelope envelope)))
 
 (defun envelope-json (envelope)
   (jsown:to-json envelope))
@@ -95,10 +110,10 @@ string-keyed alist."
       (setf (jsown:val provenance "producer") (hackmode:doc-tool asset)))
     provenance))
 
-(defun %asset-envelope (asset dtype data)
+(defun %asset-envelope (asset dtype data dataset)
   (make-starintel-envelope
    (hackmode:asset-deterministic-id asset)
-   *starintel-dataset*
+   dataset
    dtype
    data
    :tags (copy-list (hackmode:doc-tags asset))
@@ -108,23 +123,32 @@ string-keyed alist."
 
 (defmethod asset->starintel-json ((asset hackmode:domain) &key (dataset *starintel-dataset*))
   "Return the StarIntel 0.10.1 JSON string for a resolved hackmode domain asset."
-  (declare (ignore dataset))
   (hackmode:normalize-asset asset)
   (envelope-json
    (%asset-envelope
     asset "domain"
     (%new-data-object
-     (list "domain" (hackmode:domain-name asset)
+     (list "name" (hackmode:domain-name asset)
            "record" (hackmode:domain-name asset)
-           "record_type" (hackmode:domain-type asset)
-           "resolved_addresses" (copy-list (hackmode:domain-ips asset)))))))
+           "recordType" (hackmode:domain-type asset)
+           "dnsRecords" (mapcar (lambda (ip)
+                                  (%new-data-object
+                                   (list "type" (hackmode:domain-type asset)
+                                         "value" ip)))
+                                (hackmode:domain-ips asset))
+           "resolvedAddresses" (mapcar (lambda (ip)
+                                         (%new-data-object
+                                          (list "schema" "org.starintel/core@1/host"
+                                                "id" (hackmode:asset-deterministic-id
+                                                      (make-instance 'hackmode:host :ip ip)))))
+                                       (hackmode:domain-ips asset))))
+    dataset)))
 
 (defmethod asset->starintel-json ((asset hackmode:host) &key (dataset *starintel-dataset*))
   "Return the StarIntel 0.10.1 JSON string for a resolved hackmode host asset.
 
 Unresolved hostnames have no identity in StarIntel (identity is IP based) and
 are not projected, matching the core runtime contract."
-  (declare (ignore dataset))
   (hackmode:normalize-asset asset)
   (when (plusp (length (hackmode:doc-ip asset)))
     (envelope-json
@@ -132,10 +156,10 @@ are not projected, matching the core runtime contract."
       asset "host"
       (%new-data-object
        (list "hostname" (hackmode:doc-host asset)
-             "ip" (hackmode:doc-ip asset)))))))
+             "ip" (hackmode:doc-ip asset)))
+      dataset))))
 
 (defmethod asset->starintel-json ((asset hackmode:url) &key (dataset *starintel-dataset*))
-  (declare (ignore dataset))
   (hackmode:normalize-asset asset)
   (envelope-json
    (%asset-envelope
@@ -143,7 +167,8 @@ are not projected, matching the core runtime contract."
     (%new-data-object
      (list "url" (hackmode:asset-canonical-value asset)
            "path" (hackmode:url-path asset)
-           "query" (hackmode:url-query asset))))))
+           "query" (hackmode:url-query asset)))
+    dataset)))
 
 (defmethod asset->starintel-json ((asset t) &key (dataset *starintel-dataset*))
   (declare (ignore dataset))
@@ -159,26 +184,24 @@ are not projected, matching the core runtime contract."
                                               (phases nil phases-p))
   "Return the StarIntel 0.10.1 JSON string for a hackmode OPERATION.
 
-The starintel-core 0.10.1 operation dtype requires mission, status, and
-phases. MISSION comes from the operation description (falling back to the
-name). PHASES defaults to a single visible recon seed phase rather than
-inventing hidden history."
-  (declare (ignore dataset))
+MISSION comes from the description (falling back to the name). PHASES
+defaults to one planned recon phase with a stable phaseId and explicit objective."
   (let* ((name (hackmode:operation-name operation))
          (mission (or (hackmode:operation-description operation) name))
          (effective-phases
            (if phases-p
                phases
                (list (%new-data-object
-                      (list "name" "recon" "status" status)))))
+                      (list "phaseId" "recon" "objective" mission "state" "planned")))))
          (data (%new-data-object
                 (list "mission" mission
                       "status" status
-                      "phases" effective-phases
-                      "targets" (list name))))
+                      "phases" (coerce effective-phases 'vector))))
          (id (starintel:digest-id "hackmode-starintel-operation-v1" name)))
     (envelope-json
-     (make-starintel-envelope id *starintel-dataset* "operation" data))))
+     (make-starintel-envelope id dataset "operation" data
+                              :provenance (%new-data-object
+                                           (list "operation" name))))))
 
 (defun research-node->starintel-json (objective status &key
                                                        (description nil)
@@ -189,17 +212,16 @@ inventing hidden history."
 
 Research nodes are the starintel dtype for durable reasoning progress:
 objective and status are required."
-  (declare (ignore dataset))
   (let ((data (%new-data-object
                (list "objective" objective
                      "status" status
                      "description" description
-                     "created_at" (starintel-timestring (hackmode:unix-now))
-                     "run_ids" run-ids)))
+                     "nodeCreatedAt" (starintel-timestring (hackmode:unix-now))
+                     "runIds" run-ids)))
         (id (starintel:digest-id "hackmode-starintel-research-node-v1"
                                  (or operation "") objective status)))
     (envelope-json
-     (make-starintel-envelope id *starintel-dataset* "research-node" data))))
+     (make-starintel-envelope id dataset "research-node" data))))
 
 (defun http-transaction->starintel-json
     (transaction-id method url response-status &key
@@ -215,28 +237,27 @@ objective and status are required."
 REQUEST-HEADERS and RESPONSE-HEADERS are carried exactly as observed: capture
 evidence is lossless by default and this projection must never redact,
 sanitize, or drop header values."
-  (declare (ignore dataset))
   (let ((data (%new-data-object
-               (list "transaction_id" transaction-id
+               (list "transactionId" transaction-id
                      "method" method
                      "url" url
-                     "response_status" response-status
+                     "responseStatus" response-status
                      "scheme" scheme
                      "host" host
                      "path" path
                      "query" query
                      "port" port
-                     "http_version" http-version
-                     "request_headers" (%headers->jsown-object request-headers)
-                     "response_headers" (%headers->jsown-object response-headers)
-                     "request_body_hash" request-body-hash
-                     "response_body_hash" response-body-hash
-                     "started_at" started-at
-                     "ended_at" ended-at)))
+                     "httpVersion" http-version
+                     "requestHeaders" (%headers->jsown-object request-headers)
+                     "responseHeaders" (%headers->jsown-object response-headers)
+                     "requestBodyHash" request-body-hash
+                     "responseBodyHash" response-body-hash
+                     "startedAt" started-at
+                     "endedAt" ended-at)))
         (id (starintel:digest-id "hackmode-starintel-http-transaction-v1"
                                  transaction-id)))
     (envelope-json
-     (make-starintel-envelope id *starintel-dataset* "http-transaction" data
+     (make-starintel-envelope id dataset "http-transaction" data
                                 :provenance provenance))))
 
 (defun %spool-headers (jsown-object)
@@ -249,7 +270,6 @@ sanitize, or drop header values."
 
 SPOOL-OBJECT is the decoded append-only spool frame (jsown object) written by
 the mitmproxy addon. Header maps are copied verbatim from the raw evidence."
-  (declare (ignore dataset))
   (let* ((request (jsown:val spool-object "request"))
          (response (jsown:val spool-object "response"))
          (exchange-id (jsown:val spool-object "exchange_id"))
@@ -265,6 +285,7 @@ the mitmproxy addon. Header maps are copied verbatim from the raw evidence."
          (end (jsown:val spool-object "timestamp_end")))
     (http-transaction->starintel-json
      exchange-id method url status
+     :dataset dataset
      :scheme scheme :host host :path path :port port
      :request-headers (%spool-headers request)
      :response-headers (%spool-headers response)
@@ -276,29 +297,32 @@ the mitmproxy addon. Header maps are copied verbatim from the raw evidence."
                                                 (provenance nil)
                                                 (dataset *starintel-dataset*))
   "Return the StarIntel 0.10.1 JSON string for a visual evidence record."
-  (declare (ignore dataset))
   (let ((data (%new-data-object
-               (list "capture_id" (hackmode-database:visual-evidence-record-record-id
+               (list "captureId" (hackmode-database:visual-evidence-record-record-id
                                    record)
                      "url" (or (hackmode-database:visual-evidence-record-final-url record)
                                (hackmode-database:visual-evidence-record-requested-url
                                 record))
-                     "screenshot_uri" (hackmode-database:visual-evidence-record-screenshot-evidence-ref
+                     "screenshotUri" (hackmode-database:visual-evidence-record-screenshot-evidence-ref
                                        record)
-                     "screenshot_hash" (hackmode-database:visual-evidence-record-screenshot-digest
+                     "screenshotHash" (hackmode-database:visual-evidence-record-screenshot-digest
                                         record)
                      "title" (hackmode-database:visual-evidence-record-title record)
-                     "status_code" (hackmode-database:visual-evidence-record-http-status
+                     "statusCode" (hackmode-database:visual-evidence-record-http-status
                                     record))))
         (id (starintel:digest-id "hackmode-visual-evidence-starintel-v1"
                                  (hackmode-database:visual-evidence-record-record-id
                                   record))))
     (envelope-json
-     (make-starintel-envelope id *starintel-dataset* "web-capture" data
+     (make-starintel-envelope id dataset "web-capture" data
                                 :provenance provenance))))
 
 (defun enqueue-starintel-document (json dtype &key
                                              (database hackmode:*db*)
                                              (operation nil))
   "Durably enqueue one projected StarIntel JSON document for ingest."
-  (hackmode:enqueue-starintel-json database json :operation operation))
+  (let ((document (if (stringp json) (jsown:parse json) json)))
+    (validate-starintel-envelope document)
+    (unless (equal dtype (jsown:val document "dtype"))
+      (error 'ontology-error :message "enqueue dtype differs from document dtype"))
+    (hackmode:enqueue-starintel-json database document :operation operation)))
