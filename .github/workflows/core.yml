@@ -38,6 +38,14 @@ jobs:
           path: deps/star-cl-ci
           fetch-depth: 1
 
+      - name: Checkout pinned Star-Lang compiler and loader
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: lost-rob0t/star-lang
+          ref: 7db89986450d4e513ff4b5c9617bf4d196b3cfb4
+          path: deps/star-lang-ci
+          fetch-depth: 1
+
       - name: Checkout pinned Sento actor runtime
         shell: bash
         run: |
@@ -106,14 +114,19 @@ jobs:
             --eval '(asdf:load-asd (truename "source/hackmode-providers/dns/hackmode-provider-dns-tests.asd"))' \
             --eval '(asdf:load-asd (truename "source/hackmode-providers/recon/hackmode-provider-recon.asd"))' \
             --eval '(asdf:load-asd (truename "source/hackmode-providers/recon/hackmode-provider-recon-tests.asd"))' \
+            --eval '(push (truename "deps/star-lang-ci/") asdf:*central-registry*)' \
+            --eval '(asdf:load-asd (truename "source/hackmode-starlang/hackmode-starlang.asd"))' \
+            --eval '(asdf:load-asd (truename "source/hackmode-starlang/hackmode-starlang-tests.asd"))' \
             --eval '(ql:quickload :hackmode-tests)' \
             --eval '(ql:quickload :hackmode-database-tests)' \
             --eval '(ql:quickload :hackmode-provider-dns-tests)' \
             --eval '(ql:quickload :hackmode-provider-recon-tests)' \
+            --eval '(ql:quickload :hackmode-starlang-tests)' \
             --eval '(asdf:test-system :hackmode)' \
             --eval '(asdf:test-system :hackmode-database)' \
             --eval '(asdf:test-system :hackmode-provider-dns)' \
             --eval '(asdf:test-system :hackmode-provider-recon)' \
+            --eval '(asdf:test-system :hackmode-starlang)' \
             2>&1 | tee "$RUNNER_TEMP/hackmode-core.log"
 
       - name: Upload Common Lisp diagnostic log
