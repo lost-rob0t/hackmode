@@ -121,7 +121,7 @@ jobs:
             --eval '(ql:quickload :hackmode-database-tests)' \
             --eval '(ql:quickload :hackmode-provider-dns-tests)' \
             --eval '(ql:quickload :hackmode-provider-recon-tests)' \
-            --eval '(ql:quickload :hackmode-starlang-tests)' \
+            --eval '(asdf:load-system :hackmode-starlang)' \
             --eval '(asdf:test-system :hackmode)' \
             --eval '(asdf:test-system :hackmode-database)' \
             --eval '(asdf:test-system :hackmode-provider-dns)' \
