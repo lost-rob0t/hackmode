@@ -10,4 +10,6 @@
                #:jsown)
   :components ((:file "package")
                (:file "graph")
-               (:file "providers")))
+               (:file "providers")
+               (:file "registration")
+               (:static-file "spec/pentest.star")))

@@ -19,8 +19,21 @@
 (defun pentest-root (&key (reload nil))
   (star-lang.loader:loaded-graph-root (load-pentest-graph :reload reload)))
 
+(defparameter *required-ir-version* 2
+  "Normalized IR version this bridge's declaration accessors are written for.")
+
+(defparameter *required-ir-schema* "org.star-lang/normalized-ir@2"
+  "Normalized IR schema discriminator this bridge's accessors expect.")
+
 (defun pentest-compiled (&key (reload nil))
-  (star-lang.loader:library-node-compiled (pentest-root :reload reload)))
+  (let ((compiled
+          (star-lang.loader:library-node-compiled (pentest-root :reload reload))))
+    (unless (and (eql (getf compiled :ir-version) *required-ir-version*)
+                 (string= (getf compiled :ir-schema) *required-ir-schema*))
+      (error "Pentest library IR is ~a/~a; this bridge requires ~a/~a. Pin a matching star-lang commit."
+             (getf compiled :ir-version) (getf compiled :ir-schema)
+             *required-ir-version* *required-ir-schema*))
+    compiled))
 
 (defun pentest-library-name (&key (reload nil))
   (star-lang.loader:library-node-name (pentest-root :reload reload)))
@@ -76,19 +89,22 @@
        (dataset *default-dataset*)
        (graph (load-pentest-graph)))
   "Build the wire tool-run document for one executed pentest tool run."
-  (star-lang.api:create-document
-   graph "tool-run"
-   (append (list :run-id (string run-id)
-                 :kind (string-downcase (string kind))
-                 :tool (string-downcase (string tool))
-                 :target target
-                 :argv argv
-                 :status (string-downcase (string status)))
-           (when exit-code (list :exit-code exit-code))
-           (when stdout (list :stdout stdout))
-           (when stderr (list :stderr stderr))
-           (list :raw (or raw '())))
-   :dataset dataset))
+  (handler-case
+      (star-lang.api:create-document
+       graph "tool-run"
+       (append (list :run-id (string run-id)
+                     :kind (string-downcase (string kind))
+                     :tool (string-downcase (string tool))
+                     :target target
+                     :argv argv
+                     :status (string-downcase (string status)))
+               (when exit-code (list :exit-code exit-code))
+               (when stdout (list :stdout stdout))
+               (when stderr (list :stderr stderr))
+               (list :raw (or raw '())))
+       :dataset dataset)
+    (error (condition)
+      (error "Building tool-run wire document failed: ~a" condition))))
 
 (defun encode-tool-run (document)
   (star-lang.api:encode-document document))
@@ -99,18 +115,21 @@
        (dataset *default-dataset*)
        (graph (load-pentest-graph)))
   "Build the wire vuln-finding document preserving the exact evidence value."
-  (star-lang.api:create-document
-   graph "vuln-finding"
-   (append (list :run-id (string run-id)
-                 :tool (string-downcase (string tool))
-                 :target target
-                 :template-id template-id
-                 :severity (string-downcase (string severity))
-                 :evidence evidence)
-           (when host (list :host host))
-           (when matched-at (list :matched-at matched-at))
-           (list :raw (or raw '())))
-   :dataset dataset))
+  (handler-case
+      (star-lang.api:create-document
+       graph "vuln-finding"
+       (append (list :run-id (string run-id)
+                     :tool (string-downcase (string tool))
+                     :target target
+                     :template-id template-id
+                     :severity (string-downcase (string severity))
+                     :evidence evidence)
+               (when host (list :host host))
+               (when matched-at (list :matched-at matched-at))
+               (list :raw (or raw '())))
+       :dataset dataset)
+    (error (condition)
+      (error "Building vuln-finding wire document failed: ~a" condition))))
 
 (defun encode-vuln-finding (document)
   (star-lang.api:encode-document document))

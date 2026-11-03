@@ -114,6 +114,60 @@
                   (getf (first findings) :line)
                   "exact source line")))
 
+(defun run-nuclei-parser-containment-test ()
+  "One malformed or nonstandard line must not destroy surrounding evidence."
+  (let* ((good "{\"template-id\":\"http/detect\",\"info\":{\"severity\":\"info\"}}")
+         (garbage "NOT-JSON {{ truncated")
+         (numeric-severity "{\"template-id\":\"n/edge\",\"info\":{\"severity\":7}}")
+         (findings
+           (hackmode-starlang:parse-nuclei-output
+            (format nil "~a~%~a~%~a~%" good garbage numeric-severity))))
+    (assert (= 3 (length findings)))
+    (assert-equal "http/detect" (getf (first findings) :template-id) "parsable finding kept")
+    (assert (getf (second findings) :parse-error) () "garbage line marked")
+    (assert-equal garbage
+                  (getf (second findings) :line)
+                  "exact unparsable line preserved")
+    (assert-equal "unknown"
+                  (getf (third findings) :severity)
+                  "non-string severity degrades to unknown")))
+
+(defun run-nuclei-nonzero-exit-test ()
+  "A nonzero exit keeps captured stdout and stderr retrievable in the error."
+  (let* ((root (fresh-test-path))
+         (db (tek9:new-database "operation" :path root))
+         (hackmode:*asset-event-hook*
+           (make-instance 'nhooks:hook-any :handlers nil)))
+    (unwind-protect
+         (progn
+           (tek9:open-database db)
+           (hackmode:clear-capability-providers)
+           (hackmode-starlang:register-nuclei-provider
+            :runner
+            (lambda (target)
+              (declare (ignore target))
+              (values "{\"template-id\":\"x/late-finding\"}"
+                      "[ERR] partial scan failure" 2)))
+           (let* ((target
+                    (make-instance 'hackmode:domain
+                                   :record "example.com"
+                                   :record-type "A"))
+                  (scan
+                    (hackmode:run-capability
+                     :vuln-scan target
+                     :provider :nuclei
+                     :database db))
+                  (error-text (hackmode:provider-job-result-error scan)))
+             (assert (eq :failed (hackmode:provider-job-result-state scan)))
+             (assert (search "x/late-finding" error-text)
+                     () "raw stdout embedded in failure record")
+             (assert (search "partial scan failure" error-text)
+                     () "stderr embedded in failure record")))
+      (hackmode:clear-capability-providers)
+      (when (tek9:db-is-open-p db)
+        (tek9:close-database db))
+      (remove-test-path root))))
+
 (defun run-nuclei-provider-test ()
   (let* ((root (fresh-test-path))
          (db (tek9:new-database "operation" :path root))
@@ -151,21 +205,28 @@
                           "nuclei finding type")
              (assert-equal sample
                           (hackmode:finding-data asset)
-                          "lossless nuclei evidence")))
+                          "lossless nuclei evidence")
+             (let ((persisted (tek9:fetch* db (hackmode:doc-id asset))))
+               (assert (typep persisted 'hackmode:finding))
+               (assert-equal sample
+                             (hackmode:finding-data persisted)
+                             "lossless evidence survives the store round-trip"))))
       (hackmode:clear-capability-providers)
       (when (tek9:db-is-open-p db)
         (tek9:close-database db))
       (remove-test-path root))))
 
 (defun run-registration-delegation-test ()
+  ;; The tests system hard-depends on hackmode-provider-recon, so the
+  ;; delegation assertions hold unconditionally.
   (hackmode:clear-capability-providers)
   (let ((registered (hackmode-starlang:register-pentest-providers)))
     (assert (hackmode:find-capability-provider :vuln-scan :nuclei))
-    (when (find-package :hackmode-provider-recon)
-      (assert (member (list :subdomain-enumerate "subfinder")
-                      registered :test #'equal))
-      (assert (hackmode:find-capability-provider
-               :subdomain-enumerate :subfinder))))
+    (assert (member (list :subdomain-enumerate "subfinder")
+                    registered :test #'equal))
+    (assert (hackmode:find-capability-provider :subdomain-enumerate :subfinder))
+    (assert (hackmode:find-capability-provider :subdomain-enumerate :crtsh))
+    (assert (hackmode:find-capability-provider :http-probe :curl)))
   (hackmode:clear-capability-providers))
 
 (defun run-tests ()
@@ -173,7 +234,12 @@
   (run-tool-run-document-test)
   (run-vuln-finding-document-test)
   (run-nuclei-parser-test)
+  (run-nuclei-parser-containment-test)
+  (run-nuclei-nonzero-exit-test)
   (run-nuclei-provider-test)
   (run-registration-delegation-test)
+  ;; The suites above cleared the registry; leave the image with the
+  ;; load-time provider registrations restored.
+  (hackmode-starlang:register-pentest-providers)
   (format t "Hackmode Star-Lang pentest tests passed.~%")
   t)

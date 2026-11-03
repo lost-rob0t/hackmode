@@ -36,7 +36,7 @@
     { "tool_id": "wigle", "name": "WiGLE API v2", "category": "kali-tools-information-gathering", "mode": "passive", "wrapper_status": "first-party" },
     { "tool_id": "kismet", "name": "Kismet", "category": "kali-tools-802-11", "mode": "passive", "wrapper_status": "first-party" },
     { "tool_id": "wireshark-cli", "name": "tshark", "category": "kali-tools-sniffing-spoofing", "mode": "passive", "wrapper_status": "planned" },
-    { "tool_id": "nmap", "name": "nmap", "category": "kali-tools-information-gathering", "mode": "active", "wrapper_status": "planned" },
+    { "tool_id": "nmap", "name": "nmap", "category": "kali-tools-information-gathering", "mode": "active", "wrapper_status": "designed" },
     { "tool_id": "masscan", "name": "masscan", "category": "kali-tools-information-gathering", "mode": "active", "wrapper_status": "planned" },
     { "tool_id": "amass", "name": "amass", "category": "kali-tools-information-gathering", "mode": "passive", "wrapper_status": "planned" },
     { "tool_id": "theharvester", "name": "theHarvester", "category": "kali-tools-information-gathering", "mode": "passive", "wrapper_status": "planned" },
@@ -65,7 +65,8 @@
     { "tool_id": "john", "name": "John the Ripper", "category": "kali-tools-passwords", "mode": "offline", "wrapper_status": "none" },
     { "tool_id": "hashcat", "name": "hashcat", "category": "kali-tools-passwords", "mode": "offline", "wrapper_status": "none" },
     { "tool_id": "gvm", "name": "Greenbone/OpenVAS", "category": "kali-tools-vulnerability", "mode": "active", "wrapper_status": "none" },
-    { "tool_id": "legion", "name": "Legion", "category": "kali-tools-vulnerability", "mode": "active", "wrapper_status": "none" }
+    { "tool_id": "legion", "name": "Legion", "category": "kali-tools-vulnerability", "mode": "active", "wrapper_status": "none" },
+    { "tool_id": "nuclei", "name": "nuclei", "category": "kali-tools-vulnerability", "mode": "active", "wrapper_status": "first-party" }
   ],
   "notes": {
     "wrapper_status_semantics": {
