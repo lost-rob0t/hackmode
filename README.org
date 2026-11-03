@@ -17,11 +17,36 @@ Hackmode product code, product documentation, tests, APIs, symbols, filenames, c
 - =source/= :: Common Lisp runtime, operation model, local storage, recon capabilities, and shell integration.
 - =emacs/= :: Hackmode Emacs package. Migration from =lost-rob0t/emacs-hackmode= is tracked by issue #4.
 - =templates/= :: Operation templates migrated from =lost-rob0t/hackmode-templates=.
-- =tools/= :: Maintained helpers and explicitly temporary legacy script compatibility. Curated migration from =lost-rob0t/hackmode-scripts= is tracked separately; generated binaries/FASLs are not accepted.
+- =tools/= :: Maintained helpers and explicitly temporary legacy script compatibility. Curated migration from =lost-rob0t/hackmode-scripts= is tracked separately; generated binaries/FASLs are not accepted. =tools/wireless/= is the first-party wireless recon tooling (WiGLE + Kismet collectors emitting StarIntel documents, daemon + =hm-wireless= CLI forms).
 - =agent-zero/= :: Agent Zero development-worker profiles, coordination policy/configuration, rollback notes, and installation instructions.
 - =docs/architecture/= :: Hackmode product architecture and repository-boundary decisions. Agent-worker orchestration does not belong here.
+- =docs/recon/windows/= :: First-party Windows network recon capability design and issue slices (smb, ldap, kerberos, dns, netbios, winrm, msrpc, ntlm).
+- =registry/kali/= :: Machine-readable Kali tool catalog registry (seed + derivation script) that recon coverage is tracked against.
 
 See =docs/architecture/monorepo.org= before adding a new Hackmode repository.
+
+* First-party StarIntel recon fold (2026-09-19)
+
+Hackmode is the first-party home for StarIntel recon capabilities. The
+folded-in pieces:
+
+- Wireless recon (WiGLE + Kismet -> StarIntel documents) lives in
+  =tools/wireless= and supersedes the short-lived standalone wireless
+  repository created on the Forgejo host earlier the same day; that host is
+  currently unreliable, GitHub Actions is the CI surface, and the standalone
+  repo is frozen until Forgejo recovers.
+- Windows network recon capability set is designed in =docs/recon/windows=
+  (issue slices are canonical there while the Forgejo tracker is down).
+- The Kali catalog registry in =registry/kali= defines what "support every
+  tool in Kali" means: every official category seeded, full tool derivation
+  via =build-registry.sh= on a Kali host.
+- The initial Actor-to-Actor protocol design is
+  =docs/architecture/actor2actor-protocol.org=.
+- =schema/starintel-schema.lock.json= pins the StarIntel schema authority
+  this tree consumes (currently the 0.10.1 pre-merge line; see the lock's
+  note field). StarIntel remains an integration target, not a second
+  authority: existing v0.9 projection surfaces stay valid because the
+  0.10.1 line is additive and accepts v0.9.0 documents unchanged.
 
 * Architecture direction
 Hackmode is local-first. An operation must keep working when StarIntel Server is unavailable. The Common Lisp runtime is becoming the canonical owner of operation and typed asset state; Emacs and shell clients should call that boundary instead of maintaining parallel state.

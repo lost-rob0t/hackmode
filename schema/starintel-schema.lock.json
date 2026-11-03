@@ -1,0 +1,17 @@
+{
+  "status": "pending-0.10.1",
+  "release_version": "0.10.1",
+  "schema_version": "0.9.0",
+  "canonical_repository": "lost-rob0t/starintel-gpt-auto-dig",
+  "canonical_commit": "3457a7dc70a51a1fd5d89aeb56a27383954da31b7",
+  "canonical_branch": "spec/0.10.1-unify",
+  "canonical_pull_request": null,
+  "schema_path": "schemas/starintel-doc-v0.10.1.schema.json",
+  "expansion_path": "schemas/starintel-doc-v0.9.0.expansion.json",
+  "manifest_path": "schemas/starintel-doc-v0.10.1.manifest.json",
+  "required_dtypes": [
+    "wireless-network",
+    "wireless-station"
+  ],
+  "note": "Pre-merge pin: the 0.10.1 line (wireless/network/pcap dtypes, breach data-leak flesh-out, unified vocabulary) lives on canonical branch spec/0.10.1-unify at the commit above and has not merged to canonical main. While status is pending, tools/wireless validates against the bundled v0.9.0 base schema plus its supplemental wireless validators. When the canonical merge lands: repin canonical_commit to the merge commit, drop status, and restore the validation-pin checks in tools/wireless/tests/test_schema_lock.py. Never hand-edit release versions; resolve them with the canonical repo's scripts/schema-release.py."
+}

@@ -25,7 +25,7 @@ jobs:
       - name: Checkout pinned Tek9
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          repository: nsaspy/tek9
+          repository: lost-rob0t/tek9
           ref: 1cb978084da8b4f1d184b3ef2a1d30057f525608
           path: deps/tek9-ci
           fetch-depth: 1
@@ -33,9 +33,17 @@ jobs:
       - name: Checkout pinned StarIntel Common Lisp schema
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          repository: nsaspy/star-cl
+          repository: lost-rob0t/star-cl
           ref: b8dfbe2f9f56065ace8c3313b92ca748a115cdfa
           path: deps/star-cl-ci
+          fetch-depth: 1
+
+      - name: Checkout pinned Star-Lang compiler and loader
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: lost-rob0t/star-lang
+          ref: 7db89986450d4e513ff4b5c9617bf4d196b3cfb4
+          path: deps/star-lang-ci
           fetch-depth: 1
 
       - name: Checkout pinned Sento actor runtime
@@ -89,6 +97,11 @@ jobs:
 
       - name: Load Hackmode and run ASDF tests
         shell: bash
+        env:
+          # Recursive registry entry: Star-Lang systems live in nested
+          # directories (star-actor-protocol/, star-canonical-json/, ...),
+          # which a flat central-registry push cannot see.
+          CL_SOURCE_REGISTRY: ${{ github.workspace }}/deps/star-lang-ci//
         run: |
           set -euo pipefail
           sbcl --non-interactive \
@@ -106,14 +119,18 @@ jobs:
             --eval '(asdf:load-asd (truename "source/hackmode-providers/dns/hackmode-provider-dns-tests.asd"))' \
             --eval '(asdf:load-asd (truename "source/hackmode-providers/recon/hackmode-provider-recon.asd"))' \
             --eval '(asdf:load-asd (truename "source/hackmode-providers/recon/hackmode-provider-recon-tests.asd"))' \
+            --eval '(asdf:load-asd (truename "source/hackmode-starlang/hackmode-starlang.asd"))' \
+            --eval '(asdf:load-asd (truename "source/hackmode-starlang/hackmode-starlang-tests.asd"))' \
             --eval '(ql:quickload :hackmode-tests)' \
             --eval '(ql:quickload :hackmode-database-tests)' \
             --eval '(ql:quickload :hackmode-provider-dns-tests)' \
             --eval '(ql:quickload :hackmode-provider-recon-tests)' \
+            --eval '(asdf:load-system :hackmode-starlang)' \
             --eval '(asdf:test-system :hackmode)' \
             --eval '(asdf:test-system :hackmode-database)' \
             --eval '(asdf:test-system :hackmode-provider-dns)' \
             --eval '(asdf:test-system :hackmode-provider-recon)' \
+            --eval '(asdf:test-system :hackmode-starlang)' \
             2>&1 | tee "$RUNNER_TEMP/hackmode-core.log"
 
       - name: Upload Common Lisp diagnostic log

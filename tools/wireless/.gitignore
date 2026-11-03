@@ -1,0 +1,8 @@
+# Local runtime state for the vendored wireless tools (never committed).
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
