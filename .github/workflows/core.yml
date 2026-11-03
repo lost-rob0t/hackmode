@@ -97,6 +97,11 @@ jobs:
 
       - name: Load Hackmode and run ASDF tests
         shell: bash
+        env:
+          # Recursive registry entry: Star-Lang systems live in nested
+          # directories (star-actor-protocol/, star-canonical-json/, ...),
+          # which a flat central-registry push cannot see.
+          CL_SOURCE_REGISTRY: ${{ github.workspace }}/deps/star-lang-ci//
         run: |
           set -euo pipefail
           sbcl --non-interactive \
@@ -114,7 +119,6 @@ jobs:
             --eval '(asdf:load-asd (truename "source/hackmode-providers/dns/hackmode-provider-dns-tests.asd"))' \
             --eval '(asdf:load-asd (truename "source/hackmode-providers/recon/hackmode-provider-recon.asd"))' \
             --eval '(asdf:load-asd (truename "source/hackmode-providers/recon/hackmode-provider-recon-tests.asd"))' \
-            --eval '(push (truename "deps/star-lang-ci/") asdf:*central-registry*)' \
             --eval '(asdf:load-asd (truename "source/hackmode-starlang/hackmode-starlang.asd"))' \
             --eval '(asdf:load-asd (truename "source/hackmode-starlang/hackmode-starlang-tests.asd"))' \
             --eval '(ql:quickload :hackmode-tests)' \
