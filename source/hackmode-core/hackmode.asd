@@ -36,6 +36,7 @@
                (:file "http-requester")
                (:file "providers")
                (:file "provider-actor")
+               (:file "target-receiver")
                (:file "capture-provider")
                (:file "capture-replay")
                (:file "expert")
