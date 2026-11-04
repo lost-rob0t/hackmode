@@ -28,7 +28,8 @@
                (:file "tests/ipx-replay")
                (:file "tests/http-transport-profile")
                (:file "tests/visual-evidence-outbox")
-               (:file "tests/http-requester"))
+               (:file "tests/http-requester")
+               (:file "tests/starintel-client"))
   :perform (test-op (op system)
              (declare (ignore op system))
              (uiop:symbol-call :hackmode-tests :run-tests)
@@ -60,4 +61,6 @@
              (uiop:symbol-call :hackmode-visual-evidence-outbox-tests
                                :run-visual-evidence-outbox-tests)
              (uiop:symbol-call :hackmode-http-requester-tests
-                               :run-http-requester-tests)))
+                               :run-http-requester-tests)
+             (uiop:symbol-call :hackmode-starintel-client-tests
+                               :run-starintel-client-all-tests)))

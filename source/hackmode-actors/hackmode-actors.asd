@@ -17,4 +17,5 @@
   :components ((:file "package")
                (:file "ontology")
                (:file "projection")
-               (:file "actors")))
+               (:file "actors")
+               (:file "service")))

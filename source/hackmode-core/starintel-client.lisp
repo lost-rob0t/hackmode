@@ -85,9 +85,13 @@ Returns BODY and an integer HTTP status, or the body string and the symbol
            :client-error))))
 
 (defun starintel-parse-json-body (body)
-  "Parse BODY as JSON, or return :BAD-RESPONSE for malformed payloads."
+  "Parse BODY as JSON, or return :BAD-RESPONSE for malformed payloads.
+
+JSOWN:PARSE returns NIL instead of signalling for some malformed inputs
+in the wild, so NIL is treated as a bad response rather than a value."
   (handler-case
-      (jsown:parse body)
+      (let ((parsed (jsown:parse body)))
+        (if parsed parsed :bad-response))
     (error () :bad-response)))
 
 (defun make-starintel-client (&key config (request-fn #'default-starintel-request))

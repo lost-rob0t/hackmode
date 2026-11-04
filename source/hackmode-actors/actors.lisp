@@ -86,7 +86,8 @@ The default resolver uses the current operation database.")
        (%wire-reply '((:queued . t))))
       ((string= type "hackmode/drain-outbox@1")
        (hackmode:drain-outbox hackmode:*db*
-                              (hackmode:make-starintel-http-transport))
+                              (hackmode:starintel-sync-transport
+                               (hackmode:current-starintel-config)))
        (%wire-reply
         (make-ontology-wire-message
          "hackmode/outbox-state@1"
@@ -311,4 +312,4 @@ automatically. Idempotent: subscribing twice adds one handler."
         "hackmode/asset-discovered@1"
         (list (cons "assetId" (hackmode:asset-deterministic-id asset))
               (cons "kind" (string-downcase
-                            (symbol-name (hackmode:asset-kind asset))))))))))
+                            (hackmode:asset-kind asset)))))))))

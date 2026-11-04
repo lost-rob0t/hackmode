@@ -130,4 +130,6 @@
   (run-ontology-tests)
   (run-projection-tests)
   (run-actor-tests)
+  (run-service-env-tests)
+  (run-service-lifecycle-test)
   (format t "~&hackmode-actors tests passed~%"))

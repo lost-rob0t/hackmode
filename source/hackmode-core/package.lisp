@@ -205,6 +205,7 @@
     :starintel-client
     :make-starintel-client
     :starintel-client-config
+    :starintel-client-url
     :starintel-client-request-fn
     :starintel-request-error
     :starintel-request-error-message
@@ -214,6 +215,7 @@
     ;; StarIntel operator surface
     :starintel-sync
     :starintel-sync-transport
+    :starintel-outbox-state-counts
     :starintel-outbox-status
     :print-starintel-sync-report
    ;; Shared actor runtime

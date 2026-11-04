@@ -45,8 +45,9 @@ folded-in pieces:
 - The initial Actor-to-Actor protocol design is
   =docs/architecture/actor2actor-protocol.org=.
 - =schema/starintel-schema.lock.json= pins the StarIntel schema authority
-  this tree consumes (currently the 0.10.1 pre-merge line; see the lock's
-  note field). StarIntel remains an integration target, not a second
+  this tree consumes: the concrete 0.10.1 release from =lost-rob0t/star-lang=,
+  vendored and digest-verified under =spec/vendor/starintel-0.10.1/=.
+  StarIntel remains an integration target, not a second
   authority: existing v0.9 projection surfaces stay valid because the
   0.10.1 line is additive and accepts v0.9.0 documents unchanged.
 

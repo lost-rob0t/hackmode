@@ -33,6 +33,7 @@
 (defun starintel-sync (&key
                          (database *db*)
                          (config (current-starintel-config))
+                         (transport (starintel-sync-transport config))
                          (limit 100)
                          (now (unix-now)))
   "Drain up to LIMIT due outbox entries to StarIntel Server and report.
@@ -40,7 +41,7 @@
 Returns a plist with :ACKED :QUARANTINED :RETRIED :FAILED counts for entries
 processed by this drain and :REMAINING entries still not acknowledged. A 2xx
 server response is ingest acceptance, not a storage guarantee."
-  (let* ((results (drain-outbox database (starintel-sync-transport config)
+  (let* ((results (drain-outbox database transport
                                 :now now :limit limit))
          (report (starintel-count-report results)))
     (nconc report (list :remaining (starintel-remaining-count database)))))

@@ -52,4 +52,14 @@
    #:hackmode-ontology-actor
    #:tell-hackmode-actor
    #:ask-hackmode-actor
-   #:start-asset-projection-loop))
+   #:start-asset-projection-loop
+   ;; Long-running service entrypoint
+   #:*service-stop-requested*
+   #:service-env
+   #:service-starintel-config
+   #:write-service-heartbeat
+   #:service-drain-once
+   #:start-hackmode-actor-service
+   #:stop-hackmode-actor-service
+   #:run-hackmode-actor-service
+   #:hackmode-actor-service-main))
