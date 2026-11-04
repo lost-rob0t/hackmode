@@ -57,6 +57,7 @@
    #:*service-stop-requested*
    #:service-env
    #:service-starintel-config
+   #:seed-service-domains
    #:write-service-heartbeat
    #:service-drain-once
    #:start-hackmode-actor-service

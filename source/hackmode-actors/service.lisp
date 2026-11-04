@@ -83,6 +83,25 @@ rotation): entries stay durable in the outbox and retry on the next cycle."
                                (declare (ignore args))
                                (setf *service-stop-requested* t)))))
 
+(defun seed-service-domains (&key (database hackmode:*db*))
+  "Discover HACKMODE_SEED_DOMAINS assets once at service start.
+
+Comma-separated domain names; each flows through the normal projection
+loop into the durable outbox. This is the config-driven work source for
+deployments before target dispatch lands."
+  (let ((raw (service-env "HACKMODE_SEED_DOMAINS")))
+    (when (and raw (plusp (length raw)))
+      (dolist (name (remove "" (uiop:split-string raw :separator ",")
+                            :test #'string=))
+        (hackmode:discover-asset
+         (make-instance 'hackmode:domain
+                        :record (string-trim " " name)
+                        :record-type "A"
+                        :operation "hackmode-actor-service"
+                        :date-added (hackmode:unix-now)
+                        :date-updated (hackmode:unix-now))
+         :database database)))))
+
 (defun start-hackmode-actor-service (&key
                                        (db-path (service-env
                                                  "HACKMODE_DB_PATH"
@@ -109,6 +128,7 @@ asset projection. Returns the opened database."
     (setf hackmode:*db* database)
     (ensure-hackmode-ontology-actors)
     (start-asset-projection-loop)
+    (seed-service-domains :database database)
     database))
 
 (defun stop-hackmode-actor-service (&optional (database hackmode:*db*))
