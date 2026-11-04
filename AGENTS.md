@@ -42,7 +42,7 @@ Similar regression classes are also banned:
 This tree consumes the StarIntel document contract as an integration target. The consumer lock is `schema/starintel-schema.lock.json`.
 
 - Never hand-edit a StarIntel release/version value or fabricate a lock. Release authority is resolved only with the canonical schema repository's `scripts/schema-release.py` (`current`/`check`), never from filenames, prose, or memory.
-- While the lock holds a pending status, supplemental validators inside `tools/wireless` carry the gap and its tests skip loudly. When the lock goes concrete, the validation-pin checks must be restored in the same change.
+- The lock pins the concrete 0.10.1 release from `lost-rob0t/star-lang`, vendored under `spec/vendor/starintel-0.10.1/` and verified by `tools/sync-starintel-consumer.py`; the ontology projection emits only the canonical flat 0.10.1 shape.
 - Existing v0.9 projection/export surfaces remain valid: the 0.10.1 line is additive and accepts v0.9.0 documents. Do not fork a second document shape.
 
 # Agent-caused regression ledger
@@ -60,3 +60,15 @@ When the operator identifies an agent-caused regression, bad assumption, or unac
 Regression: the IPX HTTP design introduced redacted headers, canonical stripping of authorization/cookie/API-key fields before expert/StarIntel projection, and an acceptance criterion requiring secret-bearing fields to be absent. That made passive evidence lossy and would have prevented later authorized analysis from recovering the exact observed traffic.
 
 Prevention rule: operation-scoped capture evidence is lossless by default. Exact captured values remain canonical raw evidence; projections may reference them for boundedness but may not silently redact, sanitize, hash-away, omit, or mutate them. Scope/promotion policy must be enforced by access and export boundaries rather than destruction of source evidence.
+
+## 2026-10-08 — StarIntel projection authority
+
+Regression: the ontology projection labeled a handwritten nested snake_case
+payload as StarIntel 0.10.1, and its tests checked that same incorrect shape.
+
+Prevention rule: Star Language core.star and its digest-locked generated release
+are the sole authority for 0.10.1 documents. Emit flat lowerCamelCase fields with
+id and schemaVersion, Unix envelope timestamps, and canonical typed references.
+Validate actual emitted JSON against the pinned generated schema with negative
+controls. Preserve raw evidence and dataset overrides through projection and
+outbox persistence; green self-consistency tests are not canonical conformance.

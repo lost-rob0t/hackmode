@@ -15,9 +15,10 @@
                #:starintel
                #:jsown
                #:cl-ppcre
-               #:ironclad
-               #:dexador
-               #:sento
+                #:ironclad
+                #:dexador
+                #:quri
+                #:sento
                #:shellpool)
   :components ((:file "package")
                (:file "utils")
@@ -27,9 +28,12 @@
                (:file "operations")
                (:file "assets")
                (:file "starintel-documents")
-               (:file "actor-system")
-               (:file "outbox")
-               (:file "investigation-views")
+                (:file "actor-system")
+                (:file "outbox")
+                (:file "starintel-config")
+                (:file "starintel-client")
+                (:file "starintel-outbox-commands")
+                (:file "investigation-views")
                (:file "visual-evidence-outbox")
                (:file "outbox-actor")
                (:file "http-transport-profile")

@@ -184,7 +184,40 @@
    :outbox-due-p
    :process-outbox-entry
    :drain-outbox
-   :make-starintel-http-transport
+    :make-starintel-http-transport
+    ;; StarIntel configuration
+    :starintel-config
+    :starintel-config-base-url
+    :starintel-config-api-key
+    :starintel-config-dataset
+    :starintel-config-connect-timeout
+    :starintel-config-read-timeout
+    :starintel-config-error
+    :starintel-config-error-message
+    :starintel-config-from-env
+    :*starintel-config*
+    :*starintel-config-hook*
+    :reload-starintel-config
+    :current-starintel-config
+    :valid-starintel-base-url-p
+    :starintel-auth-headers
+    ;; StarIntel read client
+    :starintel-client
+    :make-starintel-client
+    :starintel-client-config
+    :starintel-client-url
+    :starintel-client-request-fn
+    :starintel-request-error
+    :starintel-request-error-message
+    :starintel-get-document
+    :starintel-search
+    :starintel-health-p
+    ;; StarIntel operator surface
+    :starintel-sync
+    :starintel-sync-transport
+    :starintel-outbox-state-counts
+    :starintel-outbox-status
+    :print-starintel-sync-report
    ;; Shared actor runtime
    :*hackmode-actor-system*
    :*outbox-actor*
