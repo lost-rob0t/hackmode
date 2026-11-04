@@ -54,7 +54,7 @@ RUN sbcl --non-interactive \
       --eval '(asdf:load-asd (truename "source/hackmode-core/hackmode.asd"))' \
       --eval '(asdf:load-asd (truename "source/hackmode-database/hackmode-database.asd"))' \
       --eval '(asdf:load-asd (truename "source/hackmode-actors/hackmode-actors.asd"))' \
-      --eval '(asdf:load-system :hackmode-actors)' \
+      --eval '(ql:quickload :hackmode-actors)' \
       --eval '(sb-ext:save-lisp-and-die "/out/hackmode-actor-service" :toplevel (function hackmode-actors:hackmode-actor-service-main) :executable t :compression t)'
 
 FROM debian:bookworm-slim
