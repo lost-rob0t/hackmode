@@ -95,6 +95,12 @@ asset projection. Returns the opened database."
   ;; one place where the configured dataset must govern both transport and
   ;; projected documents.
   (setf *starintel-dataset* (hackmode:starintel-config-dataset config))
+  ;; The ontology specs default to the source tree; a deployed image points
+  ;; this at the baked-in copy instead.
+  (let ((spec-directory (service-env "HACKMODE_ONTOLOGY_SPEC_DIR")))
+    (when spec-directory
+      (setf *ontology-spec-directory*
+            (uiop:ensure-pathname spec-directory :ensure-directory t))))
   (ensure-directories-exist (uiop:ensure-pathname db-path
                                                   :defaults *default-pathname-defaults*
                                                   :ensure-directory t))
