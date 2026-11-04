@@ -71,6 +71,7 @@ COPY spec /opt/hackmode/spec
 COPY docker/hackmode-actor-entrypoint.sh /bin/hackmode-actor-entrypoint
 
 ENV HOME=/tmp \
+    LD_LIBRARY_PATH=/opt/hackmode/lib \
     HACKMODE_DB_PATH=/var/lib/hackmode/operation \
     HACKMODE_ONTOLOGY_SPEC_DIR=/opt/hackmode/spec \
     STARINTEL_SERVICE_HEALTH_FILE=/tmp/hackmode-actor-health
