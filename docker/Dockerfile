@@ -66,7 +66,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && useradd --uid 10001 --no-create-home --system hackmode
 
 COPY --from=build /out/hackmode-actor-service /bin/hackmode-actor-service
-COPY --from=build --chmod=755 /opt/hackmode/.cache /opt/hackmode/.cache
+COPY --from=build /opt/hackmode/.cache /opt/hackmode/.cache
 COPY spec /opt/hackmode/spec
 COPY docker/hackmode-actor-entrypoint.sh /bin/hackmode-actor-entrypoint
 
@@ -76,7 +76,8 @@ ENV HOME=/tmp \
     STARINTEL_SERVICE_HEALTH_FILE=/tmp/hackmode-actor-health
 
 RUN mkdir -p /var/lib/hackmode && chown -R 10001:10001 /var/lib/hackmode \
-    && chmod +x /bin/hackmode-actor-entrypoint
+    && chmod +x /bin/hackmode-actor-entrypoint \
+    && chmod -R a+rX /opt/hackmode/.cache
 VOLUME ["/var/lib/hackmode"]
 USER hackmode
 WORKDIR /tmp
