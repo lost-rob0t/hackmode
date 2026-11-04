@@ -76,9 +76,11 @@ ENV HOME=/tmp \
     HACKMODE_ONTOLOGY_SPEC_DIR=/opt/hackmode/spec \
     STARINTEL_SERVICE_HEALTH_FILE=/tmp/hackmode-actor-health
 
-RUN mkdir -p /var/lib/hackmode && chown -R 10001:10001 /var/lib/hackmode \
+RUN mkdir -p /var/lib/hackmode /opt/hackmode/lib \
+    && ln -s /usr/lib/x86_64-linux-gnu/liblmdb.so.0 /opt/hackmode/lib/liblmdb.so \
+    && chown -R 10001:10001 /var/lib/hackmode \
     && chmod +x /bin/hackmode-actor-entrypoint \
-    && chmod -R a+rX /opt/hackmode/.cache
+    && chmod -R a+rX /opt/hackmode/.cache /opt/hackmode/lib
 VOLUME ["/var/lib/hackmode"]
 USER hackmode
 WORKDIR /tmp
