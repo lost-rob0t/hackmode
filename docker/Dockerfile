@@ -23,7 +23,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       liblmdb-dev libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-RUN mkdir -p /build/deps /out /rootql && cd /build/deps \
+ENV HOME=/opt/hackmode
+RUN mkdir -p /build/deps /out /opt/hackmode && cd /build/deps \
     && git clone --quiet --filter=blob:none https://github.com/lost-rob0t/tek9.git tek9 \
     && git -C tek9 fetch --depth=1 origin "$TEK9_REV" && git -C tek9 checkout --quiet --detach "$TEK9_REV" \
     && git clone --quiet --filter=blob:none https://github.com/lost-rob0t/star-cl.git star-cl \
@@ -38,14 +39,14 @@ RUN mkdir -p /build/deps /out /rootql && cd /build/deps \
 RUN curl -sS --retry 5 -o /tmp/quicklisp.lisp https://beta.quicklisp.org/quicklisp.lisp \
     && sbcl --non-interactive \
          --load /tmp/quicklisp.lisp \
-         --eval '(quicklisp-quickstart:install :path "/rootql/quicklisp")'
+         --eval '(quicklisp-quickstart:install :path "/opt/hackmode/quicklisp")'
 
 COPY . /build/hackmode
 
 ENV CL_SOURCE_REGISTRY=/build/deps/star-lang//
 WORKDIR /build/hackmode
 RUN sbcl --non-interactive \
-      --load /rootql/quicklisp/setup.lisp \
+      --load /opt/hackmode/quicklisp/setup.lisp \
       --eval '(push (truename "/build/deps/cms-ulid/") asdf:*central-registry*)' \
       --eval '(push (truename "/build/deps/sento/") asdf:*central-registry*)' \
       --eval '(asdf:load-asd (truename "/build/deps/tek9/src/tek9.asd"))' \
@@ -65,6 +66,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && useradd --uid 10001 --no-create-home --system hackmode
 
 COPY --from=build /out/hackmode-actor-service /bin/hackmode-actor-service
+COPY --from=build --chmod=755 /opt/hackmode/.cache /opt/hackmode/.cache
 COPY spec /opt/hackmode/spec
 COPY docker/hackmode-actor-entrypoint.sh /bin/hackmode-actor-entrypoint
 
