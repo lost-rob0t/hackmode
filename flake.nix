@@ -41,7 +41,26 @@
         "${cms-ulid}//"
       ];
 
-      sbcl = pkgs.sbcl.withPackages (ps: with ps; [
+      # The nixpkgs lisp lmdb package builds without its native library;
+      # rebuild it from the Quicklisp archive with liblmdb on the loader
+      # path (same shape as the starintel-server flake's nativeLibs usage).
+      lmdbLisp = pkgs.sbcl.buildASDFSystem rec {
+        pname = "lmdb";
+        version = "unversioned";
+        src = pkgs.fetchzip {
+          url = "http://beta.quicklisp.org/archive/lmdb/2025-06-22/lmdb-20250622-git.tgz";
+          sha256 = "sha256-SZ4Eqg8A45e8+k7KlkW0HO30bB5umh+k7EZ50XNWa5c=";
+          stripRoot = false;
+        };
+        nativeLibs = [ pkgs.lmdb ];
+        systems = [ "lmdb" ];
+        lispLibs = with pkgs.sbclPackages; [
+          alexandria trivial-utf-8 cl-reexport mgl-pax bordeaux-threads
+          osicat trivial-features trivial-garbage
+        ];
+      };
+
+      sbcl = (pkgs.sbcl.withOverrides (self: super: { lmdb = lmdbLisp; })).withPackages (ps: with ps; [
         serapeum
         local-time
         nfiles
@@ -60,6 +79,10 @@
         quri
         shellpool
         cl-conspack
+        jzon
+        bit-smasher
+        log4cl blackbird cl-speedy-queue binding-arrows timer-wheel
+        local-time-duration lparallel atomics
         lmdb
       ]);
 
@@ -76,6 +99,9 @@
 
         dontConfigure = true;
         dontBuild = true;
+        installPhase = ''
+          touch "$out"
+        '';
 
         checkPhase = ''
           runHook preCheck
@@ -91,75 +117,6 @@
           runHook postCheck
         '';
         doCheck = true;
-      };
-      hackmodeActorBin = pkgs.stdenv.mkDerivation {
-        pname = "hackmode-actor-service";
-        version = "0.1.0";
-        src = pkgs.lib.cleanSource ./.;
-
-        strictDeps = true;
-        nativeBuildInputs = [ sbcl ];
-
-        dontConfigure = true;
-
-        buildPhase = ''
-          runHook preBuild
-          export HOME="$NIX_BUILD_TOP/home"
-          mkdir -p "$HOME"
-          export CL_SOURCE_REGISTRY="${sourceRegistry}:''${CL_SOURCE_REGISTRY:-}"
-          export ASDF_OUTPUT_TRANSLATIONS="(:output-translations (**) "$NIX_BUILD_TOP/fasl-cache" :implement-configuration)"
-          export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath actorRuntimeLibs}:''${LD_LIBRARY_PATH:-}"
-          sbcl --non-interactive \
-            --eval '(require :asdf)' \
-            --eval '(asdf:load-asd (truename "source/hackmode-core/hackmode.asd"))' \
-            --eval '(asdf:load-asd (truename "source/hackmode-database/hackmode-database.asd"))' \
-            --eval '(asdf:load-asd (truename "source/hackmode-actors/hackmode-actors.asd"))' \
-            --eval '(asdf:load-system :hackmode-actors)' \
-            --eval '(sb-ext:save-lisp-and-die "hackmode-actor-service" :toplevel #'"'"'hackmode-actors:hackmode-actor-service-main :executable t :compression t)'
-          runHook postBuild
-        '';
-
-        installPhase = ''
-          runHook preInstall
-          install -Dm555 hackmode-actor-service "$out/bin/hackmode-actor-service"
-          runHook postInstall
-        '';
-      };
-
-      hackmodeActorServiceRoot = pkgs.runCommand "hackmode-actor-service-root"
-        {
-          entrypoint = ./docker/hackmode-actor-entrypoint.sh;
-          specTree = pkgs.lib.cleanSource ./spec;
-        }
-        ''
-          mkdir -p "$out/bin" "$out/opt/hackmode"
-          install -m555 "$entrypoint" "$out/bin/hackmode-actor-entrypoint"
-          cp -r "$specTree" "$out/opt/hackmode/spec"
-        '';
-
-      hackmodeActorImage = pkgs.dockerTools.buildLayeredImage {
-        name = "starintel/hackmode-actor-service";
-        tag = "0.1.0";
-        created = "now";
-        contents = [
-          hackmodeActorBin
-          hackmodeActorServiceRoot
-          pkgs.busybox
-          pkgs.cacert
-          pkgs.su-exec
-        ];
-        config = {
-          Entrypoint = [ "/bin/hackmode-actor-entrypoint" ];
-          Env = [
-            "HOME=/tmp"
-            "SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt"
-            "HACKMODE_DB_PATH=/var/lib/hackmode/operation"
-            "HACKMODE_ONTOLOGY_SPEC_DIR=/opt/hackmode/spec"
-            "STARINTEL_SERVICE_HEALTH_FILE=/tmp/hackmode-actor-health"
-          ];
-          WorkingDir = "/tmp";
-          Volumes = { "/var/lib/hackmode" = { }; };
-        };
       };
     in
     {
@@ -194,9 +151,5 @@
 
       checks.${system} = { inherit hackmodeActorsTest; };
 
-      packages.${system} = {
-        hackmode-actor-service = hackmodeActorBin;
-        hackmode-actor-image = hackmodeActorImage;
-      };
     };
 }

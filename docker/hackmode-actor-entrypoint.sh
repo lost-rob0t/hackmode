@@ -1,9 +1,9 @@
 #!/bin/sh
 # Entrypoint for the Hackmode actor service container.
 #
-# Loads secret-bearing environment variables from *_FILE mounts, prepares
-# the durable operation database directory, and drops to the non-root actor
-# uid before execing the saved executable.
+# The image starts as uid 10001 (hackmode); this script only fills
+# secret-bearing environment variables from *_FILE mounts and execs the
+# saved executable.
 set -eu
 
 load_secret() {
@@ -17,7 +17,4 @@ load_secret() {
 load_secret STARINTEL_API_KEY
 load_secret HACKMODE_STARINTEL_API_KEY
 
-mkdir -p /var/lib/hackmode
-chown -R 10001:10001 /var/lib/hackmode 2>/dev/null || true
-
-exec su-exec 10001:10001 /bin/hackmode-actor-service
+exec /bin/hackmode-actor-service
