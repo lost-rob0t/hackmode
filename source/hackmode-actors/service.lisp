@@ -120,10 +120,10 @@ asset projection. Returns the opened database."
     (when spec-directory
       (setf *ontology-spec-directory*
             (uiop:ensure-pathname spec-directory :ensure-directory t))))
-  (ensure-directories-exist (uiop:ensure-pathname db-path
-                                                  :defaults *default-pathname-defaults*
-                                                  :ensure-directory t))
-  (let ((database (tek9:new-database "operation" :path db-path)))
+  (let* ((database-directory
+           (uiop:ensure-pathname db-path :ensure-directory t))
+         (database (tek9:new-database "operation" :path database-directory)))
+    (ensure-directories-exist database-directory)
     (tek9:open-database database)
     (setf hackmode:*db* database)
     (ensure-hackmode-ontology-actors)

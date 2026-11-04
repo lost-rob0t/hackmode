@@ -82,7 +82,7 @@
            (setf (uiop:getenv "HACKMODE_STARINTEL_API_KEY") "test-key")
            (let ((database
                    (hackmode-actors:start-hackmode-actor-service
-                    :db-path (namestring root))))
+                    :db-path (namestring (uiop:ensure-pathname root :ensure-directory nil)))))
              (assert (tek9:db-is-open-p database))
              (assert (eq database hackmode:*db*))
              (assert (= 6 (length hackmode-actors:*ontology-actors*)))
