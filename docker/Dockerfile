@@ -19,7 +19,7 @@ ARG CMS_ULID_REV=fff84302dee5db42fb90aafd834af3ffbfd6c2bb
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      sbcl curl git ca-certificates \
+      sbcl curl git ca-certificates build-essential \
       liblmdb-dev libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
