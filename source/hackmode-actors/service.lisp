@@ -91,6 +91,10 @@ rotation): entries stay durable in the outbox and retry on the next cycle."
   "Open the operation database, spawn the ontology actors, and subscribe
 asset projection. Returns the opened database."
   (setf hackmode:*starintel-config* config)
+  ;; The projection layer keeps its own dataset default; the service is the
+  ;; one place where the configured dataset must govern both transport and
+  ;; projected documents.
+  (setf *starintel-dataset* (hackmode:starintel-config-dataset config))
   (ensure-directories-exist (uiop:ensure-pathname db-path
                                                   :defaults *default-pathname-defaults*
                                                   :ensure-directory t))
