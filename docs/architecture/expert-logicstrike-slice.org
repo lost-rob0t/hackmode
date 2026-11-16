@@ -1,0 +1,116 @@
+#+title: Expert plane — logicStrike knowledge slice
+
+Issue: #24 (consumer wiring). Status: DESIGN (human-gated ADADR; research
+approved 2026-11-15). Source specs: logicstrike =docs/expert-delegation.md=,
+=docs/asset-kb.md= (STATUS: folded), =docs/escalation-points.md=.
+
+* Problem
+
+The expert substrate (snapshot protocol, effect authority, provider
+dispatch admission) and the database boundary (typed execution records,
+KB lifecycle, effective reads) are merged and green. The Prolog rules
+(=expert/hackmode_expert.pl=, 75 lines) reason over none of it beyond
+provider ranking. logicStrike carries the technique/ontology KB and
+inference that #24's expert families need.
+
+* Scope of this slice (smallest coherent)
+
+Wire logicStrike's KB + inference into the existing snapshot/emit
+protocol as an advisory reasoning pack. No KB-lifecycle changes, no
+delta acceptance layer, no grant-gated dispatch.
+
+** In scope
+1. Vendor logicStrike =kb/= + =modules/= (concepts, relationships,
+   techniques, inference) into =source/hackmode-core/expert/logicstrike/=
+   at a pinned revision.
+2. Snapshot-kind bridge in Prolog: =snapshot_surface(?Kind, ?Surface)=
+   maps CL asset kinds (CL-controlled vocabulary) to logicStrike
+   surfaces: url → url_input, form-ish/http-input kinds → form_input /
+   json_input where the kind exists, domain → domain, ip/ipv4/ipv6 →
+   ip. Snapshot *values* stay opaque strings; only the CL-owned kind
+   field drives classification.
+3. New emit goals in the rules file:
+   - =emit_technique_candidates=: join snapshot assets × bridge ×
+     =technique_applies/2= (surface-subtype closure included), emit
+     =priority\ttechnique\tasset-id= lines, deterministically sorted.
+4. New CL API =expert-recommend-techniques (asset-or-id)= mirroring
+   =expert-recommend-capabilities= (advisory, PASSIVE/:reasoning only,
+   string-fact serialization, temp-file + line protocol unchanged).
+
+** Out of scope (recorded, sequenced later)
+- Graph-delta acceptance layer (database-owned; reconciliation below).
+- Delegation =delegate/3=, grant gating, =llm_task/3= valve: the CL
+  engine authority gate (=PASSIVE/:ACTIVE= + effect kinds) already
+  owns admission and outranks Prolog-side gating until multi-expert
+  dispatch exists.
+- =asset_of/2= containment projection from Tek9 (needs a database-side
+  typed read; follow-up dependency).
+- Escalation E4/E5 corpus experts.
+
+* Contract reconciliation (contradiction from Analyze)
+
+expert-layer.org's graph-delta contract and logicStrike's
+=delegate/3 → ok|denied|empty= terms are different layers, not rivals:
+line-protocol emit (this slice) ⊂ delta payloads (later). When the
+delta layer lands, =denied/empty= become node families
+(=step → next candidate=, =attempt → failed-on target condition=)
+with provenance. Recorded here so the later slice does not re-litigate.
+
+* Provenance pinning
+
+=expert/logicstrike/PROVENANCE= records the vendored logicStrike
+commit. CI test loads the vendored copy and runs its PlUnit suite
+(logicStrike tests import via relative facade layout, preserved
+verbatim). Drift is caught by CI, not by review vigilance. logicStrike
+repo stays the authoring authority; hackmode never edits vendored
+files (fixes flow back through logicstrike + re-vendor).
+
+* Invariants
+
+- Caller-controlled text only ever becomes Prolog *string* facts
+  (existing =prolog-write-string=); never goal-concatenated, never
+  atom-ized into callable position.
+- Emit goals fail closed: missing pack or rules load error ⇒ nonzero
+  exit ⇒ =expert-query-failed= (no silent empty output).
+- Output is deterministically sorted (sort before emit); no
+  choicepoint-dependent ordering.
+- New CL API requires only the =:reasoning= effect class; no provider
+  dispatch, no persistence, advisory structures only.
+
+* Adversarial review (passed)
+
+- *Malicious snapshot value*: classification keyed on CL-owned kind
+  vocabulary only; values opaque. Bridge cannot be steered by target
+  text.
+- *Missing/damaged vendored pack*: swipl =-f= on absent file exits
+  nonzero; fail closed holds. Test asserts the error path.
+- *Kind vocabulary drift CL→Prolog*: unknown kinds map to no surface ⇒
+  no candidates (fail closed), plus a CI test enumerating bridged
+  kinds against the CL =asset-kind= set.
+- *Vendor drift*: PROVENANCE pin + vendored PlUnit run in CI.
+- *Ordering nondeterminism*: sort in Prolog before emit (existing
+  pattern).
+- *WIP collision*: operator has uncommitted work in
+  =source/hackmode-core=; realize phase must check =git status= and
+  touch only =expert.lisp= exports + new files.
+
+* Acceptance criteria / verification gates
+
+1. RED first: =expert-recommend-techniques= absent ⇒ core test fails.
+2. GREEN: new core tests — bridge mapping table, technique-candidate
+   rows for a seeded domain asset (=sqli-class candidates for an input
+   asset, port-scan/subdomain for domain/ip=), fail-closed on missing
+   pack, deterministic ordering.
+3. Vendored logicStrike PlUnit 27/27 green inside hackmode CI.
+4. =prolog-verify= PASS; boundary denylist (agent-zero) clean; existing
+   expert tests unbroken.
+5. PR to master expected-head squash merge per repo convention.
+
+* Rejected alternatives
+
+- Loading logicStrike from a live path outside the repo: breaks
+  offline/local-first and CI determinism; pin+vendor wins.
+- Building =delegate/3= + grant gate now: duplicates the existing CL
+  effect-authority gate; premature until multiple experts dispatch.
+- Starting with the delta acceptance layer: database-owned, larger,
+  and this slice needs none of it to deliver reasoning value.
