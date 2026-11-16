@@ -1,40 +1,57 @@
 {
   description = "Hackmode is a red teaming toolkit/exploit framework for common lisp";
 
-  inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs";
-  };
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/bfc1b8a4574108ceef22f02bafcf6611380c100d";
 
-  outputs = { self, nixpkgs }:
+  outputs =
+    { self, nixpkgs }:
     let
-      pkgs = nixpkgs.legacyPackages.x86_64-linux;
+      systems = [
+        "x86_64-linux"
+        "aarch64-linux"
+      ];
+      forAllSystems = nixpkgs.lib.genAttrs systems;
     in
     {
-      devShell.x86_64-linux =
-        pkgs.mkShell {
-          buildInputs = with pkgs; [
-            pkg-config
-            sbcl
-            sbclPackages.mcclim
-            swiProlog
-            glib
+      devShells = forAllSystems (
+        system:
+        let
+          pkgs = nixpkgs.legacyPackages.${system};
+          runtimeLibs = with pkgs; [
             openssl
-            # Hacking tools used
-            subfinder
-            amass
-            dnsrecon
-            fierce
-            asn
-            whatweb
-            nmap
-            nuclei
-            zap
-            gospider
+            libedit
+            libev
+            lmdb
           ];
+        in
+        {
+          default = pkgs.mkShell {
+            packages = with pkgs; [
+              pkg-config
+              sbcl
+              sbclPackages.mcclim
+              swi-prolog
+              glib
+              openssl
+              # Hacking tools used
+              subfinder
+              amass
+              dnsrecon
+              fierce
+              asn
+              whatweb
+              nmap
+              nuclei
+              zap
+              gospider
+            ];
+            shellHook = ''
+              export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath runtimeLibs}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+            '';
+          };
+        }
+      );
 
-        shellHook = ''
-           export LD_LIBRARY_PATH=${pkgs.lib.makeLibraryPath([pkgs.openssl])}:${pkgs.lib.makeLibraryPath([pkgs.libedit])}:${pkgs.lib.makeLibraryPath([pkgs.libev])}:${pkgs.lib.makeLibraryPath([pkgs.lmdb])}
-          '';
-        };
+      formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.nixfmt);
     };
 }
