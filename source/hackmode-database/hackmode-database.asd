@@ -17,4 +17,5 @@
                (:file "replay")
                (:file "visual-evidence")
                (:file "db")
+               (:file "asset-containment")
                (:file "effective-operational-kb")))

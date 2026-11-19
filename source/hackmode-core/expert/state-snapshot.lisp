@@ -87,13 +87,16 @@
                           (providers (list-capability-providers))
                           query-target
                           query-asset
+                          (containment
+                           (expert-current-containment operation))
                           execution-records
                           operational-kb-entries)
   "Return a deterministic expert snapshot including typed execution/KB state.
 
-EXECUTION-RECORDS and OPERATIONAL-KB-ENTRIES must come from Hackmode's canonical
-database boundary. This function only projects supplied typed records; it does
-not enumerate storage, persist data, dispatch providers, or widen authority."
+EXECUTION-RECORDS, OPERATIONAL-KB-ENTRIES, and CONTAINMENT must come from
+Hackmode's canonical database boundary. This function only projects supplied
+typed records; it does not enumerate storage, persist data, dispatch providers,
+or widen authority."
   (concatenate
    'string
    (funcall *base-expert-snapshot-function*
@@ -101,7 +104,8 @@ not enumerate storage, persist data, dispatch providers, or widen authority."
             :assets assets
             :providers providers
             :query-target query-target
-            :query-asset query-asset)
+            :query-asset query-asset
+            :containment containment)
    (expert-state-facts execution-records operational-kb-entries)))
 
 (defun expert-operation-snapshot (&key

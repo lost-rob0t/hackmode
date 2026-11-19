@@ -16,6 +16,7 @@
                (:file "tests/capture-quarantine")
                (:file "tests/capture-source-rotation")
                (:file "tests/operational-kb-retraction-target")
+               (:file "tests/asset-containment")
                (:file "tests/visual-evidence"))
   :perform (test-op (op system)
              (declare (ignore op system))

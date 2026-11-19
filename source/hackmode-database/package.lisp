@@ -97,6 +97,14 @@
    #:fetch-operational-kb-entry
    #:fetch-operational-kb-entries
    #:fetch-effective-operational-kb-assertions
+   #:asset-containment-validation-error
+   #:asset-containment-record
+   #:asset-containment-record-operation-id
+   #:asset-containment-record-child-id
+   #:asset-containment-record-parent-id
+   #:make-asset-containment-record
+   #:persist-asset-containment
+   #:fetch-asset-containment
    #:make-execution-outcome-kb-candidate
    #:+operational-kb-seed-import-limit+
    #:+operational-kb-seed-kinds+

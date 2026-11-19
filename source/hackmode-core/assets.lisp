@@ -194,6 +194,15 @@ so subscribers never observe an asset absent from canonical local state."
         (values existing nil)
         (progn
           (put-doc asset :database database)
+          (when parent-id
+            ;; Canonical containment record: one typed node per
+            ;; child-under-parent discovery, same operation store.
+            (hackmode-database:persist-asset-containment
+             database
+             (hackmode-database:make-asset-containment-record
+              :operation-id (doc-operation asset)
+              :child-id (doc-id asset)
+              :parent-id parent-id)))
           (maintain-investigation-asset-views database asset)
           (when publish
             (publish-asset-event :discovered asset))
