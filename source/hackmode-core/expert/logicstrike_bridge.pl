@@ -51,3 +51,46 @@ emit_technique_candidates :-
     sort(Rows, Sorted),
     forall(member(Method-Family-AssetId, Sorted),
            format('~a\t~a\t~a~n', [Method, Family, AssetId])).
+
+%% scope_inherited(?Child, ?Ancestor) is nondet.
+%% Transitive closure over asset_of/2, cycle-safe: each node is
+%% visited at most once per derivation.
+scope_inherited(Child, Ancestor) :-
+    Ancestor \== Child,
+    scope_inherited_(Child, Ancestor, [Child]).
+
+scope_inherited_(Child, Ancestor, _) :-
+    asset_of(Child, Ancestor).
+scope_inherited_(Child, Ancestor, Seen) :-
+    asset_of(Child, Mid),
+    \+ member(Mid, Seen),
+    scope_inherited_(Mid, Ancestor, [Mid|Seen]).
+
+%% zone_scope(?InputId, ?Zone) is nondet.
+%% The zone itself plus everything it transitively contains. Plain
+%% disjunction — an if-then-else here would commit to the first
+%% closure solution and silently drop the rest.
+zone_scope(Zone, Zone).
+zone_scope(InputId, Zone) :-
+    scope_inherited(InputId, Zone).
+
+%% attack_surface(+ZoneId, ?Method, ?Family, ?InputId) is nondet.
+%% The red-team query: every asset at or below the zone whose surface
+%% satisfies a technique requirement. One new containment edge widens
+%% the zone with no rule changes.
+attack_surface(Zone, Method, Family, InputId) :-
+    zone_scope(InputId, Zone),
+    asset(InputId, Kind, Value),
+    snapshot_surface(Kind, Value, Surface),
+    technique(_, Method, Family),
+    requires_surface(Method, Required),
+    surface_matches(Surface, Required).
+
+emit_attack_surface :-
+    query_asset(Zone),
+    findall(Method-Family-InputId,
+            attack_surface(Zone, Method, Family, InputId),
+            Rows),
+    sort(Rows, Sorted),
+    forall(member(Method-Family-InputId, Sorted),
+           format('~a\t~a\t~a~n', [Method, Family, InputId])).

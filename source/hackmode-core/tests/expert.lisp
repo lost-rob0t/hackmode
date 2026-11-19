@@ -341,6 +341,77 @@
                     "technique recommendations are deterministic")))
   t)
 
+(defun run-live-attack-surface-test ()
+  (unless (hackmode:expert-available-p)
+    (format t "Skipping live attack-surface tests: swipl unavailable.~%")
+    (return-from run-live-attack-surface-test t))
+  (flet ((rows (zone)
+           (mapcar
+            (lambda (candidate)
+              (list (hackmode:expert-technique-candidate-technique candidate)
+                    (hackmode:expert-technique-candidate-family candidate)
+                    (hackmode:expert-technique-candidate-asset-id candidate)))
+            (hackmode:expert-recommend-attack-surface
+             zone
+             :operation nil
+             :assets *attack-surface-assets*
+             :providers nil
+             :containment *attack-surface-containment*))))
+    (let* ((zone (make-instance 'hackmode:domain
+                                :id "as-domain-1"
+                                :record "example.com" :record-type "A"))
+           (host (make-instance 'hackmode:host
+                                :id "as-host-1" :hostname "" :ip "192.0.2.10"))
+           (input (make-instance 'hackmode:url
+                                 :id "as-input-1"
+                                 :scheme "https" :host "example.com"
+                                 :port 443 :path "/login" :query "user=admin"))
+           (*attack-surface-assets* (progn
+                                      (hackmode:normalize-asset zone)
+                                      (hackmode:normalize-asset host)
+                                      (hackmode:normalize-asset input)
+                                      (list zone host input)))
+           (*attack-surface-containment*
+             (list (hackmode-database:make-asset-containment-record
+                    :operation-id "op-as" :child-id "as-host-1"
+                    :parent-id "as-domain-1")
+                   (hackmode-database:make-asset-containment-record
+                    :operation-id "op-as" :child-id "as-input-1"
+                    :parent-id "as-host-1"))))
+      (declare (special *attack-surface-assets* *attack-surface-containment*))
+      (let ((expected
+              '(("asn_range" "asset_discovery" "as-host-1")
+                ("blind_sqli" "injection" "as-input-1")
+                ("port_scan" "asset_discovery" "as-domain-1")
+                ("port_scan" "asset_discovery" "as-host-1")
+                ("sqli" "injection" "as-input-1")
+                ("subdomain_discovery" "asset_discovery" "as-domain-1")
+                ("subdomain_discovery" "asset_discovery" "as-host-1"))))
+        (assert-equal expected (rows "as-domain-1")
+                      "attack surface enumerates zone and contained assets")
+        (assert-equal expected (rows "as-domain-1")
+                      "attack surface is deterministic")
+        ;; Cycle safety: close the loop input -> zone; results stay
+        ;; finite and identical.
+        (let ((*attack-surface-containment*
+                (append *attack-surface-containment*
+                        (list (hackmode-database:make-asset-containment-record
+                               :operation-id "op-as" :child-id "as-domain-1"
+                               :parent-id "as-input-1")))))
+          (declare (special *attack-surface-containment*))
+          (assert-equal expected (rows "as-domain-1")
+                        "containment cycles must not change or explode the surface")))
+      ;; Leaf zone: the host's own rows plus its nested input.
+      (assert-equal
+       '(("asn_range" "asset_discovery" "as-host-1")
+         ("blind_sqli" "injection" "as-input-1")
+         ("port_scan" "asset_discovery" "as-host-1")
+         ("sqli" "injection" "as-input-1")
+         ("subdomain_discovery" "asset_discovery" "as-host-1"))
+       (rows "as-host-1")
+       "host zone inherits its nested input")))
+  t)
+
 (defun run-vendored-logicstrike-test ()
   (unless (hackmode:expert-available-p)
     (format t "Skipping vendored logicStrike PlUnit: swipl unavailable.~%")
@@ -368,6 +439,7 @@
   (run-expert-unavailable-test)
   (run-live-expert-test)
   (run-live-logicstrike-bridge-test)
+  (run-live-attack-surface-test)
   (run-vendored-logicstrike-test)
   (format t "Hackmode expert tests passed.~%")
   t)

@@ -208,4 +208,5 @@
   (run-execution-graph-tests)
   (run-operational-kb-tests)
   (run-operation-snapshot-read-tests)
+  (run-asset-containment-tests)
   t)

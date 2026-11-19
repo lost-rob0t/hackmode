@@ -173,10 +173,19 @@ isolated from startup and canonical state initialization."
                       (capability-provider-capability right)
                       (capability-provider-name right)))))))
 
+(defun expert-current-containment (operation)
+  "Typed containment rows for OPERATION's store when one is open."
+  (if (and *db* (tek9:db-is-open-p *db*) operation)
+      (hackmode-database:fetch-asset-containment
+       *db* (operation-name operation))
+      nil))
+
 (defun expert-snapshot (&key
                           (operation (current-operation))
                           (assets (expert-current-assets))
                           (providers (list-capability-providers))
+                          (containment
+                           (expert-current-containment operation))
                           query-target
                           query-asset)
   "Return a deterministic Prolog fact snapshot of canonical Hackmode state.
@@ -207,6 +216,12 @@ goal."
                          (capability-provider-priority provider)))
     (when query-target
       (write-expert-fact stream "query_target" query-target))
+    (dolist (row (sort (copy-list containment) #'string<
+                       :key #'hackmode-database:asset-containment-record-child-id))
+      (write-expert-fact stream
+                         "asset_of"
+                         (hackmode-database:asset-containment-record-child-id row)
+                         (hackmode-database:asset-containment-record-parent-id row)))
     (when query-asset
       (write-expert-fact stream "query_asset" query-asset))))
 
@@ -348,6 +363,31 @@ Advisory only: this function never executes a provider or writes state."
           unless (zerop (length trimmed))
             collect (parse-expert-technique-candidate trimmed))))
 
+(defun expert-recommend-attack-surface (zone-id &key
+                                                  (operation (current-operation))
+                                                  (assets (expert-current-assets))
+                                                  (providers (list-capability-providers))
+                                                  (containment
+                                                   (expert-current-containment operation)))
+  "Return advisory technique candidates for ZONE-ID and every asset it contains.
+
+Containment comes from the canonical operation store (typed records) and is
+projected into the snapshot as data facts; the closure runs in Prolog.
+Advisory only: no provider execution, no persistence."
+  (check-type zone-id string)
+  (let* ((snapshot (expert-snapshot :operation operation
+                                    :assets assets
+                                    :providers providers
+                                    :containment containment
+                                    :query-asset zone-id))
+         (output (run-expert-goal "emit_attack_surface"
+                                  snapshot
+                                  :extra-rules (list (expert-bridge-path)))))
+    (loop for line in (uiop:split-string output :separator '(#\Newline))
+          for trimmed = (string-trim '(#\Space #\Tab #\Return) line)
+          unless (zerop (length trimmed))
+            collect (parse-expert-technique-candidate trimmed))))
+
 (export '(+expert-engine-modes+
           +expert-effect-kinds+
           expert-engine
@@ -365,4 +405,5 @@ Advisory only: this function never executes a provider or writes state."
            expert-technique-candidate-technique
            expert-technique-candidate-family
            expert-technique-candidate-asset-id
-           expert-recommend-techniques))
+           expert-recommend-techniques
+           expert-recommend-attack-surface))

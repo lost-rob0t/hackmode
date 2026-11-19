@@ -1,0 +1,106 @@
+#+title: Expert plane — containment projection + graph-delta design
+
+Issue: #24 follow-ups. Status: DESIGN (human-gated ADADR cycle 2;
+research approved 2026-11-19, slice choice: design both, implement A).
+
+Operator stance for this and every later expert-plane slice:
+*RED TEAM FIRST.* Queries, closures, and deltas are shaped for the
+offense workflow — attack-surface expansion toward foothold,
+exploitation-priority technique candidates, negative evidence so the
+loop never blind-retries. Blue-team projections derive from the same
+graph later; they are never the design driver.
+
+* Slice A (implement now): containment projection
+
+** Problem
+
+Assets persist with =parent-id= (=store-asset=, =discover-asset=), but
+the expert snapshot emits flat =asset/3= facts. The vendored logicStrike
+ontology (=docs in the logicstrike repo: asset-KB spec=) defines
+containment =input ⊑ url ⊑ service ⊑ host ⊑ domain= and scope
+inheritance: an input found deep under a domain carries domain-scoped
+techniques. Offense needs exactly this: every discovered parameter
+widens the attack surface of the zone it lives in, automatically.
+
+** Design
+
+1. *Database read* (=hackmode-database=): =fetch-asset-containment=
+   over the canonical operation graph — typed rows =(child-id
+   . parent-id)= derived from stored asset parent edges, deterministic
+   order, fail closed on cross-operation identity (same shape as the
+   #58 typed reads). Read-only; no new writes.
+2. *Snapshot* (=expert-snapshot=): emit =asset_of("child","parent")=
+   string facts next to =asset/3=. Values stay opaque strings.
+3. *Bridge Prolog* (=logicstrike_bridge.pl=):
+   - =scope_inherited(?ChildId, ?AncestorId)= — transitive closure
+     over =asset_of/2=, cycle-safe (no =X ⊑ X=).
+   - =attack_surface(+ZoneAssetId, -Method, -Family, -InputId)= —
+     *the red-team query*: every asset under the zone (transitively)
+     whose surface satisfies a technique requirement. Ordered by
+     =Method-Family-InputId=, emitted via =emit_attack_surface= as
+     =technique\tfamily\tinput-id= lines.
+   - Keep =emit_technique_candidates= (single-asset advisory) as-is.
+
+** Invariants
+
+- Containment is projection-only: the CL boundary stays the sole
+  writer; Prolog never asserts =asset_of=.
+- *Parent-edge persistence risk (from adversarial review):* today
+  =parent-id= is folded into the child's deterministic ID at
+  =discover-asset= time; whether a *retrievable* parent edge is
+  persisted is unverified. Implementation must confirm first. If no
+  canonical edge exists, the fix is an explicit =:parent= Tek9 edge
+  written inside =discover-asset='s existing transaction (a canonical
+  write at the canonical boundary — not a second graph); the typed
+  read then consumes it. No heuristic reconstruction from values.
+- Unknown kinds still map to no surface (fail closed).
+- =attack_surface/4= enumerates *nested* assets through the closure —
+  no row copying; one new edge widens every inherited query.
+- Advisory only: =:reasoning= effect; no dispatch, no persistence.
+
+** Acceptance criteria
+
+1. RED: =fetch-asset-containment= absent → database test fails; bridge
+   test on =emit_attack_surface= absent → core test fails.
+2. GREEN: seeded zone (domain → host → url → input) —
+   =attack_surface= returns sqli-class rows for the input *and*
+   port-scan/subdomain rows via inheritance from the domain;
+   cycle-safe (self-edge fixture returns finite set); deterministic
+   double-query equality.
+3. =prolog-verify= PASS; vendored PlUnit still green; boundary clean.
+4. CI green on exact head; expected-head squash merge.
+
+* Slice B (design now, implement later): graph-delta acceptance
+
+Red-team-first shape: the *first* delta families are the offense loop's
+own state —
+
+- =step → next-candidate= edges (the attack plan as it forms);
+- =attempt → failed-on(target-condition)= (negative evidence: the loop
+  must not blind-retry a failed technique against the same condition);
+- =observation → supports/refutes(hypothesis)=;
+- =result → discovered-asset= (linking tool results into the graph the
+  containment projection then widens).
+
+Contract: expert returns typed delta =propose(node…), propose(edge…)=
+structures (the =denied/empty= delegation shapes from the logicStrike
+spec become payload kinds); the CL acceptance layer validates identity,
+operation scope, and provenance, then persists through the canonical
+Tek9 boundary (replay-safe, conflict-fail-closed per #55). Prolog never
+writes. Promotion of a working attack path into the long-term KB is a
+separate explicit CL effect (#53 lifecycle).
+
+Non-goals for B: no LLM-driven dispatch, no scanner integration — tool
+defs plug into delta =result →= nodes naturally once the substrate
+exists.
+
+* Rejected alternatives
+
+- Deriving containment heuristically in Prolog from asset values
+  (hostname suffix matching): duplicates =domain_matches= logic,
+  drifts from canonical parent edges, and trusts snapshot strings more
+  than the CL-owned graph. Lose to a typed read.
+- Designing blue-team coverage views first: violates the operator's
+  red-team-first stance; they compose later from the same closure.
+- Making =attack_surface= dispatch-capable now: the effect-authority
+  gate already exists; wiring dispatch is the delegation slice's job.
