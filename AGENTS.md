@@ -68,5 +68,5 @@ GitHub issues/PRs are the approval surface, design docs live in
 `docs/architecture/*.org` tied to their issue, and `prolog-verify` is
 the verification gate. Research approval authorizes design only;
 design approval authorizes implementation within that scope only. Do
-not run Auto-RAGE here without an explicit operator switch recorded in
-this file.
+not run the autonomous variant here without an explicit operator
+switch recorded in this file.
