@@ -218,35 +218,42 @@ goal."
    (uiop:temporary-directory)))
 
 (defun run-expert-goal (goal snapshot &key extra-rules)
-  (unless (expert-available-p)
-    (error 'expert-unavailable :program *expert-program*))
-  (let ((path (expert-temp-path)))
-    (unwind-protect
-         (progn
-           (with-open-file (stream path
-                                   :direction :output
-                                   :if-exists :supersede
-                                   :if-does-not-exist :create)
-             (write-string snapshot stream))
-           (multiple-value-bind (stdout stderr status)
-               (uiop:run-program
-                (append
-                 (list *expert-program*
-                       "-q"
-                       "-f" (namestring (expert-rules-path)))
-                 (loop for rule in extra-rules
-                       append (list "-s" (namestring rule)))
-                 (list "-s" (namestring path)
-                       "-g" goal
-                       "-t" "halt"))
-                :output :string
-                :error-output :string
-                :ignore-error-status t)
-             (unless (or (null status) (zerop status))
-               (error 'expert-query-failed :status status :stderr stderr))
-             (or stdout "")))
-      (when (probe-file path)
-        (delete-file path)))))
+  ;; Extra rules are consulted from the goal, not passed as extra -s
+  ;; files: SWI 9.1 (ubuntu-24.04 CI) silently ignores every -s file
+  ;; after the first, which would drop the snapshot. consult/1 inside
+  ;; the goal resolves each rule's relative use_module paths correctly
+  ;; on all supported SWI versions.
+  (let ((full-goal
+          (with-output-to-string (stream)
+            (dolist (rule extra-rules)
+              (format stream "consult('~a')," (namestring rule)))
+            (write-string goal stream))))
+    (unless (expert-available-p)
+      (error 'expert-unavailable :program *expert-program*))
+    (let ((path (expert-temp-path)))
+      (unwind-protect
+           (progn
+             (with-open-file (stream path
+                                     :direction :output
+                                     :if-exists :supersede
+                                     :if-does-not-exist :create)
+               (write-string snapshot stream))
+             (multiple-value-bind (stdout stderr status)
+                 (uiop:run-program
+                  (list *expert-program*
+                        "-q"
+                        "-f" (namestring (expert-rules-path))
+                        "-s" (namestring path)
+                        "-g" full-goal
+                        "-t" "halt")
+                  :output :string
+                  :error-output :string
+                  :ignore-error-status t)
+               (unless (or (null status) (zerop status))
+                 (error 'expert-query-failed :status status :stderr stderr))
+               (or stdout "")))
+        (when (probe-file path)
+          (delete-file path))))))
 
 (defun expert-classify-target (target &key
                                       (operation (current-operation))
