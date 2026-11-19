@@ -1,0 +1,2 @@
+cc0dbbb911ec7bcaca309be28f95e091d581759a
+Vendored from ssh://forgejo@git.starintel.actor/starintel-labs/logicstrike.git at the commit above. Do not edit here; fixes flow through the logicstrike repo, then re-vendor.

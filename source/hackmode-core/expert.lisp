@@ -102,6 +102,9 @@ isolated from startup and canonical state initialization."
 (defun expert-rules-path ()
   (asdf:system-relative-pathname :hackmode "expert/hackmode_expert.pl"))
 
+(defun expert-bridge-path ()
+  (asdf:system-relative-pathname :hackmode "expert/logicstrike_bridge.pl"))
+
 (defun prolog-write-string (stream value)
   "Write VALUE as an escaped SWI-Prolog string literal."
   (write-char #\" stream)
@@ -214,33 +217,43 @@ goal."
            (random 1000000000))
    (uiop:temporary-directory)))
 
-(defun run-expert-goal (goal snapshot)
-  (unless (expert-available-p)
-    (error 'expert-unavailable :program *expert-program*))
-  (let ((path (expert-temp-path)))
-    (unwind-protect
-         (progn
-           (with-open-file (stream path
-                                   :direction :output
-                                   :if-exists :supersede
-                                   :if-does-not-exist :create)
-             (write-string snapshot stream))
-           (multiple-value-bind (stdout stderr status)
-               (uiop:run-program
-                (list *expert-program*
-                      "-q"
-                      "-f" (namestring (expert-rules-path))
-                      "-s" (namestring path)
-                      "-g" goal
-                      "-t" "halt")
-                :output :string
-                :error-output :string
-                :ignore-error-status t)
-             (unless (or (null status) (zerop status))
-               (error 'expert-query-failed :status status :stderr stderr))
-             (or stdout "")))
-      (when (probe-file path)
-        (delete-file path)))))
+(defun run-expert-goal (goal snapshot &key extra-rules)
+  ;; Extra rules are consulted from the goal, not passed as extra -s
+  ;; files: SWI 9.1 (ubuntu-24.04 CI) silently ignores every -s file
+  ;; after the first, which would drop the snapshot. consult/1 inside
+  ;; the goal resolves each rule's relative use_module paths correctly
+  ;; on all supported SWI versions.
+  (let ((full-goal
+          (with-output-to-string (stream)
+            (dolist (rule extra-rules)
+              (format stream "consult('~a')," (namestring rule)))
+            (write-string goal stream))))
+    (unless (expert-available-p)
+      (error 'expert-unavailable :program *expert-program*))
+    (let ((path (expert-temp-path)))
+      (unwind-protect
+           (progn
+             (with-open-file (stream path
+                                     :direction :output
+                                     :if-exists :supersede
+                                     :if-does-not-exist :create)
+               (write-string snapshot stream))
+             (multiple-value-bind (stdout stderr status)
+                 (uiop:run-program
+                  (list *expert-program*
+                        "-q"
+                        "-f" (namestring (expert-rules-path))
+                        "-s" (namestring path)
+                        "-g" full-goal
+                        "-t" "halt")
+                  :output :string
+                  :error-output :string
+                  :ignore-error-status t)
+               (unless (or (null status) (zerop status))
+                 (error 'expert-query-failed :status status :stderr stderr))
+               (or stdout "")))
+        (when (probe-file path)
+          (delete-file path))))))
 
 (defun expert-classify-target (target &key
                                       (operation (current-operation))
@@ -295,6 +308,46 @@ advisory only; this function never executes a provider or writes operation state
           unless (zerop (length trimmed))
             collect (parse-expert-recommendation trimmed))))
 
+(defstruct expert-technique-candidate
+  technique
+  family
+  asset-id)
+
+(defun parse-expert-technique-candidate (line)
+  (let ((parts (uiop:split-string line :separator '(#\Tab))))
+    (unless (= 3 (length parts))
+      (error 'expert-query-failed
+             :status :invalid-output
+             :stderr (format nil "Invalid technique candidate row: ~s" line)))
+    (make-expert-technique-candidate
+     :technique (first parts)
+     :family (second parts)
+     :asset-id (third parts))))
+
+(defun expert-recommend-techniques (asset-or-id &key
+                                                  (operation (current-operation))
+                                                  (assets (expert-current-assets))
+                                                  (providers (list-capability-providers)))
+  "Return advisory logicStrike technique candidates for a canonical asset.
+
+ASSET-OR-ID may be a Hackmode asset or its document ID. Classification keys on
+the CL-owned asset-kind vocabulary only; snapshot values stay opaque strings.
+Advisory only: this function never executes a provider or writes state."
+  (let* ((asset-id (etypecase asset-or-id
+                     (meta (doc-id asset-or-id))
+                     (string asset-or-id)))
+         (snapshot (expert-snapshot :operation operation
+                                    :assets assets
+                                    :providers providers
+                                    :query-asset asset-id))
+         (output (run-expert-goal "emit_technique_candidates"
+                                  snapshot
+                                  :extra-rules (list (expert-bridge-path)))))
+    (loop for line in (uiop:split-string output :separator '(#\Newline))
+          for trimmed = (string-trim '(#\Space #\Tab #\Return) line)
+          unless (zerop (length trimmed))
+            collect (parse-expert-technique-candidate trimmed))))
+
 (export '(+expert-engine-modes+
           +expert-effect-kinds+
           expert-engine
@@ -306,4 +359,10 @@ advisory only; this function never executes a provider or writes operation state
           expert-effect-denied-engine
           expert-effect-denied-effect
           expert-engine-effect-authorized-p
-          require-expert-engine-effect))
+          require-expert-engine-effect
+           expert-technique-candidate
+           make-expert-technique-candidate
+           expert-technique-candidate-technique
+           expert-technique-candidate-family
+           expert-technique-candidate-asset-id
+           expert-recommend-techniques))

@@ -60,3 +60,13 @@ When the operator identifies an agent-caused regression, bad assumption, or unac
 Regression: the IPX HTTP design introduced redacted headers, canonical stripping of authorization/cookie/API-key fields before expert/StarIntel projection, and an acceptance criterion requiring secret-bearing fields to be absent. That made passive evidence lossy and would have prevented later authorized analysis from recovering the exact observed traffic.
 
 Prevention rule: operation-scoped capture evidence is lossless by default. Exact captured values remain canonical raw evidence; projections may reference them for boundedness but may not silently redact, sanitize, hash-away, omit, or mutate them. Scope/promotion policy must be enforced by access and export boundaries rather than destruction of source evidence.
+
+## Architecture workflow (ADADR, human-gated)
+
+Architecture work runs the ADADR loop, human-gated. Control plane:
+GitHub issues/PRs are the approval surface, design docs live in
+`docs/architecture/*.org` tied to their issue, and `prolog-verify` is
+the verification gate. Research approval authorizes design only;
+design approval authorizes implementation within that scope only. Do
+not run the autonomous variant here without an explicit operator
+switch recorded in this file.

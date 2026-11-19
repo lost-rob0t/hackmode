@@ -291,11 +291,83 @@
       (hackmode:clear-capability-providers)))
   t)
 
+(defun run-live-logicstrike-bridge-test ()
+  (unless (hackmode:expert-available-p)
+    (format t "Skipping live logicStrike bridge tests: swipl unavailable.~%")
+    (return-from run-live-logicstrike-bridge-test t))
+  (flet ((technique-rows (asset)
+           (mapcar
+            (lambda (candidate)
+              (list (hackmode:expert-technique-candidate-technique candidate)
+                    (hackmode:expert-technique-candidate-family candidate)
+                    (hackmode:expert-technique-candidate-asset-id candidate)))
+            (hackmode:expert-recommend-techniques
+             asset
+             :operation nil
+             :assets (list asset)
+             :providers nil))))
+    (let ((domain-asset
+            (make-instance 'hackmode:domain
+                           :id "ls-domain-1"
+                           :record "example.com" :record-type "A"))
+          (url-asset
+            (make-instance 'hackmode:url
+                           :id "ls-url-1"
+                           :scheme "https" :host "example.com"
+                           :port 443 :path "/a" :query "b=1"))
+          (host-asset
+            (make-instance 'hackmode:host
+                           :id "ls-host-1" :hostname "" :ip "192.0.2.10")))
+      (hackmode:normalize-asset domain-asset)
+      (hackmode:normalize-asset url-asset)
+      (hackmode:normalize-asset host-asset)
+      (assert-equal
+       '(("port_scan" "asset_discovery" "ls-domain-1")
+         ("subdomain_discovery" "asset_discovery" "ls-domain-1"))
+       (technique-rows domain-asset)
+       "domain asset yields deterministic surface-discovery candidates")
+      (assert-equal
+       '(("blind_sqli" "injection" "ls-url-1")
+         ("sqli" "injection" "ls-url-1"))
+       (technique-rows url-asset)
+       "url asset yields input-surface candidates via subtype join")
+      (assert-equal
+       '(("asn_range" "asset_discovery" "ls-host-1")
+         ("port_scan" "asset_discovery" "ls-host-1")
+         ("subdomain_discovery" "asset_discovery" "ls-host-1"))
+       (technique-rows host-asset)
+       "ip host asset yields ip-surface candidates")
+      (assert-equal (technique-rows domain-asset) (technique-rows domain-asset)
+                    "technique recommendations are deterministic")))
+  t)
+
+(defun run-vendored-logicstrike-test ()
+  (unless (hackmode:expert-available-p)
+    (format t "Skipping vendored logicStrike PlUnit: swipl unavailable.~%")
+    (return-from run-vendored-logicstrike-test t))
+  (let* ((test-path
+           (merge-pathnames
+            "expert/logicstrike/tests/test_logicstrike.pl"
+            (asdf:system-source-directory :hackmode)))
+         ;; Nonzero exit signals (run-program raises); output is for
+         ;; failure reporting: PlUnit's per-test lines, not a summary.
+         (output
+           (uiop:run-program
+            (list hackmode:*expert-program* "-q"
+                  "-s" (namestring test-path)
+                  "-g" "run_tests,halt(0)"
+                  "-t" "halt(1)")
+            :output :string :error-output :output)))
+    (declare (ignorable output))
+    t))
+
 (defun run-expert-tests ()
   (run-expert-engine-mode-test)
   (run-expert-active-action-test)
   (run-expert-snapshot-test)
   (run-expert-unavailable-test)
   (run-live-expert-test)
+  (run-live-logicstrike-bridge-test)
+  (run-vendored-logicstrike-test)
   (format t "Hackmode expert tests passed.~%")
   t)
