@@ -197,6 +197,31 @@
    ;; Provider actor
    :start-provider-supervisor
    :dispatch-capability
+   ;; StarIntel target receivers
+   :*starintel-target-extension-key*
+   :*target-receiver-actors*
+   :target-receiver-definition
+   :target-receiver-definition-actor-name
+   :target-receiver-definition-capability
+   :target-receiver-definition-provider
+   :target-receiver-definition-input-type
+   :target-dispatch-request
+   :target-dispatch-request-actor-name
+   :target-dispatch-request-target-id
+   :target-dispatch-request-dataset
+   :target-dispatch-request-execution-id
+   :target-dispatch-request-capability
+   :target-dispatch-request-provider
+   :target-dispatch-request-input
+   :provider-target-actor-name
+   :provider-target-definition
+   :generic-target-definition
+   :starintel-target->dispatch-request
+   :target-receiver-handler
+   :start-target-receiver
+   :starintel-register-local-target-actor
+   :start-starintel-target-receivers
+   :stop-starintel-target-receivers
    ;; Capture provider lifecycle
    :capture-process-spec
    :capture-process-spec-operation-id

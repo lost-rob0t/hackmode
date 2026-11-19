@@ -17,13 +17,19 @@
   (ignore-errors
     (uiop:delete-directory-tree path :validate t :if-does-not-exist :ignore)))
 
+(defun nmap-fixture ()
+  "<?xml version=\"1.0\"?><nmaprun><host><ports><port protocol=\"tcp\" portid=\"443\"><state state=\"open\"/><service name=\"https\" product=\"nginx\" version=\"1.24\"><cpe>cpe:2.3:a:nginx:nginx:1.24:*:*:*:*:*:*:*</cpe></service></port><port protocol=\"tcp\" portid=\"22\"><state state=\"closed\"/><service name=\"ssh\"/></port></ports></host></nmaprun>")
+
 (defun run-load-registration-test ()
   (assert (fboundp 'hackmode-provider-recon:run-http-probe))
+  (assert (fboundp 'hackmode-provider-recon:run-nmap-service-xml))
   (hackmode:clear-capability-providers)
   (hackmode-provider-recon:register-recon-providers)
+  (hackmode-provider-recon:register-nmap-provider)
   (assert (hackmode:find-capability-provider :subdomain-enumerate :subfinder))
   (assert (hackmode:find-capability-provider :subdomain-enumerate :crtsh))
-  (assert (hackmode:find-capability-provider :http-probe :curl)))
+  (assert (hackmode:find-capability-provider :http-probe :curl))
+  (assert (hackmode:find-capability-provider :service-enumerate :nmap)))
 
 (defun run-subfinder-parser-test ()
   (let ((assets
@@ -67,6 +73,22 @@
     (assert (search "%{http_code}" value))
     (assert (search "%{url_effective}" value))))
 
+(defun run-nmap-parser-test ()
+  (let* ((host (make-instance 'hackmode:host :ip "198.51.100.44"))
+         (findings
+           (hackmode-provider-recon:parse-nmap-service-xml
+            (nmap-fixture)
+            host))
+         (finding (first findings)))
+    (assert (= 1 (length findings)))
+    (assert (typep finding 'hackmode:finding))
+    (assert-equal "service-observation"
+                  (hackmode:finding-finding-type finding)
+                  "Nmap finding type")
+    (assert (search "\"port\":443" (hackmode:finding-data finding)))
+    (assert (search "cpe:2.3:a:nginx:nginx:1.24"
+                    (hackmode:finding-data finding)))))
+
 (defun run-provider-test ()
   (let* ((root (fresh-test-path))
          (db (tek9:new-database "operation" :path root))
@@ -93,6 +115,11 @@
               (declare (ignore url))
               (format nil "200~Chttps://example.com/~Ctext/html~C93.184.216.34~C0~%"
                       #\Tab #\Tab #\Tab #\Tab)))
+           (hackmode-provider-recon:register-nmap-provider
+            :runner
+            (lambda (host)
+              (declare (ignore host))
+              (nmap-fixture)))
 
            (let* ((domain
                     (make-instance 'hackmode:domain
@@ -140,6 +167,20 @@
              (assert (search "status=200"
                              (hackmode:finding-data asset))))
 
+           (let* ((host (make-instance 'hackmode:host :ip "198.51.100.44"))
+                  (scan
+                    (hackmode:run-capability
+                     :service-enumerate host
+                     :provider :nmap
+                     :database db))
+                  (asset (first (hackmode:provider-job-result-assets scan))))
+             (assert (eq :succeeded
+                         (hackmode:provider-job-result-state scan)))
+             (assert (= 1 (hackmode:provider-job-result-created-count scan)))
+             (assert (typep asset 'hackmode:finding))
+             (assert (search "cpe:2.3:a:nginx:nginx:1.24"
+                             (hackmode:finding-data asset))))
+
            (let ((providers
                    (hackmode:list-capability-providers
                     :subdomain-enumerate)))
@@ -157,6 +198,7 @@
   (run-crtsh-parser-test)
   (run-http-parser-test)
   (run-http-write-out-format-test)
+  (run-nmap-parser-test)
   (run-provider-test)
   (format t "Hackmode recon provider tests passed.~%")
   t)
