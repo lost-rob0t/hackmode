@@ -1,0 +1,65 @@
+#+title: BBP Operation
+#+property: header-args :results silent
+
+* About
+Program: <program name>
+Platform: <hackerone / bugcrowd / intigriti / other>
+Policy: <program policy url>
+Status: recon
+
+* Goals
+** Primary
+** Secondary
+
+* Scope
+Fill the table, then run the export block to refresh
+=.config/targets.txt= (the file tools and clients read).
+
+#+NAME: scope
+| target | kind (domain/host/url/wildcard) | in-scope (true/false) | notes |
+|--------+---------------------------------+-----------------------+-------|
+|        |                                 |                       |       |
+
+Export in-scope targets to =.config/targets.txt=:
+#+begin_src elisp :var tbl=scope :results silent
+(let* ((dir (expand-file-name ".config"))
+       (file (expand-file-name "targets.txt" dir))
+       (in-scope
+        (cl-loop for row in tbl
+                 when (and (consp row)
+                           (>= (length row) 2)
+                           (member (downcase (format "%s" (nth 1 row)))
+                                   '("true" "yes" "y")))
+                 collect (format "%s" (nth 0 row)))))
+  (make-directory dir t)
+  (with-temp-file file
+    (insert (mapconcat #'identity in-scope "\n"))))
+#+end_src
+
+* Out of scope
+Anything listed here must never be touched; keep =.config/blacklist.txt=
+in sync with this table.
+
+| target | reason |
+|--------+--------|
+|        |        |
+
+* Rules and policy notes
+- Read the program policy before the first request.
+- Note rate limits, banned techniques, and disclosure terms here.
+
+* Rewards
+| severity | reward | status |
+|----------+--------+--------|
+|          |        |        |
+
+* Phases
+1. *Recon* — scope is frozen; enumerate (see methodology.org).
+2. *Freebies* — easy misconfigurations first ([[file:methodology.org][methodology.org]]).
+3. *Vuln class passes* — one class at a time, checklist driven.
+4. *Report* — draft in =reports/=, submit, track in the rewards table.
+
+* Links
+- Methodology: [[file:methodology.org][methodology.org]]
+- Assets: [[file:assets.org][assets.org]]
+- Findings: =findings/= (created by the Hackmode client)

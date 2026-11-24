@@ -1,0 +1,52 @@
+#+title: Hackmode operation templates
+
+A template is a *directory* that clients copy when creating an
+operation workspace. Templates are static content: they declare the
+starting shape of an operation, they never own state.
+
+* Template set
+
+| template        | purpose                          |
+|-----------------+----------------------------------|
+| =bbp/=          | bug-bounty program operation (scope table + methodology checklists) |
+| =op/=           | generic operation                |
+| =htb/=          | single-machine / CTF operation   |
+
+* Consumption contracts
+
+- *Emacs* =hackmode-create-operation= lists directories from
+  =hackmode-templates= (default =~/.config/hackmode/templates=), copies
+  the chosen directory to =~/hackmode/<operation>=, writes =.envrc=
+  (=HACKMODE_PATH= / =HACKMODE_OP=), creates =.config/targets.txt=,
+  and records =op-path= / =current-op=. It also creates =.config/=,
+  =findings/=, =checklists/=, and =scans/= at runtime — those belong
+  to the client, templates only seed =.config/= files.
+- *Common Lisp runtime* stores typed state in =<operation>/.hackmode/=
+  (Tek9). It reads no template file; extra files are ignored.
+- *MCP / LISH scaffolding* (planned slice): template-driven
+  =op_create= will consume the same directories.
+
+* Install
+
+The Emacs default template directory is not populated automatically
+yet (no install target exists; tracked in the templates design doc):
+
+#+begin_src shell
+mkdir -p ~/.config/hackmode/templates
+cp -r templates/* ~/.config/hackmode/templates/
+#+end_src
+
+* Rules for new templates
+
+1. Content is data: Org files plus empty seed files; no code the
+   runtime must understand.
+2. Respect client-managed layout: =.config/=, =findings/=,
+   =checklists/=, =scans/=, =.envrc= are client territory; templates
+   may seed =.config= *files* only.
+3. Tool-coverage notes in methodology templates name Hackmode
+   capabilities (=:subdomain-enumerate=, =:dns-resolve=,
+   =:vuln-scan=, =:http-probe=); "backend pending" is spelled out
+   rather than implied.
+4. No machine-specific endpoints or credentials, ever.
+5. Evidence references, not evidence copies: reports link asset ids
+   from the operation store.
