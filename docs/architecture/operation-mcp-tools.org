@@ -1,0 +1,452 @@
+#+title: Operation MCP tools — AI client surface over the canonical Hackmode runtime
+#+date: <2026-11-23>
+#+status: DESIGN — full ADADR loop executed in-session under the scoped
+operator switch recorded in AGENTS.md (2026-11-23). Merging requires
+operator PR review.
+#+issue: to be opened for PR review (proposed title: "MCP server: expose
+Hackmode operations and Star-Lang-declared pentest tools to AI clients")
+
+* Operator directive (2026-11-23)
+
+1. Build an MCP server so AI agents can use Hackmode.
+2. The Star-Lang-declared pentest tools are translated into MCP tools
+   — derived from the spec, not a hand-maintained copy.
+3. The surface must work with operations.
+4. Later, BBP work runs as a Hackmode operation next to the other
+   operations (the star-bbp-lab checkout is expected to become an
+   operation workspace; see operation-templates.org).
+5. Templates are overhauled in the same cycle
+   (operation-templates.org).
+
+* Evidence (verified this cycle, 2026-11-23)
+
+** The declared tool catalog already exists in this repository
+
+- =source/hackmode-starlang/spec/pentest.star= defines
+  =org.hackmode/pentest@1= v1.0.0: scalars =run-id= (=run-id=
+  pattern =^[a-zA-Z0-9][a-zA-Z0-9._:-]{2,127}$=) and =template-id=;
+  enums =tool-name= (subfinder crtsh massdns nmap httpx katana nuclei
+  zap), =recon-tool=, =vuln-tool=, =tool-kind=, =tool-run-status=,
+  =severity=; documents =tool-run=, =tool-observation=,
+  =vuln-finding=; messages =run-recon-tool=, =recon-tool-completed=,
+  =run-vuln-scan=, =vuln-scan-completed=.
+- The compiled IR carries everything schema derivation needs (local
+  gate IR dump, /tmp/opencode/hm-mcp-gate.log, recorded in the run
+  journal): declarations are plists with =:kind=
+  :scalar|:enum|:document|:message, =:name=, =:qualified-name=,
+  =:values= (enums), =:base=/:pattern (scalars), and =:fields= whose
+  entries carry =:name= (camelCase wire name), =:type= (a qualified
+  reference such as ="org.hackmode/pentest@1/recon-tool"=, or
+  ="string"= / ="integer"= / ="map"= / =(:list "string")=), and
+  =:required=. No hand-written schema table is needed; adding a tool
+  to the spec adds it to the derived catalog.
+- The bridge (=source/hackmode-starlang/graph.lisp=) asserts IR
+  version 2 / org.star-lang/normalized-ir@2 and fails loudly on a pin
+  bump, so the derived catalog cannot silently drift from the
+  compiler contract.
+
+** The canonical execution path already exists
+
+- Typed capability registry:
+  =hackmode:register-capability-provider= /
+  =hackmode:list-capability-providers= /
+  =hackmode:find-capability-provider=; canonical invoke → persist
+  path =hackmode:run-capability= (=providers.lisp=, finalization
+  through =discover-asset= with the persistence lock).
+- Registered backends today: =:subdomain-enumerate= subfinder
+  (priority 20) and crt.sh (40) and =:dns-resolve= massdns (20) —
+  input =hackmode:domain=, output =hackmode:domain= — and
+  =:http-probe= curl (20) — input =hackmode:url=, output
+  =hackmode:finding=; =:vuln-scan= nuclei (20) — input
+  =hackmode:domain=, output =hackmode:finding=, lossless exact-JSONL
+  evidence, nonzero exit embeds complete stdout+stderr in the job
+  error record.
+- Declared but backend-less today: nmap (designed, tracker #215),
+  httpx, katana, zap (second vuln backend, slice 2 of
+  pentest-tool-definitions.org).
+- Wire emission: =hackmode-starlang:make-tool-run-document= +
+  =encode-tool-run= (alist), durable outbox via
+  =hackmode:enqueue-starintel-json= (database json) — the outbox
+  JSON-encodes with jsown, so the encoded document alist is the
+  direct payload.
+
+** The operation model already exists
+
+- Registry: =hackmode:new-operation= / =select-operation= /
+  =list-operations= / =use-operation= /
+  =ensure-operations-database-open= over
+  =*operations-database*= (Tek9 at
+  =~/.local/share/hackmode/.db/= by default).
+- =use-operation= opens the operation store
+  (=<dir>/.hackmode/=), sets =*db*= and =*current-operation*=, and
+  chdirs into the workspace.
+- Assets: =query-assets= (typed investigation view), =asset-kind=,
+  =asset-canonical-value=, =store-asset= / =discover-asset=.
+- The Emacs client keeps parallel state today (=current-op= /
+  =op-path= files); monorepo.org forbids adding a third model.
+
+** Authority direction is already decided
+
+- ADR #149 (accepted 2026-08-31): hackmoded is the long-lived host;
+  Hackmode owns operation semantics, the capability/provider
+  registry, typed validation and canonical mutation APIs, and the
+  LISH/Emacs/local control protocol. EPIC #150 invariant: "No second
+  scheduler, second operation DB, second graph store or second KB
+  authority." #151: clients use a narrow typed local protocol; "the
+  transport itself [is not] canonical business state"; "same-image
+  callers may use the same Common Lisp protocol directly". hackmoded
+  is not implemented yet (#151/#152/#153 open).
+- PR #175 (open): =hm= CLI commands are "intentionally thin adapters
+  over the same Common Lisp command functions"; a process may own the
+  runtime lifetime until hackmoded exists.
+- pentest-tool-definitions.org (accepted): provider backends are
+  owned by their provider systems; the bridge never re-wraps an
+  owned backend; evidence is lossless.
+
+** MCP specification facts (pinned sources)
+
+- Pinned pages (recorded Brave search, 2026-11-23):
+  https://modelcontextprotocol.io/specification/draft/server/tools,
+  https://modelcontextprotocol.io/specification/draft/schema,
+  https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/docs/specification/2025-06-18/server/tools.mdx
+  (fetched in full), and the versioned 2026-07-28 tools page path.
+- Tool = name, title?, description, inputSchema (JSON Schema, 2020-12
+  default), outputSchema?, annotations?. =tools/list= supports
+  pagination via cursor. =tools/call= result = content blocks +
+  structuredContent (object) + isError; a tool returning structured
+  content SHOULD also return the serialized JSON in a text block.
+- Error taxonomy (2025-06-18, "Error Handling"): protocol errors are
+  JSON-RPC errors (unknown tool → -32602); tool execution errors are
+  results with =isError: true=.
+- Server capability declaration: ={"tools": {"listChanged": ...}}=.
+  Security: servers MUST validate all tool inputs, implement access
+  controls, rate-limit tool invocations, and "sanitize tool outputs"
+  (see Adversarial review for the conflict with Hackmode's lossless
+  invariant and its resolution).
+- Protocol version is a date string negotiated at =initialize=;
+  2024-11-05 and 2025-06-18 and 2026-07-28 all exist; the draft adds
+  a =resultType= field. The lab ZAP MCP server and starintel-mcp both
+  ship the 2024-11-05 shape; the lab clients send
+  =protocolVersion: "2024-11-05"=.
+
+** Common Lisp MCP libraries
+
+- Existing projects: 40ants/mcp (OpenRPC-based framework),
+  cl-ai-project/cl-mcp (stdio/TCP/Streamable-HTTP, REPL-oriented
+  tool set), quasi/cl-mcp-server (minimal; extracted =cl-mcp=
+  library). None appear in the Quicklisp dist this tree consumes
+  (local dist copy 2026-01-01; jsown/jzon/yason present, no MCP
+  system). Reuse therefore means a pinned git dependency like
+  tek9/sento/cms-ulid, plus replacing its REPL/file tools with our
+  own catalog; hand-rolling the needed subset is a few hundred lines
+  over jsown, which is already a dependency and already proven in
+  this tree.
+
+** Precedent MCP servers in this operator's ecosystem
+
+- star-bbp-lab =mcp/zap-mcp-server.mjs= (operator directive
+  2026-11-23): dependency-free stdio JSON-RPC, echo-back protocol
+  version, text results, -32602 unknown tool / -32603 handler
+  failure, logs to stderr, per-project registration in
+  =opencode.json=. zap is a declared =vuln-tool= without a backend:
+  this server is the candidate backend for reconciliation in slice 2,
+  not something to duplicate here.
+- starintel-mcp: one engine behind MCP/CLI/web with a
+  feature-parallel invariant and subprocess protocol tests;
+  verb_noun tool names (op_create, document_submit, target_list).
+
+** Verification feasibility
+
+- The CI core job has a working local mirror
+  (.prolog/kb/prolog_toolchain.pl recipe; script precedent in
+  /tmp/opencode/hm-core-test.sh). Rebuilt for this worktree with a
+  clean star-lang export at the CI pin 7db8998 (the local checkout is
+  dirty): hackmode + hackmode-database + hackmode-starlang test
+  systems all green in 10.8 s warm (minutes cold / on CI), recorded
+  via prolog-verify.
+
+** Tension points found
+
+1. An in-process MCP server owns a runtime lifetime, which ADR #149
+   wants to retire in favor of hackmoded. PR #175 establishes the
+   sanctioned interim pattern (a process owning the runtime, thin
+   adapters over canonical functions), and #151 explicitly allows
+   same-image callers of the CL protocol. Resolution in Design.
+2. MCP security guidance says servers "sanitize tool outputs";
+   Hackmode's regression ledger bans evidence mutation. Resolution in
+   Adversarial review.
+3. =use-operation= mutates process-global state (chdir, =*db*=,
+   =*current-operation*=). Resolution in Adversarial review.
+
+* Alternatives considered
+
+| Option                                  | Verdict | Why                                                                                                                                                              |
+|-----------------------------------------+---------+------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| A. Common Lisp stdio server in the Hackmode image; catalog derived from the Star-Lang graph; direct canonical API calls | chosen  | Only option with typed access to the registry/assets and a mechanically derived catalog; matches #151's "same-image callers may use the same Common Lisp protocol directly"; matches PR #175's thin-adapter precedent; jsown already present so the protocol subset is small. |
+| B. Node shim in lab style, shelling out to a Lisp CLI per call | rejected | Needs the unmerged PR #175 CLI; subprocess-per-call latency (image load per call) or a saved-core hack; Star-Lang IR is not readable from Node, so the catalog would be a hand-maintained copy — the exact drift this cycle must avoid. |
+| C. Wait for hackmoded (#151) and build MCP on its control protocol | rejected for now | Blocks the operator's immediate directive on unbuilt infrastructure. Chosen design keeps the catalog/transport transport-agnostic so the later daemon binding is a backend swap, not a rewrite. |
+| D. Reuse a Common Lisp MCP framework (40ants/mcp or cl-mcp) | rejected for slice 1 | Not in the consumed Quicklisp dist → new pinned git dependency in CI for ~200 lines of protocol; frameworks carry REPL/file-tool surface this server must not expose. Re-evaluate if the subset grows (streamable HTTP, resources). |
+
+* Design
+
+** Layering (state stays canonical)
+
+#+begin_example
+MCP client (OpenCode / Zara / pi / claude …)
+        |  stdio, newline-delimited JSON-RPC 2.0
+        v
+hackmode-mcp transport   (framing, initialize, error taxonomy)
+        v
+hackmode-mcp catalog     (tool definitions DERIVED from the pentest
+        |                 graph + fixed operation/asset tools)
+        v
+hackmode-mcp dispatch    (argument coercion, canonical calls only)
+        v
+hackmode canonical APIs  (operations, providers, assets, outbox)
+        |
+        v
+Tek9 operation store     (canonical local state, unchanged)
+#+end_example
+
+The server owns no durable state and adds no schema authority, no
+provider registry, and no second operation model. The later hackmoded
+binding (#151) replaces the bottom arrow with the daemon control
+protocol; catalog, schemas, and transport do not change.
+
+** Tool catalog (slice 1)
+
+Fixed names, snake_case for ecosystem consistency with the operator's
+existing servers (zap_*, op_*):
+
+| MCP tool         | source                       | annotations         | summary                                                                 |
+|------------------+------------------------------+---------------------+-------------------------------------------------------------------------|
+| op_list          | registry                     | readOnly            | list persisted operations + current selection                            |
+| op_create        | new-operation                | destructive: no     | create an operation workspace (default root =$HACKMODE_OPERATIONS_DIR=, default =~/hackmode/=) |
+| op_use           | use-operation                | destructive: no     | select operation; opens its Tek9 store                                   |
+| op_status        | operation-status             | readOnly            | current operation detail                                                 |
+| asset_query      | query-assets                 | readOnly            | operation-local assets, optional =type= filter and explicit =limit=      |
+| capability_list  | registry + declared catalog  | readOnly            | registered backends ∪ Star-Lang-declared tools with backend status       |
+| run_recon_tool   | message run-recon-tool       | open-world: executes external tools and persists findings | dispatch a declared recon tool through the canonical provider path |
+| run_vuln_scan    | message run-vuln-scan        | open-world: executes external tools and persists findings | dispatch a declared vuln tool through the canonical provider path   |
+
+run tool input schemas are DERIVED: properties = runId, tool, target,
+options (camelCase names from the message declaration, kebab-case
+Lisp keywords internally); =tool= enum = the declared
+recon-tool/vuln-tool values at load time. Deviation, recorded: runId
+is optional at the MCP boundary (server generates a pattern-conforming
+id and validates any caller-supplied id against the declared scalar
+pattern; the wire message always carries one). run tools require an
+open operation store and fail closed otherwise; descriptions say to
+call op_use first and warn that execution is synchronous in slice 1.
+
+** Schema derivation rules (IR → JSON Schema 2020-12)
+
+| IR shape                                   | JSON Schema                                    |
+|--------------------------------------------+------------------------------------------------|
+| enum declaration                           | {"type":"string","enum":[<values>]}            |
+| scalar :base "string" with :pattern        | {"type":"string","pattern":<pattern>}          |
+| scalar :base "string" without :pattern     | {"type":"string"}                              |
+| "string" / "integer" / "map"               | {"type":"string"} / {"type":"integer"} / {"type":"object"} |
+| (:list T)                                  | {"type":"array","items":<resolve T>}           |
+
+Qualified references resolve recursively against the same graph;
+memoized, cycle-safe. The declared pattern is applied server-side to
+server-generated ids (the pinned loader does not enforce patterns;
+pentest-tool-definitions.org already records that callers must not
+rely on it).
+
+** Dispatch table (tool → capability/provider)
+
+| tool     | capability, provider          | status    |
+|----------+-------------------------------+-----------|
+| subfinder | :subdomain-enumerate, subfinder | registered |
+| crtsh    | :subdomain-enumerate, crtsh   | registered |
+| massdns  | :dns-resolve, massdns         | registered |
+| nuclei   | :vuln-scan, nuclei            | registered |
+| nmap     | — (tracker #215)              | pending   |
+| httpx    | —                             | pending   |
+| katana   | —                             | pending   |
+| zap      | — (candidate backend: star-bbp-lab ZAP MCP, slice 2 reconciliation) | pending |
+
+Pending tools appear in capability_list with status pending so agents
+see the roadmap, and a run request returns a clean isError result —
+never a crash or a silent no-op. Table frozen by test against the
+declared enums (every declared tool must appear exactly once).
+
+Input construction: the resolved definition's =input-type= decides the
+typed asset built from the string target: hackmode:domain →
+=(make-instance 'domain :record <target> :record-type "")=,
+hackmode:url → =parse-url=. Unknown input types fail closed. Providers
+keep owning their own type checks.
+
+** Result model (lossless)
+
+- structuredContent = {"toolRun": <encoded tool-run document>,
+  "job": {id, capability, provider, state, createdCount, assets:
+  [projected], error?}}; the same JSON is echoed in a text content
+  block (spec back-compat rule).
+- The tool-run document is emitted for every run, success or failure:
+  status completed/failed (the only states slice 1 can truthfully
+  produce), raw map carrying capability, provider, jobId, state,
+  createdCount, operation, and the error text when failed. exitCode /
+  stdout / stderr are NOT fabricated: provider plumbing for live
+  argv/stdout/stderr in tool-run documents is pentest
+  slice 2 (already designed there). Until then the evidence trail is
+  the provider's own lossless records (exact JSONL finding lines;
+  complete stdout+stderr embedded in the job error record), which the
+  job error surfaces verbatim in the result. Nothing is truncated.
+- asset projection fields: id, kind, value (canonical), operation,
+  tool, tags, dateAdded, dateUpdated + kind-specific fields (domain:
+  name/type/ips; url: scheme/host/port/path/query; host:
+  hostname/ip; finding: type/data/documentId; certificate:
+  commonName/notBefore/notAfter; port: port/services).
+- asset_query applies no default filtering. An explicit caller-supplied
+  =limit= slices the response and sets =truncated: true= with the full
+  match count; canonical evidence is untouched.
+
+** Transport
+
+- Newline-delimited JSON-RPC 2.0 over stdio (one message per line,
+  UTF-8); logs strictly to stderr; stdout carries protocol traffic
+  only.
+- initialize: echo the client's protocolVersion when it is in the
+  supported set {2024-11-05, 2025-06-18}; otherwise reply with
+  2025-06-18 (the server's latest supported version) per version
+  negotiation. capabilities: {"tools": {"listChanged": false}} (the
+  catalog is static per process). serverInfo: hackmode-mcp 0.1.0.
+- notifications/initialized and other notifications: no response.
+  ping: {} . Unknown method: -32601. Unknown tool: -32602 (spec
+  example, lab precedent). Malformed JSON line: -32700 with id null.
+  Lisp conditions inside a handler: result with isError true and the
+  condition text — complete, untruncated.
+- EOF on stdin exits 0.
+
+** Authority and security
+
+- The server exposes ONLY canonical APIs. It adds no mutation API,
+  no direct Tek9 access, no expert write path (the expert layer stays
+  passive), and never talks to StarIntel ingest on its own.
+- Operation scoping is by construction: run tools and asset_query use
+  the open operation store (*db*); with none open they fail closed.
+  This is an access boundary on evidence — enforcement by scope, not
+  by mutation (regression-ledger rule).
+- MCP "rate limit tool invocations" is satisfied in slice 1 by the
+  sequential stdio loop (one call at a time, no internal retries of
+  effectful calls) plus the providers' own caps; documented per
+  zara-mcp invariants (failed effectful calls are not replayed).
+- Input validation: schemas are enforced by coercion at dispatch
+  (unknown/missing required arguments → isError; enum values checked
+  against the graph); the Star-Lang document constructor is the
+  second validation layer.
+
+** Packaging
+
+- ASDF system =source/hackmode-mcp/hackmode-mcp.asd= (package
+  hackmode-mcp; depends on hackmode, hackmode-starlang, jsown) +
+  =hackmode-mcp-tests.asd= (plain assert-based tests like the
+  sibling systems).
+- Entrypoint =hackmode-mcp:main=: run =*startup-hook*= (opens the
+  operations registry), then the stdio loop. It does NOT load
+  =~/.config/hackmode/init.lisp= (a headless server image must not
+  depend on LISH-oriented user init); recorded as a deliberate
+  default. Operations root default =~/hackmode/= (the Emacs
+  =hackmode-dir= convention, "where the other operations live"),
+  overridable with =HACKMODE_OPERATIONS_DIR=.
+- Makefile target =hm-mcp= mirrors the existing =build= target
+  (save-lisp-and-die executable). flake.nix is intentionally not
+  touched: PR #175 owns flake entrypoints and is unmerged.
+
+* Adversarial review (counterexamples → resolutions)
+
+1. *use-operation chdirs and swaps global state.* Two interleaved
+   calls from one client could race — impossible in slice 1 (the
+   stdio loop is sequential), but the daemon binding (#151) is the
+   real fix; documented as a slice-3 migration note, not hidden.
+2. *MCP says sanitize outputs; the ledger bans evidence mutation.*
+   Resolution: exact captured values are the product of this server;
+   "sanitize" is satisfied by not embedding untrusted output into
+   protocol metadata (it travels as result content) and by operation
+   scoping as the access boundary. No redaction is introduced, and
+   the design says so explicitly so it cannot sneak back in.
+3. *Client requests a newer protocol (2026-07-28, draft resultType).*
+   Server answers 2025-06-18; spec-compliant clients either accept or
+   disconnect cleanly. Upgrade path recorded (add the version +
+   resultType emission), no partial pretending.
+4. *Giant nuclei stdout floods the client context.* The result carries
+   the complete evidence by invariant; bounded consumption is a client
+   concern (asset_query with explicit limit; slice-2 pagination).
+   Silent truncation would violate the ledger and is not offered.
+5. *A scan runs for 30 minutes and the client times out.* Slice-1
+   synchronous execution is a documented limitation with warnings in
+   tool descriptions; slice 2 moves dispatch onto
+   dispatch-capability futures with job polling (the actor path
+   already exists and is the canonical boundary).
+6. *Agent calls run_recon_tool for httpx (declared, no backend).*
+   Clean isError result naming the pending status and tracker slice;
+   capability_list already told it. No partial execution, no fake
+   results.
+7. *Two processes (Emacs hm image and this server) open the same
+   operation store.* Same exposure as running two hm CLI instances
+   today (Tek9/LMDB multi-process semantics are unchanged by this
+   design); the daemon binding collapses this later. Nothing in this
+   design deepens the duplicate-state model (no third registry).
+8. *runId collisions across runs.* Server default =
+   "hm-<unix>-<counter>" (pattern-conforming, validated); caller
+   ids honored so operator intent (reproducible run ids) is preserved.
+9. *Catalog drifts from the spec.* It cannot: derived at load from the
+   graph, IR version asserted by the bridge, freeze tests pin the tool
+   names, schema shapes, and the dispatch table against the declared
+   enums.
+10. *Derived schema surprises (pattern anchors, map raw).*
+    Server-side validation is belt-and-braces (dispatch checks
+    required args/enums; the document constructor re-validates wire
+    fields); patterns are used for ids only, never assumed enforced
+    for callers.
+
+* Decision (recorded, scoped switch)
+
+Implement exactly this design on branch mcp/operation-tools: system
+source/hackmode-mcp (+ tests), tool catalog as tabled, dispatch table
+as tabled, stdio transport with the version policy above, CI wiring in
+.github/workflows/core.yml, Makefile hm-mcp target, plus the templates
+overhaul (operation-templates.org). Merge gate: operator PR review.
+
+* Slices
+
+1. *This PR:* everything above; mapped backends subfinder, crtsh,
+   massdns, nuclei; nmap/httpx/katana/zap pending; tests; CI.
+2. *Next:* async dispatch via dispatch-capability + job polling; live
+   argv/stdout/stderr in tool-run documents (needs the provider-side
+   slice 2 of pentest-tool-definitions.org); ZAP backend
+   reconciliation with star-bbp-lab/mcp (one backend, not two);
+   pagination; optional resources (operation summary).
+3. *Later:* daemon backend binding on the #151 control protocol
+   (catalog/transport unchanged); protocol 2026-07-28 + resultType
+   emission when a client needs it; streamable HTTP transport only if
+   an operator surface demands it.
+
+* Verification gates
+
+- CI: .github/workflows/core.yml extended with the two new ASDF
+  systems and =(asdf:test-system :hackmode-mcp)=.
+- Local: the recorded gate recipe (KB prolog_toolchain.pl) extended
+  with the new systems; prolog-verify evidence.
+- Tests: catalog freeze (names, derived enum values, dispatch table
+  coverage); schema derivation against the real graph; protocol
+  round-trip in-process (initialize echo, tools/list, unknown
+  tool/method, notification silence, isError vs -32602); operation
+  tools over a temp registry + store; run tools with injected
+  runners (success, failure with complete stdout/stderr in the error,
+  pending tool, unknown tool, no-open-store fail-closed); asset
+  projection round-trip; run-id pattern validation.
+- Boundary: agent-framework lexical boundary workflow must pass
+  (checked locally before commit, CI on push).
+
+* Open questions for PR review
+
+1. Tool naming style (snake_case, matching the operator's existing
+   servers) — confirm.
+2. =HACKMODE_OPERATIONS_DIR= defaulting to =~/hackmode/= — confirm.
+3. main not loading ~/.config/hackmode/init.lisp by default — confirm.
+4. Slice-2 ZAP reconciliation direction (lab server becomes the
+   backend behind the declared zap tool) — confirm before slice 2.

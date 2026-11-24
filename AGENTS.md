@@ -70,3 +70,15 @@ the verification gate. Research approval authorizes design only;
 design approval authorizes implementation within that scope only. Do
 not run the autonomous variant here without an explicit operator
 switch recorded in this file.
+
+### Operator switch — 2026-11-23, scoped to one cycle
+
+The operator reviewed the research evidence and gate plan in session
+and directed the full loop without per-phase stops ("go go go then!",
+2026-11-23, chat). Scope: the operation-MCP-tools cycle
+(`docs/architecture/operation-mcp-tools.org`) and the operation
+templates overhaul (`docs/architecture/operation-templates.org`) on
+branch `mcp/operation-tools` only. Analyze, design, adversarial
+review, and the decision record live in those docs. Merging still
+requires operator review of the pull request. This switch does not
+carry to any later cycle.

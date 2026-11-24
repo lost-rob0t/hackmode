@@ -1,0 +1,206 @@
+#+title: Operation templates overhaul — BBP program, generic, and machine operation templates
+#+date: <2026-11-23>
+#+status: DESIGN — full ADADR loop executed in-session under the scoped
+operator switch recorded in AGENTS.md (2026-11-23). Merging requires
+operator PR review.
+#+issue: to be opened together with operation-mcp-tools.org (same cycle)
+
+* Operator directive (2026-11-23)
+
+Overhaul =templates/=, using the operator's personal methodology note
+(=~/.local/…/Documents/Notes/org/bug-bounty-methods.org= in the notes
+workspace) as inspiration. BBP hacking will run as Hackmode operations
+"where the other operations live" (=~/hackmode/=, the Emacs
+=hackmode-dir= convention; the star-bbp-lab checkout is expected to
+become an operation workspace later).
+
+* Evidence (verified this cycle)
+
+** Current templates and their only consumer
+
+- =templates/bounty/= :: =assets.org= (Web/IP/Domain/Services/HUMINT
+  stub) + =.loot.lisp= (empty).
+- =templates/htb/= :: =notes.org= (title stub) + =tasks.org= (one
+  docker/searxng babel block).
+- The ONLY consumer in the tree is the Emacs client:
+  =hackmode-create-operation= (emacs/hackmode.el) reads template
+  *directories* from =hackmode-templates= (default
+  =~/.config/hackmode/templates=), copies the chosen directory to
+  =~/hackmode/<operation>= (=hackmode-dir= default), writes
+  =.envrc= (=HACKMODE_PATH= / =HACKMODE_OP=), creates
+  =.config/targets.txt=, and records =op-path= / =current-op= under
+  =~/.local/share/hackmode/=. The client also creates =.config/=,
+  =findings/=, =checklists/=, and =scans/<tool>/<timestamp>= layout
+  at runtime.
+- No Common Lisp code references any template file
+  (=.loot.lisp= is referenced by no tracked code — grep verified);
+  the runtime's operation workspace contract is only
+  =<dir>/.hackmode/= (the Tek9 store).
+- Installation gap: no tracked step populates
+  =~/.config/hackmode/templates=; the directory does not exist on
+  this host today, so the in-repo templates are currently dead copies.
+
+** The operator's real operations (dotfiles, tracked)
+
+=~/.dotfiles/hackmode/= (=~/hackmode/=): =bounty/= (operation.org
+with a literal "TODO New hackmode template" heading; tasks.org with
+"TODO Combine my old templates…." and a git-init babel block;
+.config/targets.txt; .config/blacklist.txt; .projectile), =htb/=
+(notes.org, tasks.org), =op/= (operation.org with
+About/Goals/Phases, assets.org Web/IP/Domain/Services/HUMINT,
+target.org with a TODO counter). The operator's own TODOs in the
+live operation are the source of this cycle.
+
+** The methodology note (inspiration source)
+
+=bug-bounty-methods.org= is structured as: Setup (proxychains fetch)
+→ Scope (a =SCOPE= table: target | in-scope | notes, plus babel
+blocks exporting in-scope rows to =targets.txt= and submitting them
+to the operator's scanning automation) → "Easy Freebies" checklist
+(ffuf dir search with a config block; exposed =config.json= / =.env=
+/ =.git/config= / =.git/HEAD= probes) → per-vuln-class checklists
+(Security_Misconfiguration per OWASP A05; XSS with input vectors,
+common params, polyglot pointers; SQLI; GraphQL; SSTI; CSRF; SSRF
+with bypass lists and instance-metadata note), each item a TODO
+checkbox, payloads living in linked roam nodes rather than inline.
+
+** The lab, for the BBP-as-operation direction
+
+star-bbp-lab (README/CHARTER/PLAYBOOK/VALIDATION) structures BBP
+research as: targets/<t>/ dossiers + SPECS.md method gates,
+harnesses/, pocs/, advisories/ (+ OPERATOR-APPROVALS.md ledger),
+corpus/, disclosure-first rules. A BBP operation template must be
+able to host that workflow as an operation workspace without
+fighting it.
+
+* Design
+
+** Template set (directories copied by clients, content is data)
+
+| template        | purpose                                   |
+|-----------------+-------------------------------------------|
+| templates/bbp/  | bug-bounty *program* operation (the bounty replacement) |
+| templates/op/   | generic operation (the live =op= shape, promoted) |
+| templates/htb/  | single-machine / CTF operation            |
+
+Retirements (recorded, non-silent): =templates/bounty/= is superseded
+by =templates/bbp/= (the live bounty/operation.org itself demands the
+new template); =.loot.lisp= is referenced by no tracked code and is
+empty — removed. Nothing else is deleted.
+
+** templates/bbp/ contents
+
+- =operation.org= :: identity (title, program, platform, policy URL),
+  *Scope* =#+NAME: scope= table (target | kind | in-scope | notes)
+  with an elisp babel block exporting in-scope rows to
+  =.config/targets.txt= (same contract the Emacs client and the
+  methodology note use), *Out of scope* section feeding
+  =.config/blacklist.txt=, rules/policy notes (eligible-submission
+  language left to the program), bounty/reward table, phases
+  (recon → freebies → vuln-class passes → report), links to
+  methodology.org / assets.org / findings.
+- =methodology.org= :: the operator's method as a working checklist:
+  Recon & freebies (annotated: subfinder + crt.sh are Hackmode
+  =:subdomain-enumerate= backends today; ffuf/nuclei/zap mapping
+  noted where a backend exists or is pending), Security
+  Misconfiguration (OWASP A05 checklist), XSS (input vectors, common
+  params, payload pointers to roam), SQLI, GraphQL, SSTI, CSRF, SSRF
+  (bypass lists, instance metadata). Each item is a TODO checkbox;
+  each section head lists its Hackmode coverage so an AI (or human)
+  knows what is tool-backed vs manual. Payload bodies stay in the
+  linked roam nodes; the template links, it does not duplicate.
+- =assets.org= :: asset inventory tables (Web/IP/Domain/Services),
+  same headings as the live ops.
+- =.config/targets.txt=, =.config/blacklist.txt= :: empty seeds
+  (the Emacs client creates targets.txt anyway; shipping them makes
+  the template standalone).
+- =reports/= :: empty dir for program submissions/disclosure
+  paperwork (findings/ stays client-managed).
+
+** templates/op/ contents
+
+=operation.org= (About / Goals / Phases / Status — the live =op=
+shape), =assets.org=, =targets.org= (target tracker with TODO
+counter), =tasks.org=, =.config/targets.txt=.
+
+** templates/htb/ contents
+
+=operation.org= (machine: ip, difficulty, flags table, phases
+enum → foothold → privesc), keep =notes.org= and =tasks.org=
+unchanged in spirit (tasks.org keeps the operator's babel block).
+
+** templates/README.org
+
+One page: what a template is (a directory clients copy), the exact
+consumption contracts (Emacs =hackmode-create-operation=; runtime
+store =.hackmode/=; future MCP scaffolding), the install gap and the
+manual install step (=mkdir -p ~/.config/hackmode/templates && cp -r
+templates/* ~/.config/hackmode/templates/=) until an install target
+exists, and the rule that client-managed dirs (.config/, findings/,
+checklists/, scans/, .envrc) belong to the clients, not the template.
+
+** Deliberately NOT in templates
+
+- No machine-specific automation (the methodology note's
+  automation.lost.system endpoints and proxychains fetch) — those are
+  the operator's live-environment concerns; the methodology.org links
+  the roam note instead of baking endpoints into the tracked tree.
+- No runtime scaffolding code in this cycle: =new-operation= stays
+  registry-only; template-driven scaffolding (MCP op_create with a
+  template argument, LISH parity) is slice 2 and needs its own review
+  because it adds a runtime concept (template discovery path).
+
+* Adversarial review
+
+1. *Template drift vs clients.* Extra template files are harmless to
+   Emacs (it copies directories) and to the runtime (it only creates
+   .hackmode/). The contracts the clients DO enforce
+   (.config/targets.txt creation, findings/ creation, .envrc writing)
+   are preserved, not duplicated: the template seeds, the client
+   overwrites/creates idempotently.
+2. *Scope-table export writes into .config/*: the babel block must
+   create the directory if missing (f-mkdir via
+   `make-directory` in elisp) so a fresh copy works before the Emacs
+   client has run. Handled in the block itself.
+3. *Leaking the operator's private automation into a public tree:*
+   the node-red endpoints stay out (see Deliberately NOT); the
+   templates ship placeholder-free, program-agnostic skeletons.
+4. *bbp methodology is operator-personal:* it is the operator's own
+   directive to encode their method in the product tree; content is
+   checklist + links, no third-party text dumps (jhaddix seed is
+   attributed in the roam note, and the template links rather than
+   copies).
+5. *Deleting templates/bounty breaks someone:* nothing in-tree
+   consumes template names (selection is interactive directory
+   listing); the live ~/hackmode/bounty operation is already copied
+   material and is untouched by this change.
+6. *Lossless invariants:* templates carry no evidence path; nothing
+   here mutates or filters captured data.
+
+* Decision (recorded, scoped switch)
+
+Implement the three-template set above in this cycle (content only),
+retire bounty/.loot.lisp as recorded, add templates/README.org, and
+leave runtime scaffolding + install automation to slice 2 review.
+
+* Slices
+
+1. *This PR:* content overhaul as designed.
+2. *Next:* template-driven operation scaffolding (runtime template
+   discovery + MCP op_create template argument + LISH/Emacs parity),
+   install target (Makefile or Nix) closing the
+   ~/.config/hackmode/templates gap, bbp-lab-as-operation onboarding
+   checklist (lab repo becomes an operation workspace: .hackmode/
+   store + operation.org/mapping into targets/advisories layout).
+3. *Later:* program-per-operation helper for BBP portfolios.
+
+* Verification gates
+
+- Boundary: agent-framework lexical workflow passes locally before
+  commit (templates are tracked content).
+- Structure check added to the run evidence: every template directory
+  contains the documented file set; no template references the
+  retired bounty paths; grep proves no tracked code consumed
+  .loot.lisp (already recorded).
+- Human gate: the operator eyeballs the BBP methodology mapping in PR
+  review — content taste is an operator call, the PR is the surface.
