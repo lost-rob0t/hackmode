@@ -485,6 +485,11 @@
       (funcall register))))
 
 (defun run-tests ()
+  ;; Suite order must not matter: earlier CI suites (e.g. the DNS
+  ;; provider suite) leave the global provider registry partially
+  ;; cleared, so re-establish the load-time registrations before any
+  ;; catalog/backend assertions.
+  (restore-providers)
   (run-schema-derivation-test)
   (run-catalog-test)
   (run-protocol-test)
