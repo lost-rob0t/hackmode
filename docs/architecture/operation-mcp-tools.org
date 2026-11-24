@@ -215,6 +215,14 @@ protocol; catalog, schemas, and transport do not change.
 
 ** Tool catalog (slice 1)
 
+Operator directive (2026-11-24, recorded correction): *one
+Star-Lang-declared tool defines exactly one MCP tool, named verbatim.*
+No enum-dispatch meta-tools (the first implementation's
+run_recon_tool/run_vuln_scan shape was wrong and is removed). Composed
+convenience tools are allowed only as future ADDITIONS on top — every
+declared tool must remain individually callable, and no composite ever
+replaces or hides a per-tool surface.
+
 Fixed names, snake_case for ecosystem consistency with the operator's
 existing servers (zap_*, op_*):
 
@@ -226,18 +234,21 @@ existing servers (zap_*, op_*):
 | op_status        | operation-status             | readOnly            | current operation detail                                                 |
 | asset_query      | query-assets                 | readOnly            | operation-local assets, optional =type= filter and explicit =limit=      |
 | capability_list  | registry + declared catalog  | readOnly            | registered backends ∪ Star-Lang-declared tools with backend status       |
-| run_recon_tool   | message run-recon-tool       | open-world: executes external tools and persists findings | dispatch a declared recon tool through the canonical provider path |
-| run_vuln_scan    | message run-vuln-scan        | open-world: executes external tools and persists findings | dispatch a declared vuln tool through the canonical provider path   |
+| subfinder, crtsh, massdns, nmap, httpx, katana | declared recon-tool entries | open-world: executes external tools and persists findings | one MCP tool per declared recon tool, dispatched through the canonical provider path |
+| nuclei, zap      | declared vuln-tool entries   | open-world: executes external tools and persists findings | one MCP tool per declared vuln tool, dispatched through the canonical provider path |
 
-run tool input schemas are DERIVED: properties = runId, tool, target,
-options (camelCase names from the message declaration, kebab-case
-Lisp keywords internally); =tool= enum = the declared
-recon-tool/vuln-tool values at load time. Deviation, recorded: runId
-is optional at the MCP boundary (server generates a pattern-conforming
-id and validates any caller-supplied id against the declared scalar
-pattern; the wire message always carries one). run tools require an
-open operation store and fail closed otherwise; descriptions say to
-call op_use first and warn that execution is synchronous in slice 1.
+Per-tool input schemas are DERIVED: the declared message schema
+(run-recon-tool / run-vuln-scan) minus the =tool= selector, because the
+MCP tool IS the declared tool — properties = runId, target, options
+(camelCase names from the message declaration); =target= required,
+runId optional at the MCP boundary (server generates a
+pattern-conforming id and validates any caller-supplied id against the
+declared scalar pattern; the wire message always carries one). Pending
+declared tools (nmap/httpx/katana/zap) still appear as callable MCP
+tools and answer clean isError results naming the pending backend. Run
+tools require an open operation store and fail closed otherwise;
+descriptions say to call op_use first and warn that execution is
+synchronous in slice 1.
 
 ** Schema derivation rules (IR → JSON Schema 2020-12)
 
@@ -381,7 +392,7 @@ keep owning their own type checks.
    tool descriptions; slice 2 moves dispatch onto
    dispatch-capability futures with job polling (the actor path
    already exists and is the canonical boundary).
-6. *Agent calls run_recon_tool for httpx (declared, no backend).*
+6. *Agent calls httpx (declared, no backend).*
    Clean isError result naming the pending status and tracker slice;
    capability_list already told it. No partial execution, no fake
    results.
@@ -419,7 +430,10 @@ overhaul (operation-templates.org). Merge gate: operator PR review.
    argv/stdout/stderr in tool-run documents (needs the provider-side
    slice 2 of pentest-tool-definitions.org); ZAP backend
    reconciliation with star-bbp-lab/mcp (one backend, not two);
-   pagination; optional resources (operation summary).
+   pagination; optional resources (operation summary); OPTIONAL
+   composed convenience tools (e.g. a recon sweep) — additions only,
+   each declared tool stays individually callable per the
+   2026-11-24 directive.
 3. *Later:* daemon backend binding on the #151 control protocol
    (catalog/transport unchanged); protocol 2026-07-28 + resultType
    emission when a client needs it; streamable HTTP transport only if

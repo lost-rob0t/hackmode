@@ -74,18 +74,36 @@
                   (jsval schema "required")
                   "message required list when nothing is optionalized")
     (let ((argv (jsval (jsval (jsval schema "properties") "argv") "items")))
-      (assert-equal "string" (jsval argv "type") "argv item type"))))
+      (assert-equal "string" (jsval argv "type") "argv item type")))
+  ;; Per-tool schemas: the message schema minus the tool selector - the
+  ;; MCP tool IS the declared tool.
+  (dolist (tool (hackmode-starlang:declared-tools))
+    (let ((definition (hackmode-mcp:find-tool tool)))
+      (assert-true definition "declared tool has an MCP tool")
+      (let ((schema (hackmode-mcp:mcp-tool-input-schema definition)))
+        (assert-equal "object" (jsval schema "type") "per-tool schema type")
+        (assert-true (null (jsval (jsval schema "properties") "tool"))
+                     "per-tool schema has no tool selector")
+        (assert-equal '("target") (jsval schema "required")
+                      "per-tool schema requires only target")))))
 
 ;;;; Catalog.
 
 (defun run-catalog-test ()
   (let ((names (mapcar #'hackmode-mcp:mcp-tool-name
                        (hackmode-mcp:tool-definitions))))
-    (assert-equal '("op_list" "op_create" "op_use" "op_status"
-                    "asset_query" "capability_list"
-                    "run_recon_tool" "run_vuln_scan")
-                  names
-                  "derived catalog"))
+    ;; One MCP tool per declared pentest tool, named verbatim, plus the
+    ;; fixed operation surface.
+    (assert-equal
+     (append '("op_list" "op_create" "op_use" "op_status"
+               "asset_query" "capability_list")
+             (hackmode-starlang:declared-tools))
+     names
+     "derived catalog")
+    ;; Every declared tool's MCP identity is the declared name.
+    (dolist (tool (hackmode-starlang:declared-tools))
+      (assert-true (hackmode-mcp:find-tool tool)
+                   "declared tool individually callable")))
   (let ((table (mapcar #'first hackmode-mcp:*declared-tool-backends*)))
     (assert-equal (sort (copy-list (hackmode-starlang:declared-tools)) #'string<)
                   (sort (copy-list table) #'string<)
@@ -144,7 +162,7 @@
   ;; tools/list exposes the derived catalog with input schemas.
   (let* ((response (hackmode-mcp:handle-message (request 4 "tools/list")))
          (tools (jsval (jsval response "result") "tools")))
-    (assert-equal 8 (length tools) "catalog size over the wire")
+    (assert-equal 14 (length tools) "catalog size over the wire")
     (let ((first (first tools)))
       (assert-true (jsval first "name") "tool name")
       (assert-true (jsval first "description") "tool description")
@@ -326,9 +344,8 @@
            ;; Success path: job outcome, lossless evidence, outbox entry.
            (let* ((response (hackmode-mcp:handle-message
                              (call-tool-request
-                              20 "run_vuln_scan"
+                              20 "nuclei"
                               (list :obj
-                                    (cons "tool" "nuclei")
                                     (cons "target" "example.com")
                                     (cons "runId" "run-abc-1")))))
                   (result (jsval response "result"))
@@ -367,9 +384,8 @@
            (register-fake-nuclei :failure)
            (let* ((response (hackmode-mcp:handle-message
                              (call-tool-request
-                              21 "run_vuln_scan"
+                              21 "nuclei"
                               (list :obj
-                                    (cons "tool" "nuclei")
                                     (cons "target" "example.com")))))
                   (result (jsval response "result"))
                   (content (jsval result "structuredContent")))
@@ -392,9 +408,8 @@
            ;; Declared-but-pending tools fail cleanly without side effects.
            (let* ((response (hackmode-mcp:handle-message
                              (call-tool-request
-                              22 "run_recon_tool"
+                              22 "httpx"
                               (list :obj
-                                    (cons "tool" "httpx")
                                     (cons "target" "example.com")))))
                   (result (jsval response "result")))
              (assert-equal :true (jsval result "isError")
@@ -408,9 +423,8 @@
            ;; runId validation against the declared pattern.
            (let* ((response (hackmode-mcp:handle-message
                              (call-tool-request
-                              23 "run_vuln_scan"
+                              23 "nuclei"
                               (list :obj
-                                    (cons "tool" "nuclei")
                                     (cons "target" "example.com")
                                     (cons "runId" "BAD ID!"))))))
              (assert-equal :true (jsval (jsval response "result") "isError")
@@ -422,9 +436,8 @@
            (register-fake-nuclei :success)
            (let* ((response (hackmode-mcp:handle-message
                              (call-tool-request
-                              24 "run_vuln_scan"
+                              24 "nuclei"
                               (list :obj
-                                    (cons "tool" "nuclei")
                                     (cons "target" "example.com")))))
                   (tool-run (jsval
                              (jsval (jsval response "result")

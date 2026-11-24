@@ -287,13 +287,13 @@ jsown serializes as a JSON object payload."
                                (hackmode:provider-job-result-assets job)))
         (cons "error" (or (hackmode:provider-job-result-error job) :null))))
 
-(defun run-declared-tool (arguments)
+(defun run-declared-tool (tool arguments)
   "Run one declared pentest tool through the canonical provider path.
 
-The tool name arrives in the arguments; a failed job still emits its
-failed tool-run document before surfacing as a tool execution error."
-  (let* ((tool (require-string-argument arguments "tool"))
-         (target (require-string-argument arguments "target"))
+The MCP tool binding fixes TOOL (one declared tool = one callable MCP
+tool); a failed job still emits its failed tool-run document before
+surfacing as a tool execution error."
+  (let* ((target (require-string-argument arguments "target"))
          (run-id (require-run-id arguments))
          (backend (tool-backend-status tool)))
     (unless (eq (getf backend :status) :registered)

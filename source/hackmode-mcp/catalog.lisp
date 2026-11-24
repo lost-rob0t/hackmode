@@ -2,9 +2,12 @@
 
 ;;;; The MCP tool catalog.
 ;;;;
-;;;; Run tool definitions are derived from the Star-Lang pentest messages
-;;;; (same graph the runtime executes against); the fixed tools wrap the
-;;;; canonical operation/asset surface. Handlers live in dispatch.lisp.
+;;;; One Star-Lang-declared pentest tool defines exactly one MCP tool,
+;;;; named verbatim; composed convenience tools are allowed only as
+;;;; future ADDITIONS, never replacements (operator directive
+;;;; 2026-11-24: every declared tool must remain individually callable).
+;;;; The fixed tools wrap the canonical operation/asset surface.
+;;;; Handlers live in dispatch.lisp.
 
 (defstruct mcp-tool
   name title description input-schema annotations handler)
@@ -12,9 +15,50 @@
 (defparameter *server-name* "hackmode-mcp")
 (defparameter *server-version* "0.1.0")
 
-(defun run-tool-name (message-name)
-  "MCP tool name for a Star-Lang message: hyphens become underscores."
-  (substitute #\_ #\- message-name))
+(defun declared-tool-input-schema (tool kind)
+  "Per-tool input schema: the declared message schema minus the tool
+selector, because the MCP tool IS the declared tool (one Hackmode tool
+defines exactly one callable MCP tool, named verbatim)."
+  (let* ((message-name (if (string= kind "recon")
+                           "run-recon-tool"
+                           "run-vuln-scan"))
+         (schema (message-input-schema message-name))
+         (properties (jsown:val-safe schema "properties"))
+         (required (jsown:val-safe schema "required")))
+    (list :obj
+          (cons "type" "object")
+          (cons "properties"
+                ;; properties is (:OBJ entry ...): keep the tag, drop the
+                ;; tool selector entry.
+                (cons :obj
+                      (remove "tool" (cdr properties)
+                              :key #'car :test #'string=)))
+          (cons "required"
+                (remove "tool" required :test #'string=)))))
+
+(defun declared-tool-definition (tool)
+  "Derive the MCP tool for one Star-Lang-declared pentest TOOL.
+
+Identity is the declared name verbatim; the call runs exactly this one
+tool through the canonical provider path. Composite tools, if ever
+added, must come on top of these, never instead of them."
+  (let ((kind (string-downcase (string (hackmode-starlang:tool-kind-for tool)))))
+    (make-mcp-tool
+     :name tool
+     :title (format nil "Hackmode ~a: ~a" kind tool)
+     :description
+     (format nil
+             "Run the declared pentest tool ~a (org.hackmode/pentest@1, ~a pass) against \"target\" through Hackmode's canonical provider path. One call runs exactly this one tool. Requires an open operation store (call op_use first). Synchronous in this slice: the result carries the persisted job outcome and the encoded tool-run document. Executes external security tooling - authorized targets only."
+             tool kind)
+     :input-schema (declared-tool-input-schema tool kind)
+     :annotations (list :obj
+                        (cons "readOnlyHint" :false)
+                        (cons "destructiveHint" :false))
+     :handler (lambda (arguments) (run-declared-tool tool arguments)))))
+
+(defun run-tools ()
+  "One MCP tool per declared pentest tool, derived from the graph."
+  (mapcar #'declared-tool-definition (hackmode-starlang:declared-tools)))
 
 (defun fixed-tool (name title description handler read-only-p)
   (make-mcp-tool
@@ -44,25 +88,6 @@
         (cons "type" "object")
         (cons "properties" (cons :obj properties))
         (cons "required" required)))
-
-(defun run-tool-definition (message-name)
-  "Derive the MCP tool for one declared Star-Lang message."
-  (let* ((kind (if (member message-name
-                           '("run-recon-tool" "recon-tool-completed")
-                           :test #'string=)
-                   "recon"
-                   "vuln"))
-         (description
-           (format nil
-                   "Run the declared pentest tool selected by the \"tool\" enum (~a pass) against \"target\" through Hackmode's canonical provider path. Requires an open operation store (call op_use first). Synchronous in this slice: the result carries the persisted job outcome and the encoded tool-run document. Executes external security tooling - authorized targets only."
-                   kind)))
-    (query-tool
-     (run-tool-name message-name)
-     (format nil "Hackmode ~a tool run" kind)
-     description
-     (message-input-schema message-name)
-     (lambda (arguments) (run-declared-tool arguments))
-     nil)))
 
 (defun fixed-tools ()
   (list
@@ -94,10 +119,6 @@
     "capability_list" "List Hackmode capabilities and declared tools"
     "Registered capability providers plus the Star-Lang-declared pentest tool catalog with backend readiness (registered or pending)."
     #'capability-list-handler t)))
-
-(defun run-tools ()
-  (list (run-tool-definition "run-recon-tool")
-        (run-tool-definition "run-vuln-scan")))
 
 (defun tool-definitions ()
   "Return the full derived tool catalog."
