@@ -33,11 +33,12 @@
                     "nuclei" "zap")
                   (hackmode-starlang:declared-tools)
                   "declared tool catalog")
-    (assert-equal '("runId" "kind" "tool" "target" "argv" "status"
-                    "exitCode" "stdout" "stderr" "raw")
+    (assert-equal '("id" "dataset" "dtype" "schemaVersion" "dateAdded"
+                    "dateUpdated" "runId" "kind" "tool" "target" "argv"
+                    "status" "exitCode" "stdout" "stderr" "raw")
                   (hackmode-starlang:pentest-declaration-fields
                    :document "tool-run")
-                  "tool-run wire fields")
+                  "tool-run wire fields (canonical metadata + payload)")
     (assert-equal '("runId" "tool" "target" "templateId" "severity" "host"
                     "matchedAt" "evidence" "raw")
                   (hackmode-starlang:pentest-declaration-fields

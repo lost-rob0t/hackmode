@@ -1,0 +1,13 @@
+#+title: Operation
+
+* About
+About this operation.
+
+** Goals
+** Phases
+1. Recon
+2. Enumeration
+3. Exploitation
+4. Reporting
+
+* Status

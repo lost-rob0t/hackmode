@@ -1,0 +1,24 @@
+#+title: HTB Operation
+
+* Machine
+| field      | value |
+|------------+-------|
+| name       |       |
+| ip         |       |
+| difficulty |       |
+| os         |       |
+
+* Flags
+| flag  | value | captured |
+|-------+-------+----------|
+| user  |       | [ ]      |
+| root  |       | [ ]      |
+
+* Phases
+1. Enumeration (ports, services, versions)
+2. Foothold
+3. Privilege escalation
+4. Writeup
+
+* Notes
+See [[file:notes.org][notes.org]] for the running log.

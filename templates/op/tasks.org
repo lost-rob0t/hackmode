@@ -1,0 +1,9 @@
+#+title: Tasks
+
+* Tasks
+
+#+NAME: op-setup
+#+begin_src sh :results output replace
+# common tasks for this operation, run from the operation directory
+git init .
+#+end_src

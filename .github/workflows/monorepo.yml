@@ -25,7 +25,13 @@ jobs:
           test -f docs/architecture/monorepo.org
           test -f emacs/hackmode.el
           test -f emacs/hackmode-ac.el
-          test -f templates/bounty/assets.org
+          test -f templates/bbp/operation.org
+          test -f templates/bbp/methodology.org
+          test -f templates/bbp/assets.org
+          test -f templates/op/operation.org
+          test -f templates/op/assets.org
+          test -f templates/op/targets.org
+          test -f templates/htb/operation.org
           test -f templates/htb/notes.org
           test -f templates/htb/tasks.org
 

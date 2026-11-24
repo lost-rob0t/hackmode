@@ -1,0 +1,13 @@
+#+title: Assets
+
+* Assets
+** Web
+** IP
+** Domain
+** Services
+
+Notes:
+- Typed assets discovered through Hackmode tools are persisted in the
+  operation store (=.hackmode/=) and queryable via asset_query.
+- This file is the human inventory; keep it in sync with the store,
+  not a replacement for it.

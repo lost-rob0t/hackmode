@@ -1,0 +1,9 @@
+#+title: Targets
+
+* Targets [/]
+** TODO <target>
+
+Notes:
+- =.config/targets.txt= is the flat list tools and clients read.
+- Typed targets discovered through Hackmode tools are persisted in the
+  operation store; this file is the human-facing tracker.

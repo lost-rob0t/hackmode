@@ -1,0 +1,5 @@
+#+title: BBP Reports
+
+One file per submission: =reports/<id>.org=. Link evidence by asset id
+from the operation store; disclosure paperwork follows the program
+policy.

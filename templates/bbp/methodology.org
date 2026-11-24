@@ -1,0 +1,82 @@
+#+title: BBP Methodology
+#+description: Working checklist for this operation. Tool coverage notes name the Hackmode capability that backs each item (capability_list in the MCP surface, or providers in LISH). Items without a backend are manual.
+#+property: header-args :results silent
+
+* Recon & freebies
+** TODO [#A] Subdomain enumeration
+- Backends: =subfinder= and =crt.sh= (Hackmode :subdomain-enumerate),
+  =massdns= (:dns-resolve) for resolution.
+- Feed results back into the scope table; wildcards go through
+  =.config/blacklist.txt= first.
+
+** TODO [#A] Easy freebies (exposed files)
+- config.json? .env? .git/config? .git/HEAD?
+- Manual probing today; ffuf is not a declared Hackmode tool yet.
+
+** TODO Ffuf directory search
+- Manual (ffuf binary); wordlists respect =WORDLIST-DIR= /
+  =DEFAULT-WORDLIST-ALIST= conventions from the Hackmode standard.
+
+** TODO URLs and live hosts
+- =httpx= is declared in the tool catalog, backend pending (pentest
+  slice 2); =curl= :http-probe exists for single-URL observations.
+
+* Security misconfiguration (OWASP A05:2021)
+** TODO Look online for default creds (use them)
+** TODO Note defaults from product documentation
+** TODO Check for stack traces
+** TODO Verbose error pages, debug endpoints, directory listings
+
+* XSS
+Core idea: does user-controlled input reach page functionality?
+80/20 rule for time-boxed programs; polyglots first.
+** TODO Identify input vectors
+Customizable themes/profiles via CSS; event or meeting names; URI
+based; imported from a 3rd party; JSON POST values (check returned
+content type); file upload names; uploaded files (swf, HTML, ++);
+custom error pages; fake params (=?realparam=1&foo=bar…=); login and
+forgot-password forms.
+** TODO Common params
+onload, allowedDomain, movieplayer, xmlPath, eventhandler, callback
+(more on the OWASP page).
+** TODO Payload passes
+Payloads live in the roam XSS node, not here — link it:
+[[roam:XSS]]
+
+* SQLI
+[[roam:SQL Injection]] [[roam:SQLMap]]
+** TODO Use tampers to get around blacklists
+** TODO Error based is unlikely to occur; focus blind/boolean/time
+
+* GraphQL
+[[roam:GraphQl]]
+** TODO Introspection enabled?
+** TODO Batching / aliasing abuse
+
+* SSTI
+[[roam:SSTI]]
+** TODO Detect template engine from error pages
+
+* CSRF
+[[roam:Cross Site request forgery]]
+
+* SSRF
+[[roam:SSRF]]
+** TODO Common bypasses
+Alternative IP representations (2130706433, 017700000001, 127.1);
+your own domain; URL encoding / case variation / double encoding;
+redirect with different codes and protocols.
+** TODO Whitelisted bypasses
+Credentials before host with @; #fragment; DNS hierarchy
+(expected-host.evil-host); all of the above combined.
+** TODO Bypass via open redirect
+Use a vulnerable endpoint as the payload location.
+** TODO Instance metadata
+169.254.169.254/ in cloud or shared hosting; try the environment's
+own wrappers in interpreted setups; file descriptors angle.
+
+* Reporting
+- One =reports/<id>.org= per submission; link the finding asset id
+  from the operation store (asset_query) as evidence reference.
+- Exact raw evidence lives in the operation store; reports reference,
+  they do not re-quote partial evidence.
