@@ -3,6 +3,9 @@
 % 1dfbcc1/fa8511d/5d14261/ed8edf7 on base 07425b3); all suites green,
 % prolog-verify PASS, boundary denylist clean.
 
+%% cl_trap/2 and asdf_trap/2 are multifile: prolog_toolchain.pl also defines them.
+:- multifile cl_trap/2, asdf_trap/2.
+
 mcp_system(hackmode_mcp, 'source/hackmode-mcp').
 mcp_gate(test_gate,
          'asdf:test-system :hackmode-mcp (core.yml); suite prints "Hackmode MCP tests passed."').
