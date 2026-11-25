@@ -17,7 +17,8 @@ tool_venv(wireless, 'tools/wireless/.venv').          % python3.14 host; git-ign
 % contains the forbidden standalone token (an emoji short-name). Boundary
 % scans over the worktree must exclude git-ignored runtime dirs to mirror
 % the CI tracked-tree check:
-%   grep -Riw rage --exclude-dir=.venv --exclude-dir=__pycache__ \
+%   grep -Riw "$(cat agent-zero/forbidden-outside-agent-zero.txt)" \
+%     --exclude-dir=.venv --exclude-dir=__pycache__ \
 %     --exclude-dir=.pytest_cache --exclude-dir=.mypy_cache \
 %     --exclude-dir=.ruff_cache tools/wireless docs/recon
 % Empty scan through `bash -c '... || true'` hashes to sha256("\n") =
