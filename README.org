@@ -1,6 +1,6 @@
 #+title: Hackmode
 
-[[./ralp.jpg]]
+[[./ralp.png]]
 #+CAPTION: Ralp the red teaming Lisp alien
 
 * Hackmode
