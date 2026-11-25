@@ -464,3 +464,50 @@ overhaul (operation-templates.org). Merge gate: operator PR review.
 3. main not loading ~/.config/hackmode/init.lisp by default — confirm.
 4. Slice-2 ZAP reconciliation direction (lab server becomes the
    backend behind the declared zap tool) — confirm before slice 2.
+
+* Addendum — slice 2 ZAP reconciliation landed (2026-11-25)
+
+Branch =mcp/zap-probe-backends= (operator directive 2026-11-24:
+"make the ZAP MCP akin to raijin ... novel plugins ... define rules in
+star lang"). Question 4 above is resolved as follows:
+
+- The canonical backend is =hackmode-provider-zap= (new provider
+  system, =source/hackmode-providers/zap/=), NOT the lab JS server.
+  The star-bbp-lab =zap-mcp-server.mjs= stays the operator's
+  standalone lab surface; this system owns the declared tool backends,
+  so there is still exactly one canonical backend behind the declared
+  =zap= tool.
+- The novel capability surface is *declared*, not hand-written:
+  =pentest.star= gains seven vuln tools (zap-race-probe,
+  zap-smuggle-probe, zap-jwt-toolkit, zap-param-miner, zap-authz-diff,
+  zap-content-discovery, zap-graphql-probe), library 1.0.0 -> 1.1.0,
+  and the MCP catalog derives them verbatim per the 2026-11-24
+  directive. The dispatch table maps each to its capability/provider
+  pair; =run-*-scan= messages thread the declared =options= map
+  through =run-capability= to providers registered with =:options-p t=
+  (additive core change; unary providers unchanged).
+- The novel plugins are GraalJS standalone scripts owned by the
+  provider system (=zap-scripts/=), executed inside the daemon through
+  the script add-on's own API (global-var params/result round-trip).
+  Every plugin result persists as one typed finding with the exact
+  JSON preserved; the classic =zap= tool runs a bounded spider +
+  active scan and harvests alerts verbatim, recording deadline cuts
+  as zap-scan-note findings (no silent partial scans).
+- The feature surface mirrors the raijin tool families: races
+  (last-byte synchronized release, measured 1.5-2 ms release spread),
+  request-smuggling detection (CL.TE / TE.CL / TE.TE oracles), JWT
+  operations (analyze/sign/verify/forge_none/alg_confusion/crack on
+  javax.crypto), param mining (differential + revalidation), access
+  control diffing (Autorize-style multi-identity replay), content
+  discovery (soft-404 discrimination), and GraphQL deep probing
+  (introspection, suggestion oracle, POI, cycles, batch aliases,
+  fingerprint). OOB polling and intercept message readback remain
+  daemon-side gaps (documented in tool descriptions).
+- Naming correction: declared names are verbatim spec identifiers —
+  HYPHENS (=zap-race-probe=), not snake_case. Client configs must use
+  the hyphenated names.
+- Verification: full local core gate green (all seven test systems
+  including the new one), lexical boundary clean, prolog-verify PASS,
+  and a live hm-mcp e2e (real race probe + real spider scan + asset
+  persistence + capability_list registration) against the loopback
+  daemon.

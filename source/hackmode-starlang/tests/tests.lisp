@@ -26,11 +26,17 @@
     (assert-equal '("subfinder" "crtsh" "massdns" "nmap" "httpx" "katana")
                   (hackmode-starlang:declared-recon-tools)
                   "declared recon tools")
-    (assert-equal '("nuclei" "zap")
+    (assert-equal '("nuclei" "zap"
+                    "zap-race-probe" "zap-smuggle-probe" "zap-jwt-toolkit"
+                    "zap-param-miner" "zap-authz-diff" "zap-content-discovery"
+                    "zap-graphql-probe")
                   (hackmode-starlang:declared-vuln-tools)
                   "declared vuln tools")
     (assert-equal '("subfinder" "crtsh" "massdns" "nmap" "httpx" "katana"
-                    "nuclei" "zap")
+                    "nuclei" "zap"
+                    "zap-race-probe" "zap-smuggle-probe" "zap-jwt-toolkit"
+                    "zap-param-miner" "zap-authz-diff" "zap-content-discovery"
+                    "zap-graphql-probe")
                   (hackmode-starlang:declared-tools)
                   "declared tool catalog")
     (assert-equal '("id" "dataset" "dtype" "schemaVersion" "dateAdded"

@@ -6,7 +6,8 @@
   input-type
   output-types
   handler
-  (priority 100 :type integer))
+  (priority 100 :type integer)
+  (options-p nil))
 
 (defstruct provider-invocation
   id
@@ -47,12 +48,17 @@
         (canonical-capability-name provider)))
 
 (defun register-capability-provider (capability provider handler
-                                     &key input-type output-types (priority 100))
+                                     &key input-type output-types (priority 100)
+                                       options-p)
   "Register HANDLER as PROVIDER for CAPABILITY and return its definition.
 
 Provider handlers are backend functions. They consume a typed input object and
 return either one typed Hackmode asset, a list of assets, or NIL. Persistence is
-owned by the canonical provider completion path, never by the provider itself."
+owned by the canonical provider completion path, never by the provider itself.
+
+When OPTIONS-P is set, the handler is called with a second OPTIONS argument —
+the caller-supplied option map from the declaring run message (run-*-tool).
+Unary handlers keep the original single-input contract."
   (check-type handler function)
   (let ((definition
           (make-capability-provider
@@ -61,7 +67,8 @@ owned by the canonical provider completion path, never by the provider itself."
            :input-type input-type
            :output-types output-types
            :handler handler
-           :priority priority)))
+           :priority priority
+           :options-p options-p)))
     (setf (gethash (capability-provider-key capability provider)
                    *capability-providers*)
           definition)
@@ -163,11 +170,13 @@ that lock is released, so handlers can safely dispatch additional capabilities."
           (push stored assets))))
     (values (nreverse assets) created-count)))
 
-(defun invoke-provider (capability input &key provider (now (unix-now)))
+(defun invoke-provider (capability input &key provider options (now (unix-now)))
   "Run one provider backend without mutating the operation store.
 
 This phase is safe to execute concurrently in provider worker actors. Canonical
-asset validation/persistence happens later in FINALIZE-PROVIDER-INVOCATION."
+asset validation/persistence happens later in FINALIZE-PROVIDER-INVOCATION.
+OPTIONS is the caller-supplied run-option map; it reaches the handler only
+when the provider registered with OPTIONS-P."
   (let* ((requested-provider (and provider (canonical-capability-name provider)))
          (definition (find-capability-provider capability provider))
          (provider-name (or (and definition (capability-provider-name definition))
@@ -189,7 +198,9 @@ asset validation/persistence happens later in FINALIZE-PROVIDER-INVOCATION."
            :provider provider-name
            :input input
            :definition definition
-           :output (funcall (capability-provider-handler definition) input)
+           :output (if (capability-provider-options-p definition)
+                       (funcall (capability-provider-handler definition) input options)
+                       (funcall (capability-provider-handler definition) input))
            :state :succeeded
            :error nil
            :started-at now
@@ -250,12 +261,13 @@ or externally embedded callers from racing the canonical dedupe/write section."
           (failed-provider-job-result invocation (format nil "~a" condition))))))
 
 (defun execute-provider-job (capability input
-                             &key provider (database *db*) (now (unix-now)))
+                             &key provider options (database *db*) (now (unix-now)))
   "Execute one provider through the canonical invoke -> persist completion path."
   (finalize-provider-invocation
-   (invoke-provider capability input :provider provider :now now)
+   (invoke-provider capability input :provider provider :options options :now now)
    database))
 
-(defun run-capability (capability input &key provider (database *db*))
+(defun run-capability (capability input &key provider options (database *db*))
   "Synchronously execute CAPABILITY through the canonical provider job path."
-  (execute-provider-job capability input :provider provider :database database))
+  (execute-provider-job capability input
+                        :provider provider :options options :database database))

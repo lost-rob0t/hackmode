@@ -130,6 +130,7 @@
    :capability-provider-input-type
    :capability-provider-output-types
    :capability-provider-priority
+   :capability-provider-options-p
    :provider-job-result
    :provider-job-result-id
    :provider-job-result-capability
