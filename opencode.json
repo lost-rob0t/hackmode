@@ -1,0 +1,12 @@
+{
+  "mcp": {
+    "servers": {
+      "hackmode": {
+        "type": "local",
+        "command": [
+          "/home/unseen/starintel/hackmode/hm-mcp"
+        ]
+      }
+    }
+  }
+}

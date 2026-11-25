@@ -14,13 +14,22 @@
     ("crtsh" :subdomain-enumerate crtsh)
     ("massdns" :dns-resolve massdns)
     ("nuclei" :vuln-scan nuclei)
+    ("zap" :web-vuln-scan zap)
+    ("zap-race-probe" :race-probe zap-race-probe)
+    ("zap-smuggle-probe" :smuggle-probe zap-smuggle-probe)
+    ("zap-jwt-toolkit" :jwt-toolkit zap-jwt-toolkit)
+    ("zap-param-miner" :param-miner zap-param-miner)
+    ("zap-authz-diff" :authz-diff zap-authz-diff)
+    ("zap-content-discovery" :content-discovery zap-content-discovery)
+    ("zap-graphql-probe" :graphql-probe zap-graphql-probe)
     ("nmap" nil nil)
     ("httpx" nil nil)
-    ("katana" nil nil)
-    ("zap" nil nil))
+    ("katana" nil nil))
   "Declared Star-Lang tool name -> (capability provider), or (NIL NIL)
 while the concrete backend is still pending (see
-docs/architecture/pentest-tool-definitions.org).")
+docs/architecture/pentest-tool-definitions.org). The zap tools resolve to
+the hackmode-provider-zap daemon backends; in images without that system
+they report pending with a load instruction.")
 
 (defun tool-backend-status (tool)
   "Return a plist describing TOOL's backend readiness.
@@ -38,7 +47,7 @@ or :undeclared carries :detail."
                  :capability (second entry)
                  :provider (third entry))
            (list :status :pending
-                 :detail (format nil "Backend ~a/~a is not registered in this image; load its provider system."
+                 :detail (format nil "Backend ~a/~a is not registered in this image; load its provider system (hackmode-provider-zap)."
                                  (string-downcase (string (second entry)))
                                  (string-downcase (string (third entry)))))))
       (t
@@ -287,6 +296,14 @@ jsown serializes as a JSON object payload."
                                (hackmode:provider-job-result-assets job)))
         (cons "error" (or (hackmode:provider-job-result-error job) :null))))
 
+(defun options-argument (arguments)
+  "The caller's OPTIONS object verbatim (a jsown object), or NIL.
+
+The declared run messages carry an optional options map; it is forwarded
+untouched to the canonical provider path so the backend sees the exact
+caller-supplied parameters (plugin params are JSON — no Lisp-side renaming)."
+  (argument-value arguments "options"))
+
 (defun run-declared-tool (tool arguments)
   "Run one declared pentest tool through the canonical provider path.
 
@@ -295,6 +312,7 @@ tool); a failed job still emits its failed tool-run document before
 surfacing as a tool execution error."
   (let* ((target (require-string-argument arguments "target"))
          (run-id (require-run-id arguments))
+         (options (options-argument arguments))
          (backend (tool-backend-status tool)))
     (unless (eq (getf backend :status) :registered)
       (error "Pentest tool ~a is ~(~a~): ~a"
@@ -306,6 +324,7 @@ surfacing as a tool execution error."
            (job (hackmode:run-capability
                  (getf backend :capability) input
                  :provider (getf backend :provider)
+                 :options options
                  :database hackmode:*db*))
            (encoded (encode-tool-run-document run-id tool target job)))
       (enqueue-tool-run-document encoded)

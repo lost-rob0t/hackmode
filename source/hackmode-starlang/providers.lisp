@@ -104,7 +104,8 @@ Re-registering resets the registered providers to their default runners
 owned by their provider systems: when hackmode-provider-recon is loaded,
 its registrations are refreshed here by delegation so no provider backend
 is duplicated; hackmode-provider-dns self-registers at load and is not
-re-wired. Returns the registered (capability provider) pairs."
+re-wired. The same rule applies to the ZAP daemon backends owned by
+hackmode-provider-zap. Returns the registered (capability provider) pairs."
   (let ((registered '()))
     (register-nuclei-provider :runner nuclei-runner)
     (push (list :vuln-scan "nuclei") registered)
@@ -125,4 +126,16 @@ re-wired. Returns the registered (capability provider) pairs."
            (t
             (warn "hackmode-provider-recon is loaded but \
 REGISTER-RECON-PROVIDERS is missing; recon providers were not refreshed."))))))
+    (cond
+      ((null (find-package :hackmode-provider-zap)))
+      (t
+       (let ((register (find-symbol "REGISTER-ZAP-PROVIDERS"
+                                    :hackmode-provider-zap)))
+         (cond
+           ((and register (fboundp register))
+            (dolist (pair (funcall register))
+              (push pair registered)))
+           (t
+            (warn "hackmode-provider-zap is loaded but \
+REGISTER-ZAP-PROVIDERS is missing; zap providers were not refreshed."))))))
     (nreverse registered)))

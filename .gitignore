@@ -10,4 +10,13 @@
 # Generated/helper binaries must not be committed during hackmode-scripts migration.
 tools/legacy/**/ralp
 tools/legacy/**/.local/bin/
-.prolog/
+
+# Prolog state: the durable KB and handoff are TRACKED (prolog-project-kb
+# contract); run journals, verifier facts/digests, and result output are
+# runtime state and stay local.
+.prolog/*
+!.prolog/kb/
+!.prolog/handoff.pl
+
+# Saved MCP server image (make build-mcp output).
+/hm-mcp

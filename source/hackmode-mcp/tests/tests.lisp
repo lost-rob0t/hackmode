@@ -122,12 +122,34 @@
               (getf (hackmode-mcp:tool-backend-status "massdns") :status))
           () "massdns backend registered by hackmode-provider-dns load")
   ;; Declared-but-pending tools report pending, never undeclared.
-  (dolist (tool '("nmap" "httpx" "katana" "zap"))
+  (dolist (tool '("nmap" "httpx" "katana"))
     (let ((status (hackmode-mcp:tool-backend-status tool)))
       (assert (eq :pending (getf status :status))
               ()
               "~a is declared and pending" tool)
       (assert-true (getf status :detail) "pending detail")))
+  ;; The zap daemon backends (hackmode-provider-zap) are optional systems:
+  ;; registered when loaded, pending with a load instruction otherwise.
+  (let ((zap-loaded (and (find-package :hackmode-provider-zap)
+                         (fboundp (find-symbol "REGISTER-ZAP-PROVIDERS"
+                                               :hackmode-provider-zap)))))
+    (dolist (tool '("zap" "zap-race-probe" "zap-smuggle-probe"
+                    "zap-jwt-toolkit" "zap-param-miner" "zap-authz-diff"
+                    "zap-content-discovery" "zap-graphql-probe"))
+      (let ((status (hackmode-mcp:tool-backend-status tool)))
+        (if zap-loaded
+            (progn
+              (assert (eq :registered (getf status :status))
+                      ()
+                      "~a registered when the zap provider system is loaded"
+                      tool)
+              (assert (getf status :capability) ()
+                      "zap backend capability"))
+            (progn
+              (assert (eq :pending (getf status :status))
+                      ()
+                      "~a is declared and pending" tool)
+              (assert-true (getf status :detail) "pending detail"))))))
   (assert (eq :undeclared
               (getf (hackmode-mcp:tool-backend-status "not-a-tool") :status))
           () "undeclared tool status"))
@@ -162,7 +184,7 @@
   ;; tools/list exposes the derived catalog with input schemas.
   (let* ((response (hackmode-mcp:handle-message (request 4 "tools/list")))
          (tools (jsval (jsval response "result") "tools")))
-    (assert-equal 14 (length tools) "catalog size over the wire")
+    (assert-equal 21 (length tools) "catalog size over the wire")
     (let ((first (first tools)))
       (assert-true (jsval first "name") "tool name")
       (assert-true (jsval first "description") "tool description")
