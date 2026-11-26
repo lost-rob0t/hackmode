@@ -1,0 +1,313 @@
+#+title: IPX native proxy — rule system and operation configuration
+
+* Status
+Issue: [[https://github.com/lost-rob0t/hackmode/issues/26][#26]] (IPX parent; a follow-up issue carries this slice)
+Extends: [[https://github.com/lost-rob0t/hackmode/blob/master/docs/architecture/ipx.org][ipx.org]], [[https://github.com/lost-rob0t/hackmode/blob/master/docs/architecture/expert-layer.org][expert-layer.org]], [[https://github.com/lost-rob0t/hackmode/blob/master/docs/architecture/expert-containment-delta.org][expert-containment-delta.org]]
+Status: DESIGN (human-gated cycle). Operator direction in session, 2026-11-24:
+the three-layer rule split and operation-scoped proxy configuration are the
+approved problem shape. This doc is the design review surface; implementation
+begins only after design approval per the ADADR gate in =AGENTS.md=.
+
+* Purpose
+Hackmode currently captures HTTP evidence through the mitmproxy addon
+(=tools/ipx/mitmproxy-addon.py=). The addon is capture-only: it records
+lossless evidence and matches nothing. There are no rules that match against
+HTTP requests today — the expert layer classifies target strings and asset
+surfaces, never exchanges.
+
+This slice adds a native Common Lisp intercepting proxy as the first-class
+IPX capture provider, with feature parity targeted against OWASP ZAP, and
+defines the IPX rule system the proxy and the passive expert layer share.
+
+The mitmproxy addon stays valid: capture providers are pluggable, and both
+write the same versioned IPX HTTP spool schema, so the canonical parser,
+replay, and exchange-record boundary (PR #174 line) consumes either
+unchanged.
+
+#+begin_example
+client / browser / tool
+        |
+        v
++------------------------------+
+| native IPX proxy (Common     |
+| Lisp, this slice)            |
+|  inline rules (layer 2)      |
+|  rate limits + scope         |
+|  break/hold points           |
++------------------------------+
+        |  lossless
+        v
+append-only IPX spool  <-- same schema as mitmproxy addon
+        |
+        v
+parser/replay actor (unchanged)
+        |
+        v
+typed exchanges --> passive Hackpert rules (layer 3)
+                          | typed graph deltas
+                          v
+                   Common Lisp acceptance
+#+end_example
+
+* Rule system: three layers
+No single engine serves both per-request interception and per-session
+analysis. The split keeps each layer in its latency and authority envelope.
+
+** Layer 1 — rule packs are star-lang spec-libraries
+Rules are versioned data, not code. A rule pack is a spec-library, loaded
+and validated through the existing star-lang pipeline, exactly like
+=source/hackmode-starlang/spec/pentest.star=:
+
+#+begin_example
+(spec-library "org.hackmode/ipx-rules@1"
+  (:version "1.0.0")
+
+  (enum phase (inline passive active))
+  (enum inline-action (tag hold replace))
+  (enum severity (info low medium high critical))
+
+  (scalar rule-id
+    (:base string
+     :pattern "^[a-z0-9][a-z0-9._:-]{2,127}$"))
+
+  (document ipx-rule
+    (:persistence persistent)
+    (id rule-id :required)
+    (phase phase :required)
+    (match map :required)
+    (action inline-action :optional)
+    (severity severity :required)
+    (note string :required)))
+#+end_example
+
+- =match= carries method/scheme/host/port/path/header/body patterns as data.
+  Patterns compile once (cl-ppcre) at pack load; captured content is matched
+  against compiled patterns and is never concatenated into a query or goal —
+  the same inert-values rule the expert snapshot already follows.
+- Pack identity (library, version, content digest) is recorded in the
+  capture-session provenance so every evidence record can state which rules
+  were in effect when it was captured.
+- =phase active= rules exist in the same format but are never reachable from
+  passive analysis; execution crosses the operation capability/authorization
+  boundary explicitly (see Authority).
+
+** Layer 2 — inline Common Lisp matchers (the proxy hot path)
+Per-exchange evaluation in-process, deterministic, microseconds-scale, no
+external process:
+
+- tag/annotate exchanges with rule hits;
+- hold (break point) exchanges for operator inspection through LISH;
+- replace request/response content (per-rule explicit opt-in; the spool
+  captures what actually traversed the wire);
+- rate limiting (see Configuration) and target scoping;
+- content-type and response-shape recognition feeding tags.
+
+Actions are limited to this list. An inline rule can never dispatch a
+provider, replay, scan, or write canonical state — it stamps typed hits into
+the capture stream; everything downstream derives from those.
+
+** Layer 3 — passive Hackpert analysis (backend-neutral Prolog)
+Exactly the path ipx.org steps 6–8 already specify: bounded exchange
+snapshot facts in (=http_exchange/…= opaque string facts plus bounded header
+pairs; bodies stay behind evidence references), typed graph deltas out,
+Common Lisp acceptance boundary validates and persists. Queries are
+offense-first per the operator stance: endpoint/parameter surface expansion,
+session and auth boundaries, redirect chains, technology fingerprints,
+response-shape anomalies. The =effect_gate= invariant holds: expert PASSIVE/
+ACTIVE authority outranks any Prolog-side gating; =emit_*= goals are
+advisory.
+
+Rules are written as pure, backend-neutral Prolog and executed through the
+star-lang logic backend, not a hand-rolled process per query:
+
+- the star-lang compiler already compiles logic calls (operation kind,
+  semantic profile, backend policy, answer/proof policy, budgets, hard
+  limits, isolation) into the normalized =star-logic-ir=, and
+  =star-logic-protocol= registers backend kinds =swi-prolog=, =lisa=, and
+  =n-prolog= with deterministic selection;
+- =star-logic-adapter-swi= owns the SWI-Prolog MQI worker boundary: pinned
+  executable identity (path + version + byte digest, revalidated before
+  every session), embedded MQI startup, session isolation, trusted
+  bootstrap — no ambient PATH discovery, no caller-supplied Prolog files;
+- today that adapter is a foundation slice and deliberately lacks the
+  =star.logic.query/1= surface, so the near-term path stays the existing
+  one-shot =expert-snapshot= boundary; the slice must not grow new
+  snapshot/temp-file coupling beyond what already exists, so the switch to
+  the MQI worker lands as an execution-boundary swap, not a rule rewrite;
+- this converges with (rather than competes with) the operator-approved
+  embedded-Prolog destination: a persistent, identity-pinned Prolog worker
+  is the same end state; whether the worker process is the MQI adapter or
+  libswipl-in-tek9 is settled when the query surface lands.
+
+Per the star-lang #63 extraction, application logic lives in Hackmode:
+star-lang is the language/compiler/backend substrate, and IPX rules — data
+packs and Prolog bodies alike — stay in this repository.
+
+** Evaluated alternatives
+- LISA (RETE): not an extra engine decision — =lisa= is already a backend
+  kind in =star-logic-protocol=. When accumulation-shaped inline rules
+  (session state across exchanges) actually appear, adoption means
+  implementing the LISA materializer backend in star-lang and selecting it
+  through the normal backend policy. Until then it stays deferred; plain CL
+  matchers cover the inline surface.
+- SBCL-embedded Prolog libraries: rejected — a second reasoning substrate
+  fragments the expert plane and conflicts with the two-axis contract
+  (Hackmode owns passive|active authority; the reasoning-strategy axis stays
+  with the external expert plane). The Prolog execution boundary is
+  star-logic's SWI backend or the tek9 embedded runtime, not a CL-side
+  mini-Prolog.
+- star-lang as evaluation engine for inline rules: specs compile to data IR
+  only (=pentest.star= shape; logic compilation exists for logic calls, not
+  for document packs), so inline evaluation stays Common Lisp.
+
+* Configuration model
+Configuration is code, per the standing repo stance (=standard.org=):
+operator-authored Lisp, validated at load, fail-closed.
+
+** Global defaults
+=~/.config/hackmode/init.lisp= already exists as the operator init file
+(=settings.lisp=). Proxy defaults load through the same hook family: listen
+address/port, CA material location, global rule packs, global rate limits.
+
+** Per-operation configuration
+An operation root gains =.config/= (name follows the existing
+=templates/bbp/.config/= precedent) containing operator-authored
+configuration:
+
+#+begin_example
+<operation-root>/.config/init.lisp
+#+end_example
+
+#+begin_src lisp
+;; operator-authored; loaded when the operation is trusted (below)
+(set-proxy-listen "127.0.0.1" 8080)
+(add-proxy-scope-allow "example.com")
+(add-proxy-scope-allow "10.0.0.0/8")
+(set-proxy-rate-limit :scope :global :rate 50 :window :second
+                      :on-limit :reject)
+(add-proxy-rate-limit :scope :host :match "api.example.com"
+                      :rate 10 :window :second :burst 20
+                      :on-limit :delay)
+(load-rule-pack "org.hackmode/ipx-rules@1")
+#+end_src
+
+Loader contract:
+- only a narrow exported proxy-config API is available and documented;
+  arguments are validated at load; invalid configuration fails the capture
+  session start explicitly and never silently degrades;
+- the resolved effective configuration (settings, rule-pack identities and
+  digests, rate limits, scope set) is hashed and written into the
+  capture-session provenance record.
+
+** Trust gate
+=init.lisp= is executed code in a directory that also holds captured
+evidence. Captured content is always data and never executes; the init file
+is operator-authored and is the one intentional exception. Operations
+created locally from templates load their =.config/init.lisp= when the
+operator marks the operation trusted through LISH (recorded with operator
+id, date, and HEAD in operation state). Imported or shared operations never
+execute configuration until the same explicit trust act happens. The global
+init file keeps its current behavior.
+
+** Rate limiting
+Rate limits shape *forwarding* — an active proxy behavior, distinct from
+capture fidelity:
+
+- token bucket; keys are =:global=, =:host= (matched on the request target),
+  =:ip= (resolved peer), composed from config;
+- on-limit actions: =:delay= (queue until a token frees; default, because a
+  delayed request is never lost and evidence stays complete) or =:reject=
+  (fail the exchange with an explicit proxy rejection status);
+- every delayed or rejected request produces a visible typed proxy-event
+  record with the rule/limit identity; silent shaping does not exist;
+- capture remains lossless regardless of forwarding policy.
+
+** Target scoping
+A proxy is a traffic escape hatch; forwarding stays operation-scoped. The
+effective allowlist (empty deny-all default) gates every upstream connect;
+out-of-scope targets are rejected with a visible proxy event. Scoping is an
+authorization surface, so runtime scope changes go through LISH and are
+provenance-recorded like every other effective-config change.
+
+* Authority invariants
+Carried unchanged from ipx.org and the expert plane:
+- the spool is canonical source evidence; analysis never rewrites it;
+- inline rules stamp typed hits only; canonical writes cross the Common Lisp
+  acceptance boundary;
+- passive analysis executes zero providers and zero active requests;
+- =phase active= rules run only through the explicit operation capability/
+  authorization boundary, never implicitly;
+- secret-bearing traffic is first-class operation-scoped evidence; forwarding
+  policy and rule hits never redact, strip, or mask it;
+- malformed or untrusted captured content is data, never executable input.
+
+* Feature map (ZAP parity, sliced honestly)
+| ZAP capability            | This design                                              | Slice |
+| intercepting MITM proxy   | native proxy core (HTTP/1.1 + CONNECT, dynamic CA)       | 1     |
+| history/search            | exchange records in the operation graph + LISH views     | 1–2   |
+| break/intercept points    | layer 2 hold action + LISH step/resume                   | 2     |
+| passive scanner rules     | layers 1+2 tags, layer 3 passive deltas                  | 2–3   |
+| HTTP sessions/auth        | session-boundary deltas; auto-reauth later               | 3+    |
+| active scanner            | =phase active= packs behind the authorization gate       | later |
+| spider/crawler            | complements recon providers; separate slice              | later |
+| fuzzer/intruder           | active; separate slice                                   | later |
+| WebSockets/SSE/HTTP2      | versioned capture adapters (ipx.org allows this)         | later |
+| scripting hooks           | rule packs + operator =.config/init.lisp=                | 1–2   |
+
+* Implementation order
+1. star-lang =org.hackmode/ipx-rules@1= spec-library, loader, fixture pack,
+   tests.
+2. Native proxy core: listener, CONNECT tunneling, TLS MITM with dynamic CA,
+   upstream forwarding, spool records byte-compatible with the existing IPX
+   HTTP schema. New ASDF system (=source/hackmode-proxy=); TLS/socket
+   dependencies wired through the flake (cl+ssl + cert generation path;
+   openssl subprocess acceptable for CA bootstrap, noted explicitly).
+3. Configuration surface: global hook, per-operation =.config/init.lisp=
+   loader with trust gate, validation, effective-config provenance record.
+4. Rate limiter and target scoping with typed proxy events.
+5. Inline rule engine: pack compilation, deterministic match order (pack
+   order, then rule id), tag/hold/replace actions, hit records in the
+   capture stream.
+6. Passive snapshot facts for exchanges + backend-neutral Hackpert rule pack
+   + graph-delta acceptance (completes ipx.org steps 6–8 for the native
+   proxy path; no new snapshot/temp-file coupling so the star-logic MQI
+   worker can replace the one-shot boundary later without rewriting rules).
+7. LISH controls: capture status, break/step/resume, rule inspection,
+   effective-config display, operation trust act.
+8. Later slices per the feature map.
+
+* Acceptance proof
+1. Fixture traffic through the native proxy produces spool records the
+   existing parser/replay boundary accepts unchanged, with stable
+   correlation, offsets, and provenance.
+2. Repeated-header, =Authorization=, =Cookie=, =Set-Cookie=, API-key-shaped,
+   query/form, and body-byte fixtures remain retrievable exactly from
+   canonical operation-scoped evidence; forwarding policy changes none of it.
+3. Per-operation rate limits delay and reject exactly per configuration;
+   every delayed/rejected request has a typed proxy-event record.
+4. The capture-session provenance carries the effective configuration hash,
+   rule-pack identities, versions, and digests in effect at capture time.
+5. Inline rules tag, hold, and (opt-in) replace per pack; replaced requests
+   are captured as actually sent.
+6. An untrusted operation never executes =.config/init.lisp=; the recorded
+   trust act precedes any load.
+7. Out-of-scope upstream connects fail with visible proxy events.
+8. Passive Hackpert derives endpoint/parameter/fingerprint/session deltas
+   from exchange facts with zero providers and zero active requests
+   (ipx.org acceptance 7–8 reused).
+9. Rule-pack and expert-layer regression suites pass; repository boundary
+   workflow passes; the prolog-verify gate passes for the slice.
+
+* Open decisions
+- Follow-up issue number and slice-1 PR split (this doc's approval names
+  them).
+- LISA timing: default is defer until an accumulation-shaped rule set exists;
+  adoption path is a =star-logic-protocol= LISA materializer backend, not a
+  standalone vendored engine.
+- Final Prolog execution boundary: star-logic MQI worker adapter once its
+  =star.logic.query/1= surface lands, or tek9-embedded libswipl — decided
+  with the expert plane, not by this slice.
+- Trust-gate surface: default is a LISH operation-trust act recorded in
+  operation state; alternative (marker file) only if LISH ergonomics demand.
+- Whether spider and fuzzer slices inherit the recon provider surface or add
+  a new provider family — decided with their own slices.
