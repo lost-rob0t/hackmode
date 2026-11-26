@@ -37,3 +37,10 @@ evidence_rule(hackmode_starlang,
               'nuclei findings keep the exact JSONL source line as finding data (lossless capture invariant applied to offensive tooling output)').
 regression_rule(hackmode_starlang,
               'registry/kali wrapper_status must not claim first-party for star-lang-declared tools until those tools actually emit StarIntel documents from this repository').
+
+%% System-domain rate-limit fold (branch starlang/system-rate-limits, 2026-11-26).
+spec_library(hackmode_starlang_system, 'org.hackmode/system@1').
+spec_path(hackmode_starlang_system, 'source/hackmode-starlang/spec/system.star').
+spec_gate(hackmode_starlang_system, 'same strict loader gate as the pentest library: run-system-library-test inside hackmode-starlang-tests loads spec/system.star at the CI pin').
+starlang_rule(system_rate_limit_shape, 'max-rate-limit declares BOTH maxima in one declaration: maxPerHost and maxPerIp over one windowSeconds; declare-rate-limit is the actor-domain message carrying the same fields. Egress awareness is required because proxy lists and rotating tor (docker) exist: egress-kind is (direct|proxy-list|rotating-tor), optional, default direct').
+starlang_rule(pinned_loader_defaults, 'verified at CI pin 7db8998: the compiler accepts :optional :default and integer :minimum, and create-document applies declarative field defaults (apply-field-defaults in document-runtime.lisp), so omitting egress encodes "direct"').

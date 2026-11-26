@@ -57,6 +57,76 @@
     (assert-equal :recon (hackmode-starlang:tool-kind-for "subfinder"))
     (assert-equal :vuln (hackmode-starlang:tool-kind-for "nuclei"))))
 
+(defun run-system-library-test ()
+  "The org.hackmode/system@1 library declares the actor-domain max rate
+limit: per-host and per-IP maxima over one window, egress-aware because
+proxy lists and rotating Tor are real transport in this deployment."
+  (let* ((graph (star-lang.api:load-star-file
+                 (asdf:system-relative-pathname
+                  :hackmode-starlang "spec/system.star")))
+         (root (star-lang.loader:loaded-graph-root graph))
+         (compiled (star-lang.loader:library-node-compiled root))
+         (declarations (getf compiled :declarations))
+         (declaration-of
+           (lambda (kind name)
+             (let ((found (find-if (lambda (d)
+                                     (and (eq (getf d :kind) kind)
+                                          (string= (getf d :name) name)))
+                                   declarations)))
+               (assert found ()
+                       "No ~a ~a in the system library." kind name)
+               found)))
+         (fields-of
+           (lambda (kind name)
+             (mapcar (lambda (field) (getf field :name))
+                     (getf (funcall declaration-of kind name) :fields)))))
+    (assert-equal "org.hackmode/system@1"
+                  (star-lang.loader:library-node-name root)
+                  "system library identity")
+    (assert-equal "1.0.0"
+                  (star-lang.loader:library-node-version root)
+                  "system library version")
+    (assert-equal '("policyId" "maxPerHost" "maxPerIp" "windowSeconds" "egress")
+                  (funcall fields-of :document "max-rate-limit")
+                  "max-rate-limit wire fields (per host and per ip maxima)")
+    (assert-equal '("policyId" "maxPerHost" "maxPerIp" "windowSeconds" "egress")
+                  (funcall fields-of :message "declare-rate-limit")
+                  "declare-rate-limit message fields")
+    (assert-equal '("direct" "proxy-list" "rotating-tor")
+                  (getf (funcall declaration-of :enum "egress-kind") :values)
+                  "egress kinds cover direct, proxy lists, and rotating tor")
+    (let ((explicit
+            (star-lang.api:encode-document
+             (star-lang.api:create-document
+              graph "max-rate-limit"
+              (list :policy-id "rl-shared-host"
+                    :max-per-host 30
+                    :max-per-ip 5
+                    :window-seconds 60
+                    :egress "proxy-list")
+              :dataset "hackmode")))
+          (defaulted
+            (star-lang.api:encode-document
+             (star-lang.api:create-document
+              graph "max-rate-limit"
+              (list :policy-id "rl-rotating-tor"
+                    :max-per-host 30
+                    :max-per-ip 5
+                    :window-seconds 60)
+              :dataset "hackmode"))))
+      (assert-equal 30
+                    (cdr (assoc "maxPerHost" explicit :test #'string=))
+                    "encoded per-host maximum")
+      (assert-equal 5
+                    (cdr (assoc "maxPerIp" explicit :test #'string=))
+                    "encoded per-ip maximum")
+      (assert-equal "proxy-list"
+                    (cdr (assoc "egress" explicit :test #'string=))
+                    "encoded explicit egress")
+      (assert-equal "direct"
+                    (cdr (assoc "egress" defaulted :test #'string=))
+                    "declarative default egress applied"))))
+
 (defun run-tool-run-document-test ()
   (let* ((document
            (hackmode-starlang:make-tool-run-document
@@ -238,6 +308,7 @@
 
 (defun run-tests ()
   (run-spec-library-test)
+  (run-system-library-test)
   (run-tool-run-document-test)
   (run-vuln-finding-document-test)
   (run-nuclei-parser-test)

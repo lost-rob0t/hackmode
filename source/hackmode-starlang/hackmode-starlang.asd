@@ -12,4 +12,5 @@
                (:file "graph")
                (:file "providers")
                (:file "registration")
-               (:static-file "spec/pentest.star")))
+               (:static-file "spec/pentest.star")
+               (:static-file "spec/system.star")))
