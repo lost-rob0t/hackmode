@@ -22,6 +22,7 @@ Hackmode product code, product documentation, tests, APIs, symbols, filenames, c
 - =docs/architecture/= :: Hackmode product architecture and repository-boundary decisions. Agent-worker orchestration does not belong here.
 - =docs/recon/windows/= :: First-party Windows network recon capability design and issue slices (smb, ldap, kerberos, dns, netbios, winrm, msrpc, ntlm).
 - =registry/kali/= :: Machine-readable Kali tool catalog registry (seed + derivation script) that recon coverage is tracked against.
+- =.opencode/skills/= :: OpenCode skill suite for operating Hackmode (operations, recon, templates, BBP, wireless, setup). Install into consuming repositories with =tools/install-opencode-skills.sh <dest-repo>=; the copies there are mirrors of this tree.
 
 See =docs/architecture/monorepo.org= before adding a new Hackmode repository.
 
