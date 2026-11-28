@@ -33,43 +33,74 @@ jobs:
       - name: Enforce configured Agent Zero PR lanes
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
           python3 <<'PY'
+          import base64
           import json
           import os
-          import subprocess
+          import urllib.error
+          import urllib.request
 
+          # Forgejo sets GITHUB_API_URL to the instance v1 API and GITHUB_TOKEN
+          # to the job token. The gh CLI is not dependable on this runner, so
+          # every call below uses the standard library only.
+          api = os.environ.get("GITHUB_API_URL", "").rstrip("/")
+          if not api:
+              api = os.environ["GITHUB_SERVER_URL"].rstrip("/") + "/api/v1"
           repo = os.environ["GITHUB_REPOSITORY"]
           policy = os.environ.get("AGENT_PR_POLICY", "close-old").strip()
+          token = os.environ.get("GITHUB_TOKEN", "")
 
           if policy not in {"close-old", "refuse-new"}:
               print(f"::error::Unsupported AGENT_PR_POLICY={policy!r}; use close-old or refuse-new")
               raise SystemExit(2)
 
-          with open(os.environ["GITHUB_EVENT_PATH"], "r", encoding="utf-8") as fh:
-              event = json.load(fh)
+          current_pr = None
+          event_path = os.environ.get("GITHUB_EVENT_PATH", "")
+          if event_path and os.path.exists(event_path):
+              with open(event_path, "r", encoding="utf-8") as fh:
+                  event = json.load(fh)
+              if event.get("pull_request"):
+                  current_pr = event.get("number")
 
-          current_pr = event.get("number") if event.get("pull_request") else None
+          def request(path, method="GET", body=None):
+              url = api + path
+              data = json.dumps(body).encode("utf-8") if body is not None else None
+              req = urllib.request.Request(url, data=data, method=method)
+              if token:
+                  req.add_header("Authorization", "token " + token)
+              req.add_header("Accept", "application/json")
+              try:
+                  with urllib.request.urlopen(req, timeout=30) as resp:
+                      raw = resp.read()
+              except urllib.error.HTTPError as err:
+                  detail = err.read().decode("utf-8", "replace")[:400]
+                  print(f"::error::{method} {path} -> HTTP {err.code}: {detail}")
+                  raise SystemExit(2)
+              if not raw:
+                  return None
+              return json.loads(raw.decode("utf-8"))
 
-          def gh(*args):
-              proc = subprocess.run(
-                  ["gh", *args],
-                  check=True,
-                  text=True,
-                  stdout=subprocess.PIPE,
-                  stderr=subprocess.PIPE,
-              )
-              return proc.stdout
+          def fetch_open_pulls():
+              pulls = []
+              page = 1
+              while True:
+                  batch = request(
+                      f"/repos/{repo}/pulls?state=open&base=master&limit=50&page={page}"
+                  )
+                  if not batch:
+                      break
+                  pulls.extend(batch)
+                  if len(batch) < 50:
+                      break
+                  page += 1
+              return pulls
 
-          lane_text = gh(
-              "api",
-              "-H",
-              "Accept: application/vnd.github.raw+json",
-              f"repos/{repo}/contents/agent-zero/pr-lanes.txt",
-          )
+          lanes_doc = request(f"/repos/{repo}/contents/agent-zero/pr-lanes.txt")
+          lane_text = base64.b64decode(lanes_doc.get("content", "")).decode("utf-8")
           lanes = tuple(
               line.strip()
               for line in lane_text.splitlines()
@@ -79,21 +110,12 @@ jobs:
               print("::error::agent-zero/pr-lanes.txt contains no branch-prefix lanes")
               raise SystemExit(2)
 
-          raw = gh(
-              "api",
-              "--paginate",
-              "--slurp",
-              f"repos/{repo}/pulls?state=open&base=master&per_page=100",
-          )
-          pages = json.loads(raw)
-          pulls = [pr for page in pages for pr in page]
-
           # Only same-repository agent branches are eligible. Fork PRs and
           # unrelated human branches are deliberately untouched.
           pulls = [
               pr
-              for pr in pulls
-              if pr.get("head", {}).get("repo", {}).get("full_name") == repo
+              for pr in fetch_open_pulls()
+              if (pr.get("head") or {}).get("repo", {}).get("full_name") == repo
           ]
 
           closed = []
@@ -123,37 +145,17 @@ jobs:
                           "Finish or close that PR before opening another."
                       )
 
-                  gh(
-                      "api",
-                      "-X",
-                      "POST",
-                      f"repos/{repo}/issues/{pr['number']}/comments",
-                      "-f",
-                      f"body={body}",
-                  )
-                  gh(
-                      "api",
-                      "-X",
-                      "PATCH",
-                      f"repos/{repo}/pulls/{pr['number']}",
-                      "-f",
-                      "state=closed",
-                  )
+                  request(f"/repos/{repo}/issues/{pr['number']}/comments",
+                          method="POST", body={"body": body})
+                  request(f"/repos/{repo}/pulls/{pr['number']}",
+                          method="PATCH", body={"state": "closed"})
                   closed.append(pr["number"])
                   print(f"closed #{pr['number']} in {lane}; keeping #{keep['number']} ({policy})")
 
-          raw = gh(
-              "api",
-              "--paginate",
-              "--slurp",
-              f"repos/{repo}/pulls?state=open&base=master&per_page=100",
-          )
-          pages = json.loads(raw)
           remaining = [
               pr
-              for page in pages
-              for pr in page
-              if pr.get("head", {}).get("repo", {}).get("full_name") == repo
+              for pr in fetch_open_pulls()
+              if (pr.get("head") or {}).get("repo", {}).get("full_name") == repo
           ]
 
           violations = []
