@@ -34,16 +34,22 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          # GitHub: https://api.github.com — Forgejo: <server>/api/v1
+          FORGE_API_BASE: ${{ github.server_url == 'https://github.com' && 'https://api.github.com' || format('{0}/api/v1', github.server_url) }}
         run: |
           set -euo pipefail
 
           python3 <<'PY'
+          import base64
           import json
           import os
-          import subprocess
+          import urllib.error
+          import urllib.request
 
           repo = os.environ["GITHUB_REPOSITORY"]
           policy = os.environ.get("AGENT_PR_POLICY", "close-old").strip()
+          api_base = os.environ["FORGE_API_BASE"].rstrip("/")
+          token = os.environ["GH_TOKEN"]
 
           if policy not in {"close-old", "refuse-new"}:
               print(f"::error::Unsupported AGENT_PR_POLICY={policy!r}; use close-old or refuse-new")
@@ -54,22 +60,48 @@ jobs:
 
           current_pr = event.get("number") if event.get("pull_request") else None
 
-          def gh(*args):
-              proc = subprocess.run(
-                  ["gh", *args],
-                  check=True,
-                  text=True,
-                  stdout=subprocess.PIPE,
-                  stderr=subprocess.PIPE,
+          def api(method, path, body=None, raw=False):
+              req = urllib.request.Request(
+                  f"{api_base}{path}",
+                  method=method,
+                  data=json.dumps(body).encode() if body is not None else None,
+                  headers={
+                      "Authorization": f"Bearer {token}",
+                      "Accept": "application/vnd.github.raw" if raw else "application/json",
+                      "User-Agent": "agent-pr-serialization",
+                  },
               )
-              return proc.stdout
+              with urllib.request.urlopen(req, timeout=30) as resp:
+                  payload = resp.read()
+              if raw:
+                  try:
+                      return payload.decode("utf-8")
+                  except UnicodeDecodeError:
+                      return payload.decode("utf-8", "replace")
+              doc = json.loads(payload)
+              # Some forges ignore the raw Accept header and return the JSON
+              # contents envelope with base64 content instead.
+              if isinstance(doc, dict) and "content" in doc and doc.get("encoding") == "base64":
+                  return base64.b64decode(doc["content"]).decode("utf-8")
+              return doc
 
-          lane_text = gh(
-              "api",
-              "-H",
-              "Accept: application/vnd.github.raw+json",
-              f"repos/{repo}/contents/agent-zero/pr-lanes.txt",
-          )
+          def list_open_pulls():
+              pulls, page = [], 1
+              while True:
+                  batch = api("GET", f"/repos/{repo}/pulls?state=open&base=master&limit=50&page={page}")
+                  if not batch:
+                      break
+                  pulls.extend(batch)
+                  if len(batch) < 50:
+                      break
+                  page += 1
+              return pulls
+
+          def close_pull(number, comment):
+              api("POST", f"/repos/{repo}/issues/{number}/comments", {"body": comment})
+              api("PATCH", f"/repos/{repo}/issues/{number}", {"state": "closed"})
+
+          lane_text = api("GET", f"/repos/{repo}/contents/agent-zero/pr-lanes.txt", raw=True)
           lanes = tuple(
               line.strip()
               for line in lane_text.splitlines()
@@ -79,14 +111,7 @@ jobs:
               print("::error::agent-zero/pr-lanes.txt contains no branch-prefix lanes")
               raise SystemExit(2)
 
-          raw = gh(
-              "api",
-              "--paginate",
-              "--slurp",
-              f"repos/{repo}/pulls?state=open&base=master&per_page=100",
-          )
-          pages = json.loads(raw)
-          pulls = [pr for page in pages for pr in page]
+          pulls = list_open_pulls()
 
           # Only same-repository agent branches are eligible. Fork PRs and
           # unrelated human branches are deliberately untouched.
@@ -123,36 +148,13 @@ jobs:
                           "Finish or close that PR before opening another."
                       )
 
-                  gh(
-                      "api",
-                      "-X",
-                      "POST",
-                      f"repos/{repo}/issues/{pr['number']}/comments",
-                      "-f",
-                      f"body={body}",
-                  )
-                  gh(
-                      "api",
-                      "-X",
-                      "PATCH",
-                      f"repos/{repo}/pulls/{pr['number']}",
-                      "-f",
-                      "state=closed",
-                  )
+                  close_pull(pr["number"], body)
                   closed.append(pr["number"])
                   print(f"closed #{pr['number']} in {lane}; keeping #{keep['number']} ({policy})")
 
-          raw = gh(
-              "api",
-              "--paginate",
-              "--slurp",
-              f"repos/{repo}/pulls?state=open&base=master&per_page=100",
-          )
-          pages = json.loads(raw)
           remaining = [
               pr
-              for page in pages
-              for pr in page
+              for pr in list_open_pulls()
               if pr.get("head", {}).get("repo", {}).get("full_name") == repo
           ]
 
