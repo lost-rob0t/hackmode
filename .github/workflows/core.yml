@@ -22,55 +22,57 @@ jobs:
           fetch-depth: 1
           submodules: recursive
 
-      - name: Checkout pinned Tek9
+      - name: Checkout pinned Tek9 (on-host mirror)
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          repository: lost-rob0t/tek9
+          repository: nsaspy/tek9
           ref: 1cb978084da8b4f1d184b3ef2a1d30057f525608
           path: deps/tek9-ci
           fetch-depth: 1
 
-      - name: Checkout pinned StarIntel Common Lisp schema
+      - name: Checkout pinned StarIntel Common Lisp schema (on-host mirror)
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          repository: lost-rob0t/star-cl
+          repository: nsaspy/star-cl
           ref: b8dfbe2f9f56065ace8c3313b92ca748a115cdfa
           path: deps/star-cl-ci
           fetch-depth: 1
 
-      - name: Checkout pinned Star-Lang compiler and loader
+      - name: Checkout pinned Star-Lang compiler and loader (on-host mirror)
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          repository: lost-rob0t/star-lang
+          repository: nsaspy/star-lang
           ref: 7db89986450d4e513ff4b5c9617bf4d196b3cfb4
           path: deps/star-lang-ci
           fetch-depth: 1
 
-      - name: Checkout pinned Sento actor runtime
+      - name: Checkout pinned Sento actor runtime (on-host mirror)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: nsaspy/cl-gserver
+          ref: 6a510c5b58469e72e6363bd3a6059d80b9a5c320
+          path: deps/sento-ci
+          fetch-depth: 1
+
+      - name: Verify pinned Sento layout
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf deps/sento-ci
-          git clone --filter=blob:none --no-checkout \
-            https://github.com/mdbergmann/cl-gserver.git \
-            deps/sento-ci
-          git -C deps/sento-ci fetch --depth=1 origin \
-            6a510c5b58469e72e6363bd3a6059d80b9a5c320
-          git -C deps/sento-ci checkout --detach \
-            6a510c5b58469e72e6363bd3a6059d80b9a5c320
           test -f deps/sento-ci/sento.asd
 
-      - name: Checkout pinned cms-ulid
+      - name: Checkout pinned cms-ulid (on-host mirror)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: nsaspy/cms-ulid
+          ref: fff84302dee5db42fb90aafd834af3ffbfd6c2bb
+          path: deps/cms-ulid-ci
+          fetch-depth: 1
+
+      - name: Verify pinned cms-ulid layout
         shell: bash
         run: |
           set -euo pipefail
-          git clone --filter=blob:none --no-checkout \
-            https://gitlab.com/colinstrickland/cms-ulid.git \
-            deps/cms-ulid-ci
-          git -C deps/cms-ulid-ci fetch --depth=1 origin \
-            fff84302dee5db42fb90aafd834af3ffbfd6c2bb
-          git -C deps/cms-ulid-ci checkout --detach \
-            fff84302dee5db42fb90aafd834af3ffbfd6c2bb
+          test -f deps/cms-ulid-ci/cms-ulid.asd
 
       - name: Install native dependencies
         shell: bash
