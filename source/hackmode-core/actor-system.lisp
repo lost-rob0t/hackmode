@@ -27,4 +27,6 @@
     (setf *hackmode-actor-system* nil
           *outbox-actor* nil
           *provider-supervisor* nil))
+  (when (boundp '*target-receiver-actors*)
+    (clrhash (symbol-value '*target-receiver-actors*)))
   t)
